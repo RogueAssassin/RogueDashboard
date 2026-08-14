@@ -1,100 +1,104 @@
 # Installation and networking
 
-Rogue Dashboard 1.1 supports both Docker and Podman. Choose the engine-specific deployment path rather than installing a compatibility shim.
+Rogue Dashboard supports both Docker and Podman through prebuilt GHCR images. Production hosts do not need a Git checkout, build toolchain, install script, upgrade script, or migration script.
 
 ## Requirements
 
 ### Docker
 
-- Docker Engine 24+ or current Docker Desktop
-- Docker Compose v2
+- Docker Engine with Docker Compose v2
+- Access to `/var/run/docker.sock` for the restricted engine agent
 
 ### Podman
 
-- Current Podman with its API socket enabled
+- Podman with its API socket enabled
 - `podman-compose`
-- Rootful or rootless deployment with a socket path accessible to the restricted agent
+- Rootful or rootless deployment with a socket accessible to the restricted engine agent
 
-A Linux-style shell is required for helper scripts. WSL 2 is supported.
-
-## Persistent files
+## Files kept on the host
 
 | Path | Purpose | Back up? |
 | --- | --- | --- |
 | `.env` | Runtime settings and service credentials | Yes |
 | `data/` | SQLite database, users, sessions and dashboard layout | Yes |
 | `custom/` | User icons and backgrounds | Yes |
-| `backups/` | Timestamped upgrade backups | As needed |
-| `docker-compose.yaml` / `compose.podman.yaml` | Runtime definitions | Re-downloadable |
+| `docker-compose.yaml` | Complete Docker deployment | Re-downloadable |
+| `compose.podman.yaml` | Complete Podman deployment | Re-downloadable |
+
+## Podman deployment
+
+```bash
+mkdir -p rogue-dashboard/data rogue-dashboard/custom
+cd rogue-dashboard
+curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/compose.podman.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/.env.example -o .env
+```
+
+Set a long random `CONTAINER_AGENT_TOKEN` in `.env`, then prepare persistent data for the image user:
+
+```bash
+sudo chown -R 10001:10001 data
+sudo chmod 750 data
+```
+
+Enable the rootful Podman API socket and create the shared application network if required:
+
+```bash
+sudo systemctl enable --now podman.socket
+sudo podman network inspect media-net >/dev/null 2>&1 || sudo podman network create media-net
+```
+
+Start:
+
+```bash
+sudo podman-compose --env-file .env -f compose.podman.yaml pull
+sudo podman-compose --env-file .env -f compose.podman.yaml up -d
+```
+
+The Podman manifest mounts `/run/podman/podman.sock` only into the restricted `engine-agent`. The web dashboard itself has no engine socket mount.
 
 ## Docker deployment
 
 ```bash
-cp .env.example .env
-# edit .env
-CONTAINER_ENGINE=docker
-CONTAINER_SOCKET=/var/run/docker.sock
-
-docker compose -f docker-compose.yaml config
-docker compose -f docker-compose.yaml up -d
+mkdir -p rogue-dashboard/data rogue-dashboard/custom
+cd rogue-dashboard
+curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/docker-compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/.env.example -o .env
 ```
 
-## Podman deployment
-
-Enable the Podman API socket first. For the rootful server deployment used by the native compose file:
+Set `CONTAINER_AGENT_TOKEN` in `.env`, create `${MEDIA_NETWORK:-media-net}` if it does not already exist, then:
 
 ```bash
-sudo systemctl enable --now podman.socket
+docker compose --env-file .env -f docker-compose.yaml pull
+docker compose --env-file .env -f docker-compose.yaml up -d
 ```
-
-Configure:
-
-```dotenv
-CONTAINER_ENGINE=podman
-CONTAINER_SOCKET=/run/podman/podman.sock
-```
-
-Validate and start:
-
-```bash
-podman-compose --env-file .env -f compose.podman.yaml config
-podman-compose --env-file .env -f compose.podman.yaml up -d
-```
-
-The Podman deployment mounts `/run/podman/podman.sock` directly into the restricted agent. Do not create `/var/run/docker.sock` for a new Podman-only install.
 
 ## Shared application network
 
-Rogue Dashboard expects a shared application/proxy network, normally `media-net`. Attach the dashboard and monitored services to that same external network when you want DNS-by-container-name.
+The manifests expect an external application network, normally `media-net`. Rogue Dashboard joins that network so it can address monitored services by container name. The engine agent remains isolated on the private dashboard network.
 
-Docker and Podman use different networking implementations internally, but the application contract is the same: the dashboard must share a network with services it addresses by container name.
+## WSL 2
 
-## Optional extra network
-
-Set `RGDASH_EXTRA_NETWORK` when an application lives on a second existing network. Only the dashboard service should join it; the privileged engine agent remains isolated from application networks.
-
-## WSL 2 notes
-
-- Keep the project inside the Linux filesystem where practical.
-- For headless server use, enable WSL systemd and keep the distribution running with a Windows-side headless task if required by your environment.
-- Podman rootful services can be managed by systemd inside WSL.
-- Docker Desktop integration is only required for Docker-based WSL deployments.
+- Keep persistent files inside the Linux filesystem where practical.
+- Enable WSL systemd for headless Podman services.
+- For a headless Windows Server host, keep the WSL distribution alive using a Windows-side noninteractive task if required.
+- Use `sudo podman` and `sudo podman-compose` consistently for a rootful Podman deployment.
 
 ## Verify
 
 Docker:
 
 ```bash
-docker compose ps
-docker compose logs --tail=100 dashboard
+docker compose --env-file .env -f docker-compose.yaml ps
+docker compose --env-file .env -f docker-compose.yaml logs --tail=100
 ```
 
 Podman:
 
 ```bash
-podman ps
-podman logs --tail=100 rogue-dashboard
-podman logs --tail=100 rogue-dashboard-agent
+sudo podman ps --filter name=rogue-dashboard
+sudo podman logs --tail=100 rogue-dashboard
+sudo podman logs --tail=100 rogue-dashboard-agent
 ```
 
 Application health:
@@ -103,14 +107,17 @@ Application health:
 curl --fail http://localhost:7805/api/ping
 ```
 
-For Podman, verify the agent's native socket mount:
+For Podman, verify that only the agent receives the native engine socket:
 
 ```bash
-podman inspect rogue-dashboard-agent --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+sudo podman inspect rogue-dashboard-agent --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+sudo podman inspect rogue-dashboard --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
 ```
 
-Expected rootful mount:
+Expected agent mount:
 
 ```text
 /run/podman/podman.sock -> /run/podman/podman.sock
 ```
+
+The web dashboard should show only its persistent `/data` and read-only `/custom` mounts.
