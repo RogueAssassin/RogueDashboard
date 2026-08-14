@@ -23,4 +23,4 @@ Downgrading across a schema change is not guaranteed. Restore the timestamped ba
 
 Dashboard JSON restores are validated and never contain `.env` credential values. A JSON export does not replace a full backup because it excludes administrator accounts, sessions and action history.
 
-| 1.0.1 | 1.1.2 | Adds engine-neutral configuration, native Podman socket support, and retains legacy `DOCKER_*` variables for compatibility. |
+| 1.0.1 | 1.1.3 | Adds engine-neutral configuration, native Podman socket support, and retains legacy `DOCKER_*` variables for compatibility. |

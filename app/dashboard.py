@@ -33,15 +33,11 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 PORT = int(os.environ.get("PORT", "8080"))
-AGENT_PORT = int(os.environ.get("AGENT_PORT", "8081"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
 CUSTOM_DIR = Path(os.environ.get("CUSTOM_DIR", "/custom"))
-DOCKER_SOCKET = os.environ.get("DOCKER_SOCKET", "/var/run/docker.sock")
-DOCKER_AGENT_URL = os.environ.get("DOCKER_AGENT_URL", "")
-DOCKER_AGENT_TOKEN = os.environ.get("DOCKER_AGENT_TOKEN", "")
 SECURE_COOKIES = os.environ.get("SECURE_COOKIES", "false").lower() == "true"
 TRUST_PROXY_HEADERS = os.environ.get("RGDASH_TRUST_PROXY_HEADERS", "true").lower() == "true"
 CONFIGURED_ALLOWED_HOSTS = {
@@ -447,178 +443,8 @@ def make_session() -> tuple[str, str, int]:
     return token, hashlib.sha256(token.encode()).hexdigest(), int(time.time()) + 14 * 24 * 3600
 
 
-class UnixHTTPConnection(HTTPConnection):
-    def __init__(self, socket_path: str):
-        super().__init__("localhost", timeout=4)
-        self.socket_path = socket_path
 
-    def connect(self) -> None:
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sock.settimeout(self.timeout)
-        self.sock.connect(self.socket_path)
-
-
-def docker_request(path: str, maximum: int = 5_000_000) -> Any:
-    connection = UnixHTTPConnection(DOCKER_SOCKET)
-    try:
-        connection.request("GET", path, headers={"Accept": "application/json"})
-        response = connection.getresponse()
-        if response.status >= 400:
-            raise RuntimeError(f"Docker Engine returned HTTP {response.status}")
-        return json.loads(response.read(maximum))
-    finally:
-        connection.close()
-
-
-def docker_containers(include_stats: bool = False) -> list[dict[str, Any]]:
-    raw = docker_request("/containers/json?all=1")
-    containers = normalise_containers(raw)
-    if include_stats:
-        running = [item for item in containers if item["state"] == "running"][:100]
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            snapshots = list(pool.map(docker_container_stats, [item["id"] for item in running]))
-        for container, snapshot in zip(running, snapshots):
-            container["stats"] = snapshot
-    return containers
-
-
-def normalise_container_stats(raw: Any) -> dict[str, Any]:
-    if not isinstance(raw, dict):
-        return {"available": False}
-    cpu = raw.get("cpu_stats") or {}
-    previous_cpu = raw.get("precpu_stats") or {}
-    cpu_delta = (cpu.get("cpu_usage") or {}).get("total_usage", 0) - (previous_cpu.get("cpu_usage") or {}).get("total_usage", 0)
-    system_delta = cpu.get("system_cpu_usage", 0) - previous_cpu.get("system_cpu_usage", 0)
-    online_cpus = cpu.get("online_cpus") or len((cpu.get("cpu_usage") or {}).get("percpu_usage") or []) or 1
-    cpu_percent = max(0.0, cpu_delta / system_delta * online_cpus * 100) if system_delta > 0 and cpu_delta >= 0 else 0.0
-    memory = raw.get("memory_stats") or {}
-    cache = (memory.get("stats") or {}).get("inactive_file", (memory.get("stats") or {}).get("cache", 0))
-    memory_used = max(0, int(memory.get("usage", 0)) - int(cache or 0))
-    memory_limit = max(0, int(memory.get("limit", 0)))
-    networks = raw.get("networks") or {}
-    rx_bytes = sum(int(item.get("rx_bytes", 0)) for item in networks.values() if isinstance(item, dict)) if isinstance(networks, dict) else 0
-    tx_bytes = sum(int(item.get("tx_bytes", 0)) for item in networks.values() if isinstance(item, dict)) if isinstance(networks, dict) else 0
-    return {
-        "available": True,
-        "cpuPercent": round(cpu_percent, 1),
-        "memoryUsed": memory_used,
-        "memoryLimit": memory_limit,
-        "networkRx": rx_bytes,
-        "networkTx": tx_bytes,
-    }
-
-
-def docker_container_stats(container_id: str) -> dict[str, Any]:
-    try:
-        query = urlencode({"stream": "false", "one-shot": "true"})
-        return normalise_container_stats(docker_request(f"/containers/{container_id}/stats?{query}", 2_000_000))
-    except Exception:
-        return {"available": False}
-
-
-def normalise_containers(raw: Any) -> list[dict[str, Any]]:
-    if not isinstance(raw, list):
-        raise RuntimeError("Docker Engine returned an invalid container list")
-    containers: list[dict[str, Any]] = []
-    exact_labels = {"com.docker.compose.project", "com.docker.compose.service"}
-    for container in raw:
-        if not isinstance(container, dict):
-            continue
-        labels = {
-            key: value
-            for key, value in (container.get("Labels") or {}).items()
-            if key in exact_labels or key.startswith("rogue.dashboard.")
-        }
-        state = str(container.get("State", "unknown"))
-        status = str(container.get("Status", "unknown"))
-        status_lower = status.lower()
-        if "(healthy)" in status_lower:
-            health = "healthy"
-        elif "(unhealthy)" in status_lower:
-            health = "unhealthy"
-        elif "(health: starting)" in status_lower:
-            health = "starting"
-        elif state == "running":
-            health = "none"
-        else:
-            health = "stopped"
-        containers.append(
-            {
-                "id": str(container.get("Id", ""))[:12],
-                "name": ((container.get("Names") or ["Unnamed container"])[0]).lstrip("/"),
-                "image": container.get("Image", "unknown"),
-                "state": state,
-                "status": status,
-                "health": health,
-                "ports": [
-                    {"privatePort": port.get("PrivatePort", 0), "publicPort": port.get("PublicPort"), "type": port.get("Type", "tcp")}
-                    for port in container.get("Ports") or []
-                ],
-                "networks": sorted(
-                    str(name)
-                    for name in ((container.get("NetworkSettings") or {}).get("Networks") or {})
-                    if name
-                ),
-                "labels": labels,
-            }
-        )
-    return sorted(containers, key=lambda item: (item["state"] != "running", item["name"].lower()))
-
-
-def docker_action(container_id: str, action: str) -> None:
-    if not re.fullmatch(r"[0-9a-fA-F]{12,64}", container_id):
-        raise ValueError("Invalid container id")
-    if action not in ("start", "stop", "restart"):
-        raise ValueError("Unsupported Docker action")
-    protected = next(
-        (
-            item
-            for item in docker_containers()
-            if container_id.startswith(item["id"]) and item.get("labels", {}).get("rogue.dashboard.protected") == "true"
-        ),
-        None,
-    )
-    if protected:
-        raise ValueError("Rogue Dashboard containers are protected from self-management")
-    suffix = "?t=10" if action in ("stop", "restart") else ""
-    connection = UnixHTTPConnection(DOCKER_SOCKET)
-    try:
-        connection.request("POST", f"/containers/{container_id}/{action}{suffix}", body=b"")
-        response = connection.getresponse()
-        response.read(100_000)
-        if response.status >= 400:
-            raise RuntimeError(f"Docker Engine returned HTTP {response.status}")
-    finally:
-        connection.close()
-
-
-def containers_from_agent(include_stats: bool = False) -> list[dict[str, Any]]:
-    if not DOCKER_AGENT_URL:
-        return docker_containers(include_stats)
-    suffix = "?stats=1" if include_stats else ""
-    request = Request(
-        f"{DOCKER_AGENT_URL.rstrip('/')}/containers{suffix}",
-        headers={"Authorization": f"Bearer {DOCKER_AGENT_TOKEN}"},
-    )
-    with urlopen(request, timeout=5) as response:
-        return json.loads(response.read(5_000_000))
-
-
-def action_through_agent(container_id: str, action: str) -> None:
-    if not DOCKER_AGENT_URL:
-        docker_action(container_id, action)
-        return
-    request = Request(
-        f"{DOCKER_AGENT_URL.rstrip('/')}/containers/{container_id}/{action}",
-        method="POST",
-        data=b"",
-        headers={"Authorization": f"Bearer {DOCKER_AGENT_TOKEN}"},
-    )
-    with urlopen(request, timeout=15):
-        return
-
-
-def health_check(item: dict[str, Any], containers_by_name: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+def health_check(item: dict[str, Any]) -> dict[str, Any]:
     checked_at = utc_now()
     url = item.get("monitorUrl", "")
     if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
@@ -659,15 +485,15 @@ def health_check(item: dict[str, Any], containers_by_name: dict[str, dict[str, A
     if container_state and container_state != "running":
         state = "offline"
         message = f"Container is {container_state}"
-        source = "docker"
+        source = "container"
     elif container_health == "unhealthy":
         state = "offline"
-        message = "Docker health check is failing"
-        source = "docker"
+        message = "Container health check is failing"
+        source = "container"
     elif container_health == "starting":
         state = "unknown"
-        message = "Docker health check is still starting"
-        source = "docker"
+        message = "Container health check is still starting"
+        source = "container"
     elif probe_state == "offline" and status is not None:
         state = "offline"
         message = f"Health endpoint returned HTTP {status}"
@@ -675,7 +501,7 @@ def health_check(item: dict[str, Any], containers_by_name: dict[str, dict[str, A
     elif container_health == "healthy":
         state = "online"
         message = "Container healthy and endpoint responding" if probe_state == "online" else "Container healthy; private endpoint is not reachable from the dashboard network"
-        source = "docker+endpoint" if probe_state == "online" else "docker"
+        source = "container+endpoint" if probe_state == "online" else "container"
     else:
         state = probe_state
         message = "Endpoint responding" if probe_state == "online" else probe_error or "Endpoint is offline"
@@ -700,6 +526,7 @@ def health_check(item: dict[str, Any], containers_by_name: dict[str, dict[str, A
     return result
 
 
+
 def system_stats() -> dict[str, Any]:
     memory_total = memory_available = 0
     try:
@@ -719,11 +546,13 @@ def system_stats() -> dict[str, Any]:
         containers = containers_from_agent()
         running_containers = sum(item.get("state") == "running" for item in containers)
         total_containers = len(containers)
-        docker_status = "ok"
+        engine_info = engine_info_from_agent()
+        engine_status = "ok"
     except Exception:
         running_containers = None
         total_containers = None
-        docker_status = "unavailable"
+        engine_info = {"name": "unknown", "version": "unknown", "apiVersion": "unknown", "socket": ""}
+        engine_status = "unavailable"
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0
     return {
         "uptimeSeconds": round(uptime),
@@ -733,7 +562,10 @@ def system_stats() -> dict[str, Any]:
         "cpuCount": os.cpu_count() or 1,
         "runningContainers": running_containers,
         "totalContainers": total_containers,
-        "dockerStatus": docker_status,
+        "engineStatus": engine_status,
+        "engine": engine_info,
+        # Compatibility alias for pre-1.1 clients.
+        "containerStatus": engine_status,
     }
 
 
@@ -898,13 +730,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         result["checkedAt"] = checked_at
                     WIDGET_CACHE = (time.time() + 25, widget_results)
             self.json_response({"supported": sorted(SUPPORTED_WIDGETS), "widgets": widget_results})
-        elif path == "/api/docker/containers":
-            if not self.require_admin():
-                return
-            try:
-                self.json_response({"containers": containers_from_agent(include_stats=True)})
-            except Exception as error:
-                self.json_response({"containers": [], "error": str(error)}, HTTPStatus.SERVICE_UNAVAILABLE)
         elif path == "/api/admin/sessions":
             if not self.require_admin():
                 return
@@ -982,21 +807,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     return
                 clear_monitor_caches()
                 self.json_response({"ok": True})
-            elif path == "/api/docker/action":
-                if not self.require_admin():
-                    return
-                if not isinstance(body, dict):
-                    raise ValueError("Invalid Docker action request")
-                container_id = text(body.get("containerId"), 64)
-                action = text(body.get("action"), 20)
-                username = self.username() or "administrator"
-                try:
-                    action_through_agent(container_id, action)
-                    DB.audit(username, f"docker.{action}", container_id[:12], "success")
-                except Exception as error:
-                    DB.audit(username, f"docker.{action or 'unknown'}", container_id[:12], "failed", type(error).__name__)
-                    raise
-                self.json_response({"ok": True, "containerId": container_id, "action": action})
             elif path == "/api/admin/sessions/revoke":
                 if not self.require_admin():
                     return
@@ -1172,59 +982,6 @@ def read_import_files(body: Any) -> dict[str, str]:
     return result
 
 
-class AgentHandler(BaseHTTPRequestHandler):
-    server_version = "RogueDockerAgent"
-
-    def log_message(self, format_string: str, *args: Any) -> None:
-        print(f"agent - {format_string % args}")
-
-    def do_GET(self) -> None:
-        try:
-            parsed = urlparse(self.path)
-            if parsed.path == "/health":
-                self.respond({"ok": True})
-            elif parsed.path == "/containers":
-                if not self.authorized():
-                    return
-                include_stats = parse_qs(parsed.query).get("stats") == ["1"]
-                self.respond(docker_containers(True) if include_stats else docker_containers())
-            else:
-                self.respond({"error": "Not found"}, HTTPStatus.NOT_FOUND)
-        except Exception as error:
-            self.respond({"error": str(error)}, HTTPStatus.SERVICE_UNAVAILABLE)
-
-    def do_POST(self) -> None:
-        try:
-            if not self.authorized():
-                return
-            match = re.fullmatch(r"/containers/([0-9a-fA-F]{12,64})/(start|stop|restart)", self.path)
-            if not match:
-                self.respond({"error": "Not found"}, HTTPStatus.NOT_FOUND)
-                return
-            docker_action(match.group(1), match.group(2))
-            self.respond({"ok": True})
-        except ValueError as error:
-            self.respond({"error": str(error)}, HTTPStatus.BAD_REQUEST)
-        except Exception as error:
-            self.respond({"error": str(error)}, HTTPStatus.SERVICE_UNAVAILABLE)
-
-    def authorized(self) -> bool:
-        expected = f"Bearer {DOCKER_AGENT_TOKEN}"
-        supplied = self.headers.get("Authorization", "")
-        if DOCKER_AGENT_TOKEN and hmac.compare_digest(supplied, expected):
-            return True
-        self.respond({"error": "Unauthorized"}, HTTPStatus.UNAUTHORIZED)
-        return False
-
-    def respond(self, value: Any, status: int = 200) -> None:
-        payload = json.dumps(value, separators=(",", ":")).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(payload)
-
 
 def healthcheck() -> int:
     try:
@@ -1240,20 +997,10 @@ def main() -> int:
     command = sys.argv[1] if len(sys.argv) > 1 else "serve"
     if command == "healthcheck":
         return healthcheck()
-    if command == "agent":
-        if not DOCKER_AGENT_TOKEN:
-            print("DOCKER_AGENT_TOKEN is required", file=sys.stderr)
-            return 1
-        server = ThreadingHTTPServer(("0.0.0.0", AGENT_PORT), AgentHandler)
-        print(f"Rogue Dashboard Docker metadata agent listening on {AGENT_PORT}")
-    else:
-        if DOCKER_AGENT_URL and not DOCKER_AGENT_TOKEN:
-            print("DOCKER_AGENT_TOKEN is required when using the Docker metadata agent", file=sys.stderr)
-            return 1
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        DB = Database(DATA_DIR / "rogue-dashboard.sqlite")
-        server = ThreadingHTTPServer(("0.0.0.0", PORT), DashboardHandler)
-        print(f"Rogue Dashboard {VERSION} listening on {PORT}")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DB = Database(DATA_DIR / "rogue-dashboard.sqlite")
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), DashboardHandler)
+    print(f"Rogue Dashboard {VERSION} listening on {PORT}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

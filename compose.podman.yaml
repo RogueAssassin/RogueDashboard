@@ -1,73 +1,37 @@
-x-logging: &default-logging
-  driver: k8s-file
-
 services:
   dashboard:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:1.1.2}
+    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:1.1.3}
     container_name: rogue-dashboard
     restart: always
     stop_grace_period: 15s
-    logging: *default-logging
-    env_file: [.env]
+    env_file:
+      - .env
     environment:
       PORT: 8080
       DATA_DIR: /data
       STATIC_DIR: /app/static
       CUSTOM_DIR: /custom
-      CONTAINER_AGENT_URL: http://engine-agent:8081
-      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
     ports:
       - "${RGDASH_PORT:-7805}:8080"
     volumes:
       - ./data:/data
       - ./custom:/custom:ro
     networks:
-      dashboard:
       media-net:
-        aliases: [rogue-dashboard, dash]
-    depends_on:
-      engine-agent:
-        condition: service_healthy
+        aliases:
+          - rogue-dashboard
+          - dash
     read_only: true
-    tmpfs: [/tmp:size=32m,noexec,nosuid]
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    labels:
-      rogue.dashboard.protected: "true"
-
-  engine-agent:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:1.1.2}
-    container_name: rogue-dashboard-agent
-    restart: always
-    stop_grace_period: 15s
-    logging: *default-logging
-    command: ["agent"]
-    environment:
-      AGENT_PORT: 8081
-      CONTAINER_ENGINE: podman
-      CONTAINER_SOCKET: /run/podman/podman.sock
-      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
-      HEALTHCHECK_URL: http://127.0.0.1:8081/health
-    user: "0:0"
-    volumes:
-      - /run/podman/podman.sock:/run/podman/podman.sock:ro
-    networks: [dashboard]
-    read_only: true
-    tmpfs: [/tmp:size=16m,noexec,nosuid]
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    healthcheck:
-      test: ["CMD", "python", "/app/engine_entrypoint.py", "healthcheck"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    tmpfs:
+      - /tmp:size=32m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     labels:
       rogue.dashboard.protected: "true"
 
 networks:
-  dashboard:
-    name: rogue-dashboard
   media-net:
     external: true
     name: ${MEDIA_NETWORK:-media-net}

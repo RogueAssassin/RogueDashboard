@@ -1,19 +1,20 @@
 # Installation
 
-Rogue Dashboard 1.1.2 uses GHCR images. A server does not require a Git checkout.
+Rogue Dashboard 1.1.3 is distributed through GHCR and runs as a single web container.
 
 ## Podman
 
-1. Create `data/` and `custom/`.
-2. Download `compose.podman.yaml` and `.env.example`; save the latter as `.env`.
-3. Set a long random `CONTAINER_AGENT_TOKEN`.
-4. Enable the rootful Podman API socket when using the rootful manifest.
-5. Ensure the external `${MEDIA_NETWORK:-media-net}` network exists.
-6. Set `data/` ownership to UID/GID `10001:10001`.
-7. Run `sudo podman-compose --env-file .env -f compose.podman.yaml pull` followed by `up -d`.
+Use `compose.podman.yaml`. Create `data/` and `custom/`, download `.env.example` as `.env`, ensure the external `media-net` network exists, and set `data/` ownership to UID/GID `10001:10001`.
+
+```bash
+sudo podman-compose --env-file .env -f compose.podman.yaml pull
+sudo podman-compose --env-file .env -f compose.podman.yaml up -d
+```
+
+No Podman API socket is mounted.
 
 ## Docker
 
-Download `docker-compose.yaml` and `.env.example`, create the external media network, then run `docker compose --env-file .env -f docker-compose.yaml pull` and `up -d`.
+Use `docker-compose.yaml` with the same `.env`, `data/` and `custom/` layout.
 
-Never mount an engine socket into the `dashboard` service. Only `engine-agent` receives it.
+No Docker socket is mounted.

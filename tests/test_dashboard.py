@@ -344,85 +344,6 @@ class RogueDashboardTests(unittest.TestCase):
         legacy = dashboard_app.validate_dashboard(multi_page)
         self.assertEqual([group["pageId"] for group in legacy["groups"]], ["home", "home"])
 
-    def test_docker_container_summary_includes_networks_and_stable_order(self):
-        raw = [
-            {
-                "Id": "b" * 64,
-                "Names": ["/stopped"],
-                "Image": "example/stopped:latest",
-                "State": "exited",
-                "Status": "Exited (0)",
-                "Ports": [],
-                "Labels": {},
-                "NetworkSettings": {"Networks": {"media-net": {}}},
-            },
-            {
-                "Id": "a" * 64,
-                "Names": ["/running"],
-                "Image": "example/running:latest",
-                "State": "running",
-                "Status": "Up 1 minute (healthy)",
-                "Ports": [{"PrivatePort": 9080, "PublicPort": 9080, "Type": "tcp"}],
-                "Labels": {"com.docker.compose.project": "routes", "unrelated.secret": "discard"},
-                "NetworkSettings": {"Networks": {"rogueroute-gpx": {}, "media-net": {}}},
-            },
-        ]
-        containers = dashboard_app.normalise_containers(raw)
-        self.assertEqual([item["name"] for item in containers], ["running", "stopped"])
-        self.assertEqual(containers[0]["networks"], ["media-net", "rogueroute-gpx"])
-        self.assertEqual(containers[0]["health"], "healthy")
-        self.assertEqual(containers[1]["health"], "stopped")
-        self.assertNotIn("unrelated.secret", containers[0]["labels"])
-
-    def test_native_container_health_remains_authoritative_when_private_probe_network_is_missing(self):
-        item = {
-            "id": "routes",
-            "containerName": "rogueroute-gpx-web",
-            "monitorUrl": "http://127.0.0.1:1/api/health",
-        }
-        result = dashboard_app.health_check(item, {
-            "rogueroute-gpx-web": {"state": "running", "health": "healthy"},
-        })
-        self.assertEqual(result["state"], "online")
-        self.assertEqual(result["probeState"], "offline")
-        self.assertEqual(result["source"], "docker")
-        self.assertIn("not reachable", result["message"])
-
-    def test_unhealthy_container_is_reported_offline(self):
-        item = {
-            "id": "osrm",
-            "containerName": "rogueroute-gpx-osrm",
-            "monitorUrl": "http://127.0.0.1:1/api/health/osrm",
-        }
-        result = dashboard_app.health_check(item, {
-            "rogueroute-gpx-osrm": {"state": "running", "health": "unhealthy"},
-        })
-        self.assertEqual(result["state"], "offline")
-        self.assertEqual(result["source"], "docker")
-        self.assertIn("failing", result["message"])
-
-    def test_docker_stats_are_normalised_without_exposing_raw_engine_data(self):
-        stats = dashboard_app.normalise_container_stats({
-            "cpu_stats": {"cpu_usage": {"total_usage": 300, "percpu_usage": [1, 1]}, "system_cpu_usage": 2000, "online_cpus": 2},
-            "precpu_stats": {"cpu_usage": {"total_usage": 100}, "system_cpu_usage": 1000},
-            "memory_stats": {"usage": 1_000_000, "limit": 4_000_000, "stats": {"inactive_file": 100_000}},
-            "networks": {"eth0": {"rx_bytes": 1000, "tx_bytes": 500}, "eth1": {"rx_bytes": 250, "tx_bytes": 100}},
-            "secret_raw_field": "must not leave the agent",
-        })
-        self.assertEqual(stats["cpuPercent"], 40.0)
-        self.assertEqual(stats["memoryUsed"], 900_000)
-        self.assertEqual(stats["networkRx"], 1250)
-        self.assertEqual(stats["networkTx"], 600)
-        self.assertNotIn("secret_raw_field", stats)
-
-    def test_system_stats_reports_running_and_total_containers(self):
-        containers = [{"state": "running"}, {"state": "running"}, {"state": "exited"}]
-        with patch.object(dashboard_app, "containers_from_agent", return_value=containers):
-            stats = dashboard_app.system_stats()
-        self.assertEqual(stats["runningContainers"], 2)
-        self.assertEqual(stats["totalContainers"], 3)
-        self.assertEqual(stats["dockerStatus"], "ok")
-
     def test_reads_homepage_zip_without_extracting_paths(self):
         archive = BytesIO()
         with ZipFile(archive, "w") as output:
@@ -592,41 +513,7 @@ class RogueDashboardTests(unittest.TestCase):
                 dashboard_app.DB = previous
                 dashboard_app.CUSTOM_DIR = previous_custom
 
-    def test_agent_requires_private_token(self):
-        previous_token = dashboard_app.DOCKER_AGENT_TOKEN
-        previous_list = dashboard_app.docker_containers
-        previous_action = dashboard_app.docker_action
-        actions = []
-        dashboard_app.DOCKER_AGENT_TOKEN = "test-agent-token"
-        dashboard_app.docker_containers = lambda: []
-        dashboard_app.docker_action = lambda container_id, action: actions.append((container_id, action))
-        server = ThreadingHTTPServer(("127.0.0.1", 0), dashboard_app.AgentHandler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        url = f"http://127.0.0.1:{server.server_port}/containers"
-        try:
-            with self.assertRaises(HTTPError) as context:
-                urlopen(url)
-            self.assertEqual(context.exception.code, 401)
-            request = Request(url, headers={"Authorization": "Bearer test-agent-token"})
-            with urlopen(request) as response:
-                self.assertEqual(json.load(response), [])
-            request = Request(
-                f"http://127.0.0.1:{server.server_port}/containers/0123456789ab/restart",
-                method="POST",
-                data=b"",
-                headers={"Authorization": "Bearer test-agent-token"},
-            )
-            with urlopen(request) as response:
-                self.assertTrue(json.load(response)["ok"])
-            self.assertEqual(actions, [("0123456789ab", "restart")])
-        finally:
-            server.shutdown()
-            server.server_close()
-            thread.join(timeout=2)
-            dashboard_app.DOCKER_AGENT_TOKEN = previous_token
-            dashboard_app.docker_containers = previous_list
-            dashboard_app.docker_action = previous_action
+
 
 
 if __name__ == "__main__":

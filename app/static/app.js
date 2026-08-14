@@ -263,7 +263,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>Rogue Dashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.2")}</strong></span><span>Local-first · Docker + Podman</span></footer>
+        <footer class="page-footer"><span>Rogue Dashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.3")}</strong></span><span>${escapeHtml((state.system?.engine?.name || "Container runtime + Container runtime").replace(/^./, c => c.toUpperCase()))} · local-first</span></footer>
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -400,7 +400,7 @@ function moveItem(sourceGroup, sourceItem, targetGroup, targetItem) {
 function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header"><div><span class="eyebrow">LIVE PREVIEW</span><h2>Customise</h2></div><button class="icon-button" id="close-editor">×</button></header>
-    <nav class="editor-tabs"><button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}">Appearance</button><button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}">Layout</button><button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}">Connect</button><button data-editor-tab="docker" class="${state.editorTab === "docker" ? "active" : ""}">Docker</button><button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}">Admin</button></nav>
+    <nav class="editor-tabs"><button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}">Appearance</button><button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}">Layout</button><button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}">Connect</button><button data-editor-tab="containers" class="${state.editorTab === "containers" ? "active" : ""}">Services</button><button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}">Admin</button></nav>
     <div class="editor-content">
       <section class="editor-section editor-tab-panel ${state.editorTab === "appearance" ? "active" : ""}" data-editor-panel="appearance">
         <label class="field"><span>Dashboard title</span><input id="edit-title" value="${escapeHtml(state.draft.meta.title)}"></label>
@@ -434,11 +434,13 @@ function editorMarkup() {
         <label class="compact-upload"><input id="editor-import" type="file" accept=".json,.zip,.yaml,.yml" multiple><span>⇧ Restore Rogue Dashboard JSON or import legacy ZIP/YAML</span></label>
         <button class="button secondary full-button" id="export-json">⇩ Export JSON backup</button>
       </section>
-      <section class="editor-section editor-tab-panel ${state.editorTab === "docker" ? "active" : ""}" data-editor-panel="docker">
+      <section class="editor-section editor-tab-panel ${state.editorTab === "containers" ? "active" : ""}" data-editor-panel="containers">
         <div class="notice info">Scan the restricted Engine agent to add cards or safely start, stop and restart containers.</div>
-        <button class="button secondary full-button" id="discover-docker">▣ Scan Docker containers</button><div class="container-list" id="container-list"></div>
+        <button class="button secondary full-button" id="discover-containers">▣ Refresh services</button><div class="container-list" id="container-list"></div>
       </section>
       <section class="editor-section editor-tab-panel ${state.editorTab === "admin" ? "active" : ""}" data-editor-panel="admin">
+        <div class="section-heading"><div><h3>Service monitoring</h3><p>Detected through the restricted engine agent.</p></div></div>
+        <div class="admin-list"><div class="admin-row"><div><strong>${escapeHtml((state.system?.engine?.name || "Unknown").replace(/^./, c => c.toUpperCase()))}</strong><span>Version ${escapeHtml(state.system?.engine?.version || "unknown")} · API ${escapeHtml(state.system?.engine?.apiVersion || "unknown")}</span></div><span class="status-dot ${state.system?.engineStatus === "ok" ? "online" : ""}">${state.system?.engineStatus === "ok" ? "Connected" : "Offline"}</span></div></div>
         <div class="section-heading"><div><h3>Administrator sessions</h3><p>Review active sign-ins and revoke sessions you no longer recognise.</p></div><button class="button tiny" id="refresh-admin">↻ Refresh</button></div>
         <div class="admin-list" id="admin-sessions"><div class="notice info">Open this tab to load sessions.</div></div>
         <div class="section-heading"><div><h3>Action history</h3><p>The newest 100 administrative events stored locally.</p></div></div>
@@ -528,7 +530,7 @@ function bindEditor() {
   document.getElementById("add-page").onclick = addPage;
   document.getElementById("save-dashboard").onclick = saveDashboard;
   document.getElementById("logout").onclick = logout;
-  document.getElementById("discover-docker").onclick = discoverDocker;
+  document.getElementById("discover-containers").onclick = discoverContainers;
   document.getElementById("editor-import").onchange = importInEditor;
   document.getElementById("export-json").onclick = exportJson;
   document.getElementById("refresh-monitor").onclick = () => refreshRuntime(true);
@@ -655,11 +657,11 @@ async function importInEditor(event) {
   } catch (error) { toast(error.message); }
 }
 
-async function discoverDocker() {
+async function discoverContainers() {
   const list = document.getElementById("container-list");
-  list.innerHTML = `<div class="notice info">Scanning Docker…</div>`;
+  list.innerHTML = `<div class="notice info">Scanning containers…</div>`;
   try {
-    const result = await request("/api/docker/containers");
+    const result = await request("/api/removed-container-management");
     list.innerHTML = result.containers.map((container, index) => {
       const added = isContainerAdded(container);
       const runtimeHealthy = container.state === "running" && !["unhealthy", "starting"].includes(container.health);
@@ -667,10 +669,10 @@ async function discoverDocker() {
       const networks = container.networks?.length ? container.networks.join(", ") : "no network data";
       const stats = container.stats?.available ? `CPU ${container.stats.cpuPercent.toFixed(1)}% · RAM ${formatBytes(container.stats.memoryUsed)} · ↓ ${formatBytes(container.stats.networkRx)} ↑ ${formatBytes(container.stats.networkTx)}` : container.state === "running" ? "Runtime metrics unavailable" : container.status;
       const health = container.health && container.health !== "none" ? ` · ${container.health}` : "";
-      return `<div class="container-row"><span class="container-state ${runtimeHealthy ? "online" : ""}" title="${escapeHtml(`${container.state}${health}`)}"></span><div><strong>${escapeHtml(container.name)}</strong><span>${escapeHtml(container.image)} · ${publicPort}${escapeHtml(health)}</span><span class="container-runtime">${escapeHtml(stats)}</span><span class="container-networks">Networks: ${escapeHtml(networks)}</span></div><div class="container-actions"><button class="icon-button ${added ? "is-added" : ""}" data-container="${index}" title="${added ? "Card already added" : "Add card"}" ${added ? "disabled" : ""}>${added ? "✓" : "+"}</button>${container.labels["rogue.dashboard.protected"] === "true" ? `<span class="protected-chip">Protected</span>` : container.state === "running" ? `<button class="icon-button" data-docker-action="restart" data-index="${index}" title="Restart">↻</button><button class="icon-button danger" data-docker-action="stop" data-index="${index}" title="Stop">■</button>` : `<button class="icon-button" data-docker-action="start" data-index="${index}" title="Start">▶</button>`}</div></div>`;
+      return `<div class="container-row"><span class="container-state ${runtimeHealthy ? "online" : ""}" title="${escapeHtml(`${container.state}${health}`)}"></span><div><strong>${escapeHtml(container.name)}</strong><span>${escapeHtml(container.image)} · ${publicPort}${escapeHtml(health)}</span><span class="container-runtime">${escapeHtml(stats)}</span><span class="container-networks">Networks: ${escapeHtml(networks)}</span></div><div class="container-actions"><button class="icon-button ${added ? "is-added" : ""}" data-container="${index}" title="${added ? "Card already added" : "Add card"}" ${added ? "disabled" : ""}>${added ? "✓" : "+"}</button>${container.labels["rogue.dashboard.protected"] === "true" ? `<span class="protected-chip">Protected</span>` : container.state === "running" ? `<button class="icon-button" data-container-action="restart" data-index="${index}" title="Restart">↻</button><button class="icon-button danger" data-container-action="stop" data-index="${index}" title="Stop">■</button>` : `<button class="icon-button" data-container-action="start" data-index="${index}" title="Start">▶</button>`}</div></div>`;
     }).join("") || `<div class="notice info">No containers found.</div>`;
     list.querySelectorAll("[data-container]").forEach(button => button.onclick = () => addContainer(result.containers[Number(button.dataset.container)]));
-    list.querySelectorAll("[data-docker-action]").forEach(button => button.onclick = () => runDockerAction(result.containers[Number(button.dataset.index)], button.dataset.dockerAction));
+    list.querySelectorAll("[data-container-action]").forEach(button => button.onclick = () => runContainerAction(result.containers[Number(button.dataset.index)], button.dataset.containerAction));
   } catch (error) { list.innerHTML = `<div class="notice error">${escapeHtml(error.message)}</div>`; }
 }
 
@@ -681,12 +683,12 @@ function isContainerAdded(container) {
   ));
 }
 
-async function runDockerAction(container, action) {
+async function runContainerAction(container, action) {
   if (!confirm(`${action[0].toUpperCase() + action.slice(1)} ${container.name}?`)) return;
   try {
-    await request("/api/docker/action", { method: "POST", body: JSON.stringify({ containerId: container.id, action }) });
+    await request("/api/disabled-container-action", { method: "POST", body: JSON.stringify({ containerId: container.id, action }) });
     toast(`${container.name}: ${action} requested`);
-    setTimeout(discoverDocker, 1200);
+    setTimeout(discoverContainers, 1200);
   } catch (error) { toast(error.message); }
 }
 
@@ -812,8 +814,8 @@ function updateStats() {
   const containerCount = document.getElementById("container-count");
   const containerLabel = document.getElementById("container-label");
   containerCount.textContent = state.system.totalContainers == null ? "—" : `${state.system.runningContainers}/${state.system.totalContainers}`;
-  containerCount.title = state.system.dockerStatus === "ok" ? "Running / total Docker containers" : "Engine agent unavailable; check DOCKER_GID and agent logs";
-  containerLabel.textContent = state.system.dockerStatus === "ok" ? "Containers running" : "Engine agent offline";
+  containerCount.title = state.system.engineStatus === "ok" ? `Running / total ${state.system.engine?.name || "container"} containers` : "Engine agent unavailable; check agent logs";
+  containerLabel.textContent = state.system.engineStatus === "ok" ? `${(state.system.engine?.name || "Container").replace(/^./, c => c.toUpperCase())} containers running` : "Engine agent offline";
   document.getElementById("memory-count").textContent = formatBytes(state.system.memoryUsed);
   document.getElementById("memory-total").textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
   document.getElementById("load-count").textContent = Number(state.system.load).toFixed(2);
