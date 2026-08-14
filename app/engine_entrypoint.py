@@ -7,22 +7,32 @@ import sys
 from container_engine import detect_engine
 
 
-def main() -> int:
-    engine = detect_engine()
-
-    # Keep legacy dashboard internals working while moving configuration to
-    # engine-neutral names. Existing DOCKER_* variables remain supported.
-    os.environ.setdefault("CONTAINER_ENGINE", engine.name)
-    os.environ.setdefault("CONTAINER_SOCKET", engine.socket_path)
-
-    # Translate the public engine-neutral contract into the legacy internal
-    # variable names used by dashboard.py. Podman compose files therefore do
-    # not need to expose DOCKER_* configuration at all.
-    os.environ["DOCKER_SOCKET"] = engine.socket_path
+def translate_agent_environment() -> None:
     if os.environ.get("CONTAINER_AGENT_URL") and not os.environ.get("DOCKER_AGENT_URL"):
         os.environ["DOCKER_AGENT_URL"] = os.environ["CONTAINER_AGENT_URL"]
     if os.environ.get("CONTAINER_AGENT_TOKEN") and not os.environ.get("DOCKER_AGENT_TOKEN"):
         os.environ["DOCKER_AGENT_TOKEN"] = os.environ["CONTAINER_AGENT_TOKEN"]
+
+
+def run_dashboard_via_agent() -> int:
+    """Start the web dashboard without direct container-engine socket access."""
+    translate_agent_environment()
+
+    import dashboard
+
+    dashboard.DOCKER_AGENT_URL = os.environ.get("DOCKER_AGENT_URL", "")
+    dashboard.DOCKER_AGENT_TOKEN = os.environ.get("DOCKER_AGENT_TOKEN", "")
+    return int(dashboard.main())
+
+
+def run_with_engine() -> int:
+    """Start the restricted engine agent or an explicit direct-engine deployment."""
+    engine = detect_engine()
+
+    os.environ.setdefault("CONTAINER_ENGINE", engine.name)
+    os.environ.setdefault("CONTAINER_SOCKET", engine.socket_path)
+    os.environ["DOCKER_SOCKET"] = engine.socket_path
+    translate_agent_environment()
 
     os.environ.setdefault("RGDASH_ENGINE_NAME", engine.name)
     os.environ.setdefault("RGDASH_ENGINE_VERSION", engine.version)
@@ -43,15 +53,25 @@ def main() -> int:
             raise RuntimeError(f"{engine.name.title()} engine request failed: {exc}") from exc
 
     dashboard.docker_request = engine_request
-
-    # docker_action() opens the configured UNIX socket directly; setting the
-    # dashboard global above is sufficient for both Docker and Podman's
-    # Docker-compatible API. Keep the original function names for backward
-    # compatibility with existing routes and agents.
     try:
         return int(dashboard.main())
     finally:
         dashboard.docker_request = original_request
+
+
+def main() -> int:
+    command = sys.argv[1] if len(sys.argv) > 1 else "serve"
+
+    # Health checks probe the local HTTP service and do not need an engine socket.
+    if command == "healthcheck":
+        return run_dashboard_via_agent()
+
+    # Normal web deployments use the restricted private agent over HTTP.
+    if command != "agent" and os.environ.get("CONTAINER_AGENT_URL"):
+        return run_dashboard_via_agent()
+
+    # The agent, or an explicit single-container deployment, owns engine access.
+    return run_with_engine()
 
 
 if __name__ == "__main__":
