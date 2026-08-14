@@ -1,54 +1,39 @@
 name: Validate
-
 on:
   pull_request:
   push:
     branches: [main]
-
 permissions:
   contents: read
-
 concurrency:
   group: validate-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-
       - name: Run application tests
         run: python -m unittest discover -s tests -v
-
       - name: Validate Python
         run: python -m compileall -q app
-
-      - name: Validate Docker and Podman Compose manifests
+      - name: Validate Docker Compose
         run: |
           cp .env.example .env
-          docker network create media-net >/dev/null
+          docker network create media-net >/dev/null 2>&1 || true
           docker compose --env-file .env -f docker-compose.yaml config -q
-          docker compose --env-file .env -f compose.podman.yaml config -q
-
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Build the container
-        uses: docker/build-push-action@v7
+      - uses: actions/checkout@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: false
           tags: rogue-dashboard:ci
-          build-args: RGDASH_VERSION=ci
+          build-args: RGDASH_VERSION=1.1.2

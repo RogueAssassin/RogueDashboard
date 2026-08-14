@@ -29,7 +29,7 @@ Publishing Git tag `v0.6.0` produces:
 Keep `.env`, `data/` and `custom/`, update the repository deployment files, then run:
 
 ```bash
-./upgrade.sh
+./Compose pull/up
 ```
 
 The dashboard model migrates from schema 4 to schema 5 automatically. The SQLite structure and authentication data remain compatible with 0.5.0. Read [Upgrading and recovery](UPGRADING.md) for backup and rollback details.

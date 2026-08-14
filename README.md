@@ -1,153 +1,117 @@
 <div align="center">
 
-![Rogue Dashboard — Docker and Podman command centre](docs/assets/hero.svg)
+![Rogue Dashboard 1.1.2](docs/assets/hero.png)
 
 # Rogue Dashboard
 
-**A colourful, local-first command centre for Docker and Podman containers.**
+**A local-first Docker and Podman command centre.**
 
-[![Release](https://img.shields.io/badge/release-1.1.x-9b5cff?style=for-the-badge)](https://github.com/RogueAssassin/rogue-dashboard/releases)
-[![Docker + Podman](https://img.shields.io/badge/engines-Docker%20%2B%20Podman-00d9ff?style=for-the-badge)](docs/CONTAINER_ENGINES.md)
-[![Container](https://img.shields.io/badge/GHCR-ready-41d99b?style=for-the-badge)](https://github.com/RogueAssassin/rogue-dashboard/pkgs/container/rogue-dashboard)
-
-Docker + Podman · GHCR deployment · Browser-based setup · No host build toolchain
+**Version 1.1.2** · GHCR deployment · Docker + Podman · Restricted engine agent
 
 </div>
 
-Rogue Dashboard turns a Docker or Podman host into an approachable control panel. It combines service links, live application metrics, container health, safe lifecycle controls, themes, search, pages and configuration in one responsive interface.
+Rogue Dashboard provides a responsive dashboard for media and infrastructure services while keeping direct container-engine access behind a private restricted agent.
 
-## Deployment model
+## 1.1.2 highlights
 
-Rogue Dashboard is distributed as a prebuilt GHCR image. Production hosts do **not** need a Git checkout, build scripts, install scripts, or an application toolchain.
+- Fixes the dashboard/agent startup separation: **only the engine agent requires the Docker or Podman socket**.
+- Clean GHCR deployment model: no Linux install, migration or upgrade shell scripts.
+- Two production manifests only: `docker-compose.yaml` and `compose.podman.yaml`.
+- Native Podman socket support using `/run/podman/podman.sock` with no Docker compatibility symlink.
+- Docker support using `/var/run/docker.sock` only inside the restricted engine agent.
+- Synchronized Rogue Dashboard branding across the README, website header, loading/setup views, browser favicon, Apple touch icon and PWA icons.
+- Updated 1.1.2 release artwork under `docs/assets/release/`.
+- Preserves `.env`, `data/` and `custom/` between upgrades.
 
-Keep only these deployment files on the host:
+## Runtime folder
+
+A deployed server only needs:
 
 ```text
 rogue-dashboard/
 ├── .env
-├── docker-compose.yaml      # Docker
-├── compose.podman.yaml      # Podman
-├── data/                    # persistent SQLite data
-└── custom/                  # optional icons/backgrounds
+├── compose.podman.yaml       # Podman
+# or docker-compose.yaml      # Docker
+├── data/
+└── custom/
 ```
 
-The web dashboard never receives direct Docker or Podman socket access. A private `engine-agent` container owns the engine socket and exposes only the restricted metadata/lifecycle API used by Rogue Dashboard.
+The application itself is pulled from:
 
-## Quick start — Podman
+```text
+ghcr.io/rogueassassin/rogue-dashboard:1.1.2
+```
 
-Create a directory and download the Podman manifest plus environment template from the release/repository:
+## Podman quick start
 
 ```bash
 mkdir -p rogue-dashboard/data rogue-dashboard/custom
 cd rogue-dashboard
 curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/compose.podman.yaml
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/.env.example -o .env
-```
-
-Set a private agent token in `.env`:
-
-```dotenv
-CONTAINER_AGENT_TOKEN=replace-with-a-long-random-secret
-RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:latest
-MEDIA_NETWORK=media-net
-```
-
-For the current image user, prepare persistent data:
-
-```bash
-sudo chown -R 10001:10001 data
-sudo chmod 750 data
-```
-
-Ensure the external application network and Podman API socket exist:
-
-```bash
-sudo podman network inspect media-net >/dev/null 2>&1 || sudo podman network create media-net
+# edit .env and set CONTAINER_AGENT_TOKEN
 sudo systemctl enable --now podman.socket
-```
-
-Start:
-
-```bash
+sudo podman network inspect media-net >/dev/null 2>&1 || sudo podman network create media-net
+sudo chown -R 10001:10001 data
 sudo podman-compose --env-file .env -f compose.podman.yaml pull
 sudo podman-compose --env-file .env -f compose.podman.yaml up -d
 ```
 
-Update later with the same two commands:
-
-```bash
-sudo podman-compose --env-file .env -f compose.podman.yaml pull
-sudo podman-compose --env-file .env -f compose.podman.yaml up -d
-```
-
-## Quick start — Docker
+## Docker quick start
 
 ```bash
 mkdir -p rogue-dashboard/data rogue-dashboard/custom
 cd rogue-dashboard
 curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/docker-compose.yaml
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/.env.example -o .env
+# edit .env and set CONTAINER_AGENT_TOKEN
+docker network inspect media-net >/dev/null 2>&1 || docker network create media-net
+docker compose --env-file .env -f docker-compose.yaml pull
+docker compose --env-file .env -f docker-compose.yaml up -d
 ```
 
-Set `CONTAINER_AGENT_TOKEN` in `.env`, ensure `${MEDIA_NETWORK:-media-net}` exists, then:
+## Updating
+
+Podman:
+
+```bash
+sudo podman-compose --env-file .env -f compose.podman.yaml pull
+sudo podman-compose --env-file .env -f compose.podman.yaml up -d
+```
+
+Docker:
 
 ```bash
 docker compose --env-file .env -f docker-compose.yaml pull
 docker compose --env-file .env -f docker-compose.yaml up -d
 ```
 
-Updates use the same commands.
+No Git checkout is required on the server.
 
-## Runtime architecture
+## Architecture
 
 ```text
 Browser
-  │
-  ▼
-Rogue Dashboard
-  │ private HTTP + token
-  ▼
-Engine Agent
-  │
-  ├── /run/podman/podman.sock   (Podman)
-  └── /var/run/docker.sock       (Docker)
+   ↓
+Rogue Dashboard web container
+   ↓ private HTTP + CONTAINER_AGENT_TOKEN
+Restricted engine-agent
+   ↓
+Docker socket OR Podman socket
 ```
 
-The Podman deployment does not require `/var/run/docker.sock` or a Docker compatibility symlink.
+The browser and web dashboard container never receive the engine socket directly.
 
-## Main features
+## Branding assets
 
-- Docker and Podman container discovery, state, health and metrics.
-- Safe start, stop and restart controls through the restricted agent.
-- qBittorrent, Radarr, Sonarr, Prowlarr, Seerr, Bazarr, Tautulli and Pi-hole integrations.
-- Multiple pages, groups, bookmarks, themes and custom backgrounds.
-- Local authentication, session revocation and action auditing.
-- Persistent SQLite configuration under `data/`.
-- Native Podman socket support.
-- GHCR images for amd64 and arm64.
+The synchronized 1.1.2 identity is stored in:
 
-## Important files
+- `docs/assets/hero.png` — README hero
+- `docs/assets/rogue-dashboard-logo.png` — master documentation logo
+- `docs/assets/release/rogue-dashboard-1.1.2-release.png` — release artwork
+- `app/static/rogue-dashboard-logo.png` — website logo
+- `app/static/favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`
+- `app/static/apple-touch-icon.png`
+- `app/static/icon-192.png`, `icon-512.png`, `site.webmanifest`
 
-- `docker-compose.yaml` — complete Docker deployment.
-- `compose.podman.yaml` — complete Podman deployment.
-- `.env.example` — runtime settings template.
-- `docs/CONTAINER_ENGINES.md` — engine behavior and socket model.
-- `docs/CONFIGURATION.md` — dashboard and integration configuration.
-- `docs/SECURITY.md` — deployment security guidance.
-- `CHANGELOG.md` — release history.
-
-## Backups
-
-Back up these host paths before major changes:
-
-```text
-.env
-data/
-custom/
-```
-
-The application image is disposable and can always be pulled again from GHCR.
-
-## Philosophy
-
-Rogue Dashboard is intentionally simple to deploy: download the compose file for your engine, keep your `.env` and persistent data, and let GHCR provide the application image. Source checkouts are for development only.
+See [`docs/INSTALLATION.md`](docs/INSTALLATION.md), [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md), [`docs/SECURITY.md`](docs/SECURITY.md) and [`docs/RELEASE_1.1.2.md`](docs/RELEASE_1.1.2.md).

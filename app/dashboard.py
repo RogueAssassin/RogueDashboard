@@ -33,7 +33,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.1.0"
+VERSION = "1.1.2"
 PORT = int(os.environ.get("PORT", "8080"))
 AGENT_PORT = int(os.environ.get("AGENT_PORT", "8081"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))

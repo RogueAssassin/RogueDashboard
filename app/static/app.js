@@ -113,7 +113,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark">R</div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img src="/rogue-dashboard-logo.png" alt="Rogue Dashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -123,7 +123,7 @@ function renderSetup() {
     <main class="setup-shell">
       <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark">R</div><div><strong>Rogue Dashboard</strong><span>Container setup</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img src="/rogue-dashboard-logo.png" alt="Rogue Dashboard"></div><div><strong>Rogue Dashboard</strong><span>Container setup</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -251,7 +251,7 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          <div class="brand-block"><div class="brand-mark small">R</div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
+          <div class="brand-block"><div class="brand-mark small"><img src="/rogue-dashboard-logo.png" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
           <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps and bookmarks…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
@@ -263,7 +263,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>Rogue Dashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.0")}</strong></span><span>Local-first · Docker + Podman</span></footer>
+        <footer class="page-footer"><span>Rogue Dashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.2")}</strong></span><span>Local-first · Docker + Podman</span></footer>
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;

@@ -3,13 +3,12 @@ x-logging: &default-logging
 
 services:
   dashboard:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:latest}
+    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:1.1.2}
     container_name: rogue-dashboard
     restart: always
     stop_grace_period: 15s
     logging: *default-logging
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
       PORT: 8080
       DATA_DIR: /data
@@ -25,24 +24,19 @@ services:
     networks:
       dashboard:
       media-net:
-        aliases:
-          - rogue-dashboard
-          - dash
+        aliases: [rogue-dashboard, dash]
     depends_on:
       engine-agent:
         condition: service_healthy
     read_only: true
-    tmpfs:
-      - /tmp:size=32m,noexec,nosuid
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    tmpfs: [/tmp:size=32m,noexec,nosuid]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     labels:
       rogue.dashboard.protected: "true"
 
   engine-agent:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:latest}
+    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:1.1.2}
     container_name: rogue-dashboard-agent
     restart: always
     stop_grace_period: 15s
@@ -57,15 +51,11 @@ services:
     user: "0:0"
     volumes:
       - /run/podman/podman.sock:/run/podman/podman.sock:ro
-    networks:
-      - dashboard
+    networks: [dashboard]
     read_only: true
-    tmpfs:
-      - /tmp:size=16m,noexec,nosuid
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    tmpfs: [/tmp:size=16m,noexec,nosuid]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     healthcheck:
       test: ["CMD", "python", "/app/engine_entrypoint.py", "healthcheck"]
       interval: 15s

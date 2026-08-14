@@ -13,4 +13,4 @@ Version 0.8.0 makes larger installations easier to organise and move.
 
 ## Upgrade
 
-Keep `.env`, `data/` and `custom/`, replace repository-controlled files and run `./upgrade.sh`. Dashboard schema 5 migrates to schema 6 automatically; the SQLite table structure remains compatible.
+Keep `.env`, `data/` and `custom/`, replace repository-controlled files and run `./Compose pull/up`. Dashboard schema 5 migrates to schema 6 automatically; the SQLite table structure remains compatible.

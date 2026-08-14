@@ -592,33 +592,6 @@ class RogueDashboardTests(unittest.TestCase):
                 dashboard_app.DB = previous
                 dashboard_app.CUSTOM_DIR = previous_custom
 
-    def test_environment_migration_preserves_values_and_canonical_names(self):
-        with tempfile.TemporaryDirectory() as directory:
-            env_file = Path(directory) / ".env"
-            env_file.write_text(
-                "HOMEPAGE_VAR_RADARR_KEY=secret-a=b\n"
-                "HOMEPAGE_VAR_CF_KEY=secret-cf\n"
-                "RGDASH_RADARR_KEY=canonical-wins\n"
-                "RGDASH_QBITTORRENT_API_KEY=qbt_1234567890123456789012345678\n"
-                "TZ=Australia/Melbourne\n"
-            )
-            result = subprocess.run(
-                ["sh", str(ROOT / "migrate-env.sh"), str(env_file)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            migrated = env_file.read_text()
-            self.assertNotIn("HOMEPAGE_", migrated)
-            self.assertIn("RGDASH_RADARR_KEY=canonical-wins", migrated)
-            self.assertIn("RGDASH_CF_KEY=secret-cf", migrated)
-            self.assertIn("RGDASH_QBITTORRENT_API_KEY=qbt_1234567890123456789012345678", migrated)
-            self.assertNotIn("RGDASH_QBITTORRENT_USERNAME=", migrated)
-            self.assertNotIn("RGDASH_QBITTORRENT_PASSWORD=", migrated)
-            self.assertIn("TZ=Australia/Melbourne", migrated)
-            self.assertNotIn("secret-a", result.stdout)
-            self.assertEqual((Path(f"{env_file}.pre-rgdash")).read_text().splitlines()[0], "HOMEPAGE_VAR_RADARR_KEY=secret-a=b")
-
     def test_agent_requires_private_token(self):
         previous_token = dashboard_app.DOCKER_AGENT_TOKEN
         previous_list = dashboard_app.docker_containers
