@@ -6,152 +6,148 @@
 
 **A colourful, local-first command centre for Docker and Podman containers.**
 
-[![Release](https://img.shields.io/badge/release-1.1.0-9b5cff?style=for-the-badge)](https://github.com/RogueAssassin/rogue-dashboard)
+[![Release](https://img.shields.io/badge/release-1.1.x-9b5cff?style=for-the-badge)](https://github.com/RogueAssassin/rogue-dashboard/releases)
 [![Docker + Podman](https://img.shields.io/badge/engines-Docker%20%2B%20Podman-00d9ff?style=for-the-badge)](docs/CONTAINER_ENGINES.md)
 [![Container](https://img.shields.io/badge/GHCR-ready-41d99b?style=for-the-badge)](https://github.com/RogueAssassin/rogue-dashboard/pkgs/container/rogue-dashboard)
-[![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-ff2bd6?style=for-the-badge)](docs/SUPPORT.md)
 
-Version **1.1.0** · Docker + Podman · Browser-based setup · No frontend build step
+Docker + Podman · GHCR deployment · Browser-based setup · No host build toolchain
 
 </div>
 
-Rogue Dashboard turns a Docker or Podman host into an approachable control panel. It combines service links, live application metrics, container health, safe lifecycle controls, themes, search, pages and configuration in one responsive interface. The host does not need Node.js, TypeScript, pnpm or a frontend toolchain.
+Rogue Dashboard turns a Docker or Podman host into an approachable control panel. It combines service links, live application metrics, container health, safe lifecycle controls, themes, search, pages and configuration in one responsive interface.
 
-## 1.1.0 highlights
+## Deployment model
 
-- **First-class Docker + Podman support** through an engine-neutral connection layer.
-- **Native Podman socket** support at `/run/podman/podman.sock`; no `/var/run/docker.sock` compatibility symlink is required on Podman-only hosts.
-- `CONTAINER_ENGINE=auto|docker|podman`, `CONTAINER_SOCKET`, and engine-neutral agent settings.
-- Backward-compatible `DOCKER_*` environment aliases for existing installations.
-- Dedicated `compose.podman.yaml` deployment path.
-- Existing restricted-agent security boundary retained: the browser never receives direct engine socket access.
+Rogue Dashboard is distributed as a prebuilt GHCR image. Production hosts do **not** need a Git checkout, build scripts, install scripts, or an application toolchain.
 
-## Why Rogue Dashboard?
+Keep only these deployment files on the host:
 
-| | What you get |
-| --- | --- |
-| 🎨 | **Make it yours** — six colour presets, dual accents, neon glow, card opacity, density and custom backgrounds. |
-| 📦 | **See containers clearly** — discover containers, networks, state and health with duplicate-safe dashboard cards. |
-| ⚡ | **Live service data** — qBittorrent, Radarr, Sonarr, Prowlarr, Seerr, Bazarr, Tautulli and Pi-hole integrations. |
-| 🧩 | **Edit in the browser** — add cards, rearrange groups, change columns and preview changes live. |
-| 🗂️ | **Focused pages** — separate media, infrastructure, networking and links. |
-| 🛡️ | **Restricted engine boundary** — only allow-listed metadata and lifecycle calls are proxied through the private agent. |
-| 🔐 | **Local administration** — sessions, revocation, local action history and no cloud account requirement. |
-| 🚚 | **Simple upgrades** — keep `.env`, `data/` and `custom/` while replacing the application image. |
+```text
+rogue-dashboard/
+├── .env
+├── docker-compose.yaml      # Docker
+├── compose.podman.yaml      # Podman
+├── data/                    # persistent SQLite data
+└── custom/                  # optional icons/backgrounds
+```
 
-## Install / test
+The web dashboard never receives direct Docker or Podman socket access. A private `engine-agent` container owns the engine socket and exposes only the restricted metadata/lifecycle API used by Rogue Dashboard.
 
-### Requirements
+## Quick start — Podman
 
-Use either:
+Create a directory and download the Podman manifest plus environment template from the release/repository:
 
-- Docker Engine with Docker Compose v2, or
-- Podman with `podman-compose` and the Podman API socket.
+```bash
+mkdir -p rogue-dashboard/data rogue-dashboard/custom
+cd rogue-dashboard
+curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/compose.podman.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/.env.example -o .env
+```
 
-Linux and WSL 2 are supported host environments. See [Support](docs/SUPPORT.md) for the tested baseline.
-
-### Podman
+Set a private agent token in `.env`:
 
 ```dotenv
-CONTAINER_ENGINE=podman
-CONTAINER_SOCKET=/run/podman/podman.sock
-RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:1.1.0
+CONTAINER_AGENT_TOKEN=replace-with-a-long-random-secret
+RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:latest
+MEDIA_NETWORK=media-net
 ```
 
-Use:
+For the current image user, prepare persistent data:
 
 ```bash
-podman-compose --env-file .env -f compose.podman.yaml up -d
+sudo chown -R 10001:10001 data
+sudo chmod 750 data
 ```
 
-### Docker
-
-```dotenv
-CONTAINER_ENGINE=docker
-CONTAINER_SOCKET=/var/run/docker.sock
-RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:1.1.0
-```
-
-Use:
+Ensure the external application network and Podman API socket exist:
 
 ```bash
-docker compose up -d
+sudo podman network inspect media-net >/dev/null 2>&1 || sudo podman network create media-net
+sudo systemctl enable --now podman.socket
 ```
 
-`CONTAINER_ENGINE=auto` probes the mounted engine API socket. Legacy `DOCKER_SOCKET`, `DOCKER_AGENT_URL`, and `DOCKER_AGENT_TOKEN` remain accepted during the 1.1 transition.
-
-Open `http://localhost:7805` after startup.
-
-## Architecture
-
-The same image runs in two modes:
-
-- **dashboard** — browser UI, authentication, SQLite persistence, service widgets and monitoring.
-- **engine-agent** — internal-only allow-listed engine metadata and container lifecycle operations.
-
-The dashboard service does **not** mount the Docker or Podman socket. Only the restricted agent does.
-
-See [Architecture](docs/ARCHITECTURE.md) and [Container Engines](docs/CONTAINER_ENGINES.md).
-
-## Rogue ecosystem
-
-Rogue Dashboard is the visibility and service-dashboard layer. **RogueForge** is the companion Docker/Podman stack-management project, designed with the same Midnight/Neon visual language for compose editing, stack lifecycle, logs, updates, networks and volumes.
-
-![Rogue ecosystem](docs/assets/rogue-ecosystem.svg)
-
-The two applications are separate by design: Dashboard stays narrow and safe, while RogueForge handles privileged stack-management workflows.
-
-## Persistent data
-
-Keep these when upgrading:
-
-| Path | Purpose |
-| --- | --- |
-| `.env` | Runtime settings and integration credentials |
-| `data/` | SQLite database, users, sessions and dashboard layout |
-| `custom/` | Local icons and backgrounds |
-| `backups/` | Upgrade backups, when enabled |
-
-Never replace a populated `.env` with `.env.example` during an upgrade.
-
-## Documentation
-
-- [Container engines](docs/CONTAINER_ENGINES.md)
-- [Installation and networking](docs/INSTALLATION.md)
-- [Configuration reference](docs/CONFIGURATION.md)
-- [Reverse proxy guide](docs/REVERSE_PROXY.md)
-- [Upgrading and recovery](docs/UPGRADING.md)
-- [Security model](docs/SECURITY.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Deployment guide](docs/DEPLOYMENT_GUIDE.md)
-- [Migration policy](docs/MIGRATIONS.md)
-- [Support matrix](docs/SUPPORT.md)
-- [Changelog](CHANGELOG.md)
-- [1.1.0 release notes](docs/RELEASE_1.1.0.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Brand assets](docs/BRANDING.md)
-
-## Local validation before publishing
+Start:
 
 ```bash
-python -m unittest discover -s tests -v
-python -m compileall -q app
-sh -n install.sh migrate-env.sh upgrade.sh scripts/validate-release.sh
-sh scripts/validate-release.sh
+sudo podman-compose --env-file .env -f compose.podman.yaml pull
+sudo podman-compose --env-file .env -f compose.podman.yaml up -d
 ```
 
-Validate the relevant Compose deployment too:
+Update later with the same two commands:
 
 ```bash
-docker compose -f docker-compose.yaml config
-# or
-podman-compose --env-file .env -f compose.podman.yaml config
+sudo podman-compose --env-file .env -f compose.podman.yaml pull
+sudo podman-compose --env-file .env -f compose.podman.yaml up -d
 ```
 
-## Contributing
+## Quick start — Docker
 
-The browser interface is plain HTML, CSS and JavaScript served by Python. There is no Node-based build step. Keep changes dependency-light, local-first and compatible with the restricted-agent security model.
+```bash
+mkdir -p rogue-dashboard/data rogue-dashboard/custom
+cd rogue-dashboard
+curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/docker-compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/.env.example -o .env
+```
 
-## Acknowledgements
+Set `CONTAINER_AGENT_TOKEN` in `.env`, ensure `${MEDIA_NETWORK:-media-net}` exists, then:
 
-Rogue Dashboard is an original implementation shaped by useful ideas from several self-hosted dashboard projects. See [Third-party inspiration](THIRD_PARTY_INSPIRATION.md). Product names and trademarks belong to their respective owners.
+```bash
+docker compose --env-file .env -f docker-compose.yaml pull
+docker compose --env-file .env -f docker-compose.yaml up -d
+```
+
+Updates use the same commands.
+
+## Runtime architecture
+
+```text
+Browser
+  │
+  ▼
+Rogue Dashboard
+  │ private HTTP + token
+  ▼
+Engine Agent
+  │
+  ├── /run/podman/podman.sock   (Podman)
+  └── /var/run/docker.sock       (Docker)
+```
+
+The Podman deployment does not require `/var/run/docker.sock` or a Docker compatibility symlink.
+
+## Main features
+
+- Docker and Podman container discovery, state, health and metrics.
+- Safe start, stop and restart controls through the restricted agent.
+- qBittorrent, Radarr, Sonarr, Prowlarr, Seerr, Bazarr, Tautulli and Pi-hole integrations.
+- Multiple pages, groups, bookmarks, themes and custom backgrounds.
+- Local authentication, session revocation and action auditing.
+- Persistent SQLite configuration under `data/`.
+- Native Podman socket support.
+- GHCR images for amd64 and arm64.
+
+## Important files
+
+- `docker-compose.yaml` — complete Docker deployment.
+- `compose.podman.yaml` — complete Podman deployment.
+- `.env.example` — runtime settings template.
+- `docs/CONTAINER_ENGINES.md` — engine behavior and socket model.
+- `docs/CONFIGURATION.md` — dashboard and integration configuration.
+- `docs/SECURITY.md` — deployment security guidance.
+- `CHANGELOG.md` — release history.
+
+## Backups
+
+Back up these host paths before major changes:
+
+```text
+.env
+data/
+custom/
+```
+
+The application image is disposable and can always be pulled again from GHCR.
+
+## Philosophy
+
+Rogue Dashboard is intentionally simple to deploy: download the compose file for your engine, keep your `.env` and persistent data, and let GHCR provide the application image. Source checkouts are for development only.
