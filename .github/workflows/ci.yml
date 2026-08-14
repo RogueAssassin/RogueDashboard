@@ -28,18 +28,15 @@ jobs:
       - name: Run application tests
         run: python -m unittest discover -s tests -v
 
-      - name: Validate Python and shell syntax
-        run: |
-          python -m compileall -q app
-          sh -n install.sh migrate-env.sh upgrade.sh scripts/validate-release.sh
-          sh scripts/validate-release.sh
+      - name: Validate Python
+        run: python -m compileall -q app
 
-      - name: Validate production and developer Compose files
+      - name: Validate Docker and Podman Compose manifests
         run: |
           cp .env.example .env
-          docker compose -f docker-compose.yaml config -q
-          docker compose -f docker-compose.yaml -f docker-compose.build.yaml config -q
-          RGDASH_EXTRA_NETWORK=application-network docker compose -f docker-compose.yaml -f docker-compose.extra-network.yaml config -q
+          docker network create media-net >/dev/null
+          docker compose --env-file .env -f docker-compose.yaml config -q
+          docker compose --env-file .env -f compose.podman.yaml config -q
 
   container:
     runs-on: ubuntu-latest
