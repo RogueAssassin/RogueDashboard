@@ -15,7 +15,6 @@ services:
       DATA_DIR: /data
       STATIC_DIR: /app/static
       CUSTOM_DIR: /custom
-      CONTAINER_ENGINE: ${CONTAINER_ENGINE:-podman}
       CONTAINER_AGENT_URL: http://engine-agent:8081
       CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
     ports:
