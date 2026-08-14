@@ -32,7 +32,7 @@ The 0.5.0 release commit publishes:
 Keep `.env`, `data/` and `custom/`, update the repository deployment files, then run:
 
 ```bash
-./upgrade.sh
+./Compose pull/up
 ```
 
 The database schema remains compatible with 0.4.x. Read [Upgrading and recovery](UPGRADING.md) for backup and rollback details.

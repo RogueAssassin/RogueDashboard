@@ -1,6 +1,6 @@
 FROM python:3.13-alpine
 
-ARG RGDASH_VERSION=1.1.0
+ARG RGDASH_VERSION=1.1.2
 
 LABEL org.opencontainers.image.title="Rogue Dashboard" \
       org.opencontainers.image.description="Local-first Docker and Podman service dashboard" \
@@ -22,12 +22,9 @@ RUN addgroup -g 10001 dashboard \
     && chown dashboard:dashboard /data
 
 COPY --chown=dashboard:dashboard app/ /app/
-
 USER dashboard
 EXPOSE 8080
 STOPSIGNAL SIGTERM
-
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["python", "/app/engine_entrypoint.py", "healthcheck"]
-
 ENTRYPOINT ["python", "/app/engine_entrypoint.py"]

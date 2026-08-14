@@ -19,4 +19,4 @@ Version 1.0.0 establishes the stable Docker-first release line and adds the admi
 
 ## Upgrade
 
-Keep `.env`, `data/` and `custom/`, replace repository-controlled files and run `./upgrade.sh`. The first 1.0 start migrates the sessions table and creates the bounded action-audit table automatically.
+Keep `.env`, `data/` and `custom/`, replace repository-controlled files and run `./Compose pull/up`. The first 1.0 start migrates the sessions table and creates the bounded action-audit table automatically.

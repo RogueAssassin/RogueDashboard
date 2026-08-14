@@ -6,15 +6,13 @@ x-logging: &default-logging
 
 services:
   dashboard:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:latest}
+    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:1.1.2}
+    pull_policy: always
     container_name: rogue-dashboard
     restart: unless-stopped
     stop_grace_period: 15s
-    pids_limit: 128
     logging: *default-logging
-    init: true
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
       PORT: 8080
       DATA_DIR: /data
@@ -27,35 +25,27 @@ services:
     volumes:
       - ./data:/data
       - ./custom:/custom:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       dashboard:
       media-net:
-        aliases:
-          - rogue-dashboard
-          - dash
+        aliases: [rogue-dashboard, dash]
     depends_on:
       engine-agent:
         condition: service_healthy
     read_only: true
-    tmpfs:
-      - /tmp:size=32m,noexec,nosuid
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    tmpfs: [/tmp:size=32m,noexec,nosuid]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     labels:
       rogue.dashboard.protected: "true"
 
   engine-agent:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:latest}
+    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:1.1.2}
+    pull_policy: always
     container_name: rogue-dashboard-agent
     restart: unless-stopped
     stop_grace_period: 15s
-    pids_limit: 64
     logging: *default-logging
-    init: true
     command: ["agent"]
     environment:
       AGENT_PORT: 8081
@@ -63,18 +53,13 @@ services:
       CONTAINER_SOCKET: /var/run/docker.sock
       CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
       HEALTHCHECK_URL: http://127.0.0.1:8081/health
-    user: "0:0"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - dashboard
+    networks: [dashboard]
     read_only: true
-    tmpfs:
-      - /tmp:size=16m,noexec,nosuid
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    tmpfs: [/tmp:size=16m,noexec,nosuid]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     healthcheck:
       test: ["CMD", "python", "/app/engine_entrypoint.py", "healthcheck"]
       interval: 15s

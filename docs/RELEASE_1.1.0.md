@@ -1,6 +1,6 @@
-# Rogue Dashboard 1.1.0
+# Rogue Dashboard 1.1.2
 
-Rogue Dashboard 1.1.0 introduces first-class Docker and Podman support while preserving the existing restricted-agent security boundary.
+Rogue Dashboard 1.1.2 introduces first-class Docker and Podman support while preserving the existing restricted-agent security boundary.
 
 ## Highlights
 
@@ -36,7 +36,7 @@ Existing Docker installations remain supported. Legacy `DOCKER_SOCKET`, `DOCKER_
 
 ## Validation
 
-The 1.1.0 release keeps the existing application regression suite and release-metadata validation gates. Docker and Podman live-host validation should be completed before the draft pull request is merged.
+The 1.1.2 release keeps the existing application regression suite and release-metadata validation gates. Docker and Podman live-host validation should be completed before the draft pull request is merged.
 
 
 ## Branding and documentation

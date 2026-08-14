@@ -12,4 +12,4 @@ Version 0.7.0 adds practical operations visibility without widening the Docker s
 
 ## Upgrade
 
-Keep `.env`, `data/` and `custom/`, replace the repository-controlled files, then run `./upgrade.sh`. No database migration or reset is required.
+Keep `.env`, `data/` and `custom/`, replace the repository-controlled files, then run `./Compose pull/up`. No database migration or reset is required.
