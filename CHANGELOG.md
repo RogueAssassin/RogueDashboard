@@ -2,6 +2,16 @@
 
 Rogue Dashboard follows semantic versioning for published container tags. Detailed upgrade notes live in `docs/`.
 
+## Unreleased — 1.1.1 hotfix
+
+- Fixed the dual-engine entrypoint so the web dashboard no longer requires direct Docker or Podman socket access when using the private engine agent.
+- Kept native Docker/Podman socket access isolated to `engine-agent`.
+- Simplified production deployment to GHCR plus `.env` and one engine-specific compose file.
+- Removed legacy `install.sh`, `upgrade.sh`, `migrate-env.sh` and shell release-validation tooling.
+- Removed development/overlay compose files from the production repository surface.
+- Updated CI and GHCR release workflows to validate Python plus the standalone Docker and Podman manifests directly.
+- Updated installation and upgrade documentation for compose-only, image-based deployments.
+
 ## 1.1.0
 
 - Added first-class Docker and Podman engine detection with capability probing.
