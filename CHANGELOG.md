@@ -1,27 +1,31 @@
 # Changelog
 
-Rogue Dashboard follows semantic versioning for published GHCR tags.
+Rogue Dashboard follows semantic versioning for published GHCR releases.
+
+## 1.1.3
+
+- Removed direct Docker and Podman container-engine management from Rogue Dashboard.
+- Removed the engine-agent service and all engine socket mounts.
+- Removed container lifecycle controls and engine inventory APIs.
+- Simplified Docker and Podman deployments to one Rogue Dashboard container.
+- Retained service integrations, HTTP/API health monitoring, widgets, admin/session controls and persistent configuration.
+- Kept the synchronized Rogue Dashboard branding and browser/app icon set.
+- Simplified server upgrades to Compose `pull` + `up -d`.
+- Established RogueForge as the future home for container/stack management.
 
 ## 1.1.2
 
-- Fixed engine-agent separation so the web dashboard no longer probes or requires an engine socket.
-- Simplified production deployment to GHCR + `.env` + one engine-specific Compose manifest.
-- Removed Linux install/upgrade/migration helper shell scripts and obsolete Compose overlays.
-- Added clean Docker and Podman manifests using the same private `engine-agent` architecture.
-- Refreshed browser, app, website, README and release branding as one synchronized visual set.
-- Added favicon ICO/PNG sizes, Apple touch icon, 192/512 app icons and web manifest.
-- Updated Dockerfile, CI/publish workflows, documentation and examples for 1.1.2.
-- Preserved native Podman socket use without `/var/run/docker.sock` compatibility links.
+- Introduced synchronized Rogue branding and browser/app icon assets.
+- Added Docker/Podman engine abstraction work that was later removed in 1.1.3 after production testing showed the management layer added unnecessary deployment complexity.
 
 ## 1.1.0
 
-- Introduced first-class Docker and Podman engine detection and native Podman API support.
-- Added the engine-neutral `CONTAINER_*` configuration contract and Podman Compose deployment.
+- Added first-class Docker and Podman experiments and engine-neutral configuration.
 
 ## 1.0.1
 
-- Improved container health handling and RogueRoute health integration.
+- Improved container health and RogueRoute integration.
 
 ## 1.0.0
 
-- Added administrator-session review, action history and migration support.
+- Initial stable public release series.

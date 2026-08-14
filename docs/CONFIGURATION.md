@@ -4,7 +4,7 @@ The supported runtime configuration lives in `.env`.
 
 Core settings:
 
-- `RGDASH_IMAGE` — GHCR tag, recommended `ghcr.io/rogueassassin/rogue-dashboard:1.1.2`.
+- `RGDASH_IMAGE` — GHCR tag, recommended `ghcr.io/rogueassassin/rogue-dashboard:1.1.3`.
 - `RGDASH_PORT` — host web port, default 7805.
 - `MEDIA_NETWORK` — external shared proxy/application network, default `media-net`.
 - `CONTAINER_AGENT_TOKEN` — required private shared secret between dashboard and agent.

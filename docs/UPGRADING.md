@@ -1,6 +1,6 @@
 # Upgrading
 
-Back up `.env`, `data/` and `custom/` before an upgrade.
+Back up `.env`, `data/` and `custom/` first.
 
 Podman:
 
@@ -16,4 +16,4 @@ docker compose --env-file .env -f docker-compose.yaml pull
 docker compose --env-file .env -f docker-compose.yaml up -d
 ```
 
-No Git checkout, build step, install script or migration script is required on the production host.
+No Git checkout or shell updater is required.

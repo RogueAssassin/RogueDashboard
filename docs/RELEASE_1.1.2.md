@@ -1,10 +1,10 @@
-# Rogue Dashboard 1.1.2
+# Rogue Dashboard 1.1.3
 
-1.1.2 is the clean-deployment and branding synchronization release.
+1.1.3 is the clean-deployment and branding synchronization release.
 
 ## Fixed
 
-The web dashboard no longer executes container-engine detection when it is configured to use the private engine agent. This removes the 1.1.2 failure where the web container could exit with `No Docker or Podman API socket is reachable` despite a healthy agent.
+The web dashboard no longer executes container-engine detection when it is configured to use the private engine agent. This removes the 1.1.3 failure where the web container could exit with `No Docker or Podman API socket is reachable` despite a healthy agent.
 
 ## Deployment
 
@@ -16,4 +16,4 @@ Only `engine-agent` receives `/run/podman/podman.sock` on Podman or `/var/run/do
 
 ## Branding
 
-The README hero, website logo, favicon, Apple icon, 192/512 icons and release artwork all derive from the same Rogue Dashboard 1.1.2 identity.
+The README hero, website logo, favicon, Apple icon, 192/512 icons and release artwork all derive from the same Rogue Dashboard 1.1.3 identity.

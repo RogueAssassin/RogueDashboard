@@ -36,4 +36,4 @@ jobs:
           context: .
           push: false
           tags: rogue-dashboard:ci
-          build-args: RGDASH_VERSION=1.1.2
+          build-args: RGDASH_VERSION=1.1.3
