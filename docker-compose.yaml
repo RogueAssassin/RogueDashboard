@@ -7,7 +7,6 @@ x-logging: &default-logging
 services:
   dashboard:
     image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:latest}
-    pull_policy: missing
     container_name: rogue-dashboard
     restart: unless-stopped
     stop_grace_period: 15s
@@ -21,8 +20,8 @@ services:
       DATA_DIR: /data
       STATIC_DIR: /app/static
       CUSTOM_DIR: /custom
-      DOCKER_AGENT_URL: http://docker-agent:8081
-    user: "${PUID:-1000}:${PGID:-1000}"
+      CONTAINER_AGENT_URL: http://engine-agent:8081
+      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
     ports:
       - "${RGDASH_PORT:-7805}:8080"
     volumes:
@@ -37,7 +36,7 @@ services:
           - rogue-dashboard
           - dash
     depends_on:
-      docker-agent:
+      engine-agent:
         condition: service_healthy
     read_only: true
     tmpfs:
@@ -49,9 +48,8 @@ services:
     labels:
       rogue.dashboard.protected: "true"
 
-  docker-agent:
+  engine-agent:
     image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/rogue-dashboard:latest}
-    pull_policy: missing
     container_name: rogue-dashboard-agent
     restart: unless-stopped
     stop_grace_period: 15s
@@ -61,12 +59,11 @@ services:
     command: ["agent"]
     environment:
       AGENT_PORT: 8081
-      DOCKER_SOCKET: /var/run/docker.sock
-      DOCKER_AGENT_TOKEN: ${DOCKER_AGENT_TOKEN}
+      CONTAINER_ENGINE: docker
+      CONTAINER_SOCKET: /var/run/docker.sock
+      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
       HEALTHCHECK_URL: http://127.0.0.1:8081/health
-    user: "${PUID:-1000}:${PGID:-1000}"
-    group_add:
-      - "${DOCKER_GID:-999}"
+    user: "0:0"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -78,6 +75,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      test: ["CMD", "python", "/app/engine_entrypoint.py", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     labels:
       rogue.dashboard.protected: "true"
 
