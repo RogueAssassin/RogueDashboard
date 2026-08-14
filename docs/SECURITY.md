@@ -1,45 +1,26 @@
-# Security guidance
+# Security model
 
-## Included safeguards
+Rogue Dashboard intentionally separates the public web application from the privileged container-engine API.
 
-- The browser and main application never receive the Docker socket.
-- The Docker agent has no published host port.
-- A 256-bit token is generated during installation for internal agent requests.
-- Agent routes are explicitly allow-listed.
-- Docker actions require a logged-in administrator and a confirmation prompt.
-- Passwords use `scrypt` with unique random salts.
-- Session values are stored as hashes and sent through HTTP-only, SameSite Strict cookies.
-- Administrators can review active sessions and revoke any session except the browser currently in use.
-- Administrative actions are stored locally in a bounded audit table without credential values.
-- Login attempts are rate-limited per client address.
-- Imported literal credentials are discarded.
-- Service API credentials are read server-side from `.env` and never returned by widget endpoints.
-- Legacy environment names are migrated locally with values suppressed from console output; backups are permission-restricted.
-- User-provided icons and backgrounds are mounted read-only and served only from the dedicated `/custom/` path.
-- The Docker socket agent receives only its internal agent token, not media-service credentials.
-- Saved dashboard data is length-limited and validated.
-- Legacy ZIP imports cap compressed size, entry count, individual file size and total expansion size.
-- Custom files are limited to common image formats and a 10 MB maximum.
-- HTTP response security headers and a restrictive content policy are enabled.
-- Containers use read-only root filesystems, temporary scratch mounts, process limits and `no-new-privileges`.
-- Container logs rotate instead of growing without a bound.
+## Core boundary
 
-## Important Docker warning
+- The browser never receives Docker or Podman socket access.
+- The `dashboard` service does not mount the engine socket.
+- The internal engine agent has no published host port.
+- Dashboard-to-agent calls require a private bearer token.
+- Only allow-listed metadata and container lifecycle operations are exposed.
+- Service integration credentials remain environment variables and are not written into dashboard cards.
 
-Anyone who can control a process with Docker socket access can potentially control the Docker host. The internal agent substantially reduces the exposed interface, but it must still be treated as privileged infrastructure.
+## Engine socket warning
 
-Do not publish port 8081, attach the agent to public proxy networks or expose the dashboard directly through router port forwarding.
+A process with Docker or Podman API socket access should be treated as privileged infrastructure. The restricted agent reduces the application-facing interface, but compromise of that agent can still have host-level consequences.
 
-## Remote access
+For Podman, prefer the native socket path and least-privileged deployment mode compatible with the host. Do not create an unnecessary Docker socket compatibility symlink.
 
-Prefer a private VPN or authenticated reverse proxy. Nginx Proxy Manager should forward `Host` and `X-Forwarded-Proto`; the dashboard then marks login cookies Secure automatically. `SECURE_COOKIES=true` can enforce the flag when a proxy does not send the protocol header.
+## Network separation
 
-```text
-SECURE_COOKIES=true
-```
+Keep the engine agent on its private internal network. Attach only the dashboard service to `media-net` and any optional application network required for service widgets.
 
-Set `RGDASH_ALLOWED_HOSTS` to a comma-separated list when host-header enforcement is wanted. Leave it empty to retain direct LAN access by IP. Restart the stack after changing either setting.
+## Public exposure
 
-## Backup protection
-
-The SQLite database contains the password hash and active session hashes. Protect backups as you would protect other server configuration. The JSON layout export does not include password values or API secrets.
+Put Rogue Dashboard behind a trusted reverse proxy for Internet-facing access, enable HTTPS, set secure cookies appropriately and configure `RGDASH_ALLOWED_HOSTS` when practical. Do not expose the engine agent.

@@ -22,3 +22,5 @@ The persistent contract is:
 Downgrading across a schema change is not guaranteed. Restore the timestamped backup created before that upgrade when returning to an older major/minor release.
 
 Dashboard JSON restores are validated and never contain `.env` credential values. A JSON export does not replace a full backup because it excludes administrator accounts, sessions and action history.
+
+| 1.0.1 | 1.1.0 | Adds engine-neutral configuration, native Podman socket support, and retains legacy `DOCKER_*` variables for compatibility. |

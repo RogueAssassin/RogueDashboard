@@ -1,62 +1,58 @@
 # Architecture
 
-Rogue Dashboard is a Docker-first, standard-library Python application with a browser-native frontend. Production hosts pull one prebuilt image; no language runtime or frontend package manager is installed on the host.
+Rogue Dashboard 1.1 is an engine-neutral, standard-library Python application with a browser-native frontend. The same application image can run against Docker Engine or Podman through a restricted internal agent.
 
 ## Runtime services
 
 | Service | Exposure | Responsibility |
 | --- | --- | --- |
 | `dashboard` | Host `${RGDASH_PORT:-7805}` → container `8080` | UI, authentication, imports, persistence, monitoring and integration clients |
-| `docker-agent` | Internal `8081` only | Allow-listed Docker metadata and container lifecycle operations |
+| `engine-agent` | Internal `8081` only | Allow-listed container metadata and lifecycle operations against Docker or Podman |
 
-The browser talks only to `dashboard`. The dashboard calls the agent over the private Compose network with a generated bearer token. The dashboard may join the primary shared network and one optional extra application network. The agent is attached to neither shared network and has no host port.
+The browser talks only to `dashboard`. The dashboard calls the agent over its private network with a generated bearer token. Only the agent mounts the selected engine API socket.
 
 ## Request and data flow
 
 ```mermaid
 flowchart TD
-    Browser["Browser"] --> App["Dashboard HTTP server"]
+    Browser["Browser"] --> App["Rogue Dashboard"]
     App --> SQLite["SQLite in ./data"]
     App --> Integrations["Service APIs on shared network"]
-    App --> Agent["Restricted agent"]
-    Agent --> Engine["Docker Engine socket"]
+    App --> Agent["Restricted engine agent"]
+    Agent --> Detect["Engine detection / capability probe"]
+    Detect --> Docker["Docker API socket"]
+    Detect --> Podman["Podman API socket"]
 ```
+
+## Engine layer
+
+`app/container_engine.py` detects and describes the connected runtime. New deployment configuration uses `CONTAINER_ENGINE`, `CONTAINER_SOCKET`, and `CONTAINER_AGENT_*`. Legacy `DOCKER_*` variables remain compatibility aliases during the 1.1 transition.
+
+The initial cross-engine implementation deliberately keeps some historical internal `docker_*` function/route names so existing application behaviour and tests remain stable. Those names are implementation details, not a requirement for Docker Engine.
 
 ## Source layout
 
-- `app/dashboard.py` — HTTP API, SQLite storage, sessions, validation, monitoring and agent mode.
-- `app/homepage_yaml.py` — constrained data-only parser for the supported Homepage YAML subset.
-- `app/importer.py` — conversion into the internal dashboard model and environment references.
-- `app/integrations.py` — server-side API clients, authentication fallback, timing and sanitised metrics.
-- `app/static/` — plain HTML, CSS, JavaScript and bundled offline icons.
-- `custom/` — persistent user artwork, mounted read-only and served under `/custom/`.
-- `docker-compose.yaml` — production pull-based runtime.
-- `docker-compose.build.yaml` — explicit source-build override for contributors.
+- `app/dashboard.py` — HTTP API, SQLite storage, sessions, validation, monitoring and restricted-agent mode.
+- `app/container_engine.py` — Docker/Podman socket discovery, version probing and engine requests.
+- `app/engine_entrypoint.py` — compatibility entrypoint that selects the engine before loading the dashboard runtime.
+- `app/importer.py` / `app/homepage_yaml.py` — safe dashboard imports.
+- `app/integrations.py` — server-side service API collectors.
+- `app/static/` — dependency-free HTML/CSS/JavaScript and bundled icons.
+- `custom/` — persistent user artwork, served read-only.
+- `docker-compose.yaml` — Docker deployment.
+- `compose.podman.yaml` — native Podman deployment.
+- `docker-compose.build.yaml` — explicit development build override.
 
 ## Persistence and secrets
 
-SQLite runs in write-ahead logging mode inside bind-mounted `data/`. Administrator passwords use `scrypt` with unique random salts. Session tokens are random, stored as hashes and expire after 14 days. The UI sees only a 12-character hash prefix for session management; the current session cannot revoke itself through the administrative endpoint.
+SQLite runs in write-ahead logging mode inside bind-mounted `data/`. Administrator passwords use `scrypt` with unique salts. Session tokens are random, stored as hashes and expire according to the application policy.
 
-Integration credentials are resolved from environment variables only when a collector runs. Widget responses may contain display metrics, state, timing and configured or missing variable names, but never the values. Results are cached briefly to avoid unnecessary service polling.
+Integration credentials remain environment variables. Widget responses expose display metrics and safe diagnostics, never secret values.
 
-The upgrade script creates a private timestamped backup before changing the running image and remembers the previous local image ID for automatic startup rollback. Compose bounds Docker's JSON logs to three 10 MB files per service and applies process limits to reduce accidental resource exhaustion.
+## Restricted engine boundary
 
-Dashboard schema 7 stores named pages separately from groups and migrates known RogueRoute cards to the stable health contract. Each group carries a `pageId`; older layouts receive a generated Home page during validation. JSON restores pass through the same server-side length and schema validation as normal dashboard saves.
+The engine agent exposes only the application-approved endpoints required for container discovery and confirmed lifecycle controls. There is no general Engine API passthrough, arbitrary command execution, image deletion API or browser-visible socket.
 
-The action-audit table retains at most 1,000 rows. It stores time, local username, action name, target identifier, outcome and a sanitised detail label; it does not store request bodies, cookies, environment values or service credentials.
+Container discovery returns a bounded metadata summary: identifier, name, image, state/health, ports, selected labels and attached networks. It does not expose container environment variables or secret values.
 
-## Docker boundary
-
-The agent implements only:
-
-- `GET /health`
-- authenticated `GET /containers`
-- authenticated `POST /containers/{id}/start`
-- authenticated `POST /containers/{id}/stop`
-- authenticated `POST /containers/{id}/restart`
-
-There is no general Docker proxy, command execution route, image deletion route or arbitrary Engine API passthrough.
-
-Container discovery returns only an allow-listed metadata summary: ID prefix, name, image, runtime health, published ports, attached network names and selected Compose/Rogue Dashboard labels. It does not expose container environment variables, mounts or secret values.
-
-For cards linked to a container, Docker's native health is authoritative. HTTP probes still run so the Connection centre can distinguish an unhealthy application response from a healthy container whose private network is not shared with the dashboard.
+Docker and Podman both support the Docker-compatible API operations used by the 1.1 dashboard. Podman-specific features should be introduced behind capability checks rather than by branching the whole application.

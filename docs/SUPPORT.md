@@ -1,19 +1,19 @@
 # Support matrix
 
-Rogue Dashboard is designed for Docker Compose installations that can run the published Linux container image.
+Rogue Dashboard 1.1 targets current Linux container hosts and uses capability probing where possible instead of hard-coding one exact engine patch release.
 
 | Component | Supported baseline |
 | --- | --- |
-| Docker Engine | 24 or newer |
-| Docker Compose | Compose v2 (`docker compose`) |
-| Architectures | Linux AMD64 and ARM64 |
-| Hosts | Linux, WSL 2 with Docker Desktop integration, and compatible NAS/container hosts |
-| Browsers | Current and previous major Chrome, Edge, Firefox and Safari |
-| Reverse proxies | Any HTTP reverse proxy that preserves `Host` and `X-Forwarded-Proto` |
-| Persistent storage | Local filesystem bind mounts with SQLite-safe locking semantics |
+| Docker Engine | 24+ |
+| Docker Compose | Compose v2 |
+| Podman | Current maintained releases with Docker-compatible API support |
+| Podman Compose | Current `podman-compose` |
+| Python image | Version defined by the repository Dockerfile |
+| Architectures | amd64, arm64 where the published image is available |
+| Host | Linux; WSL 2 supported |
 
-Production hosts do not require Node.js, pnpm, TypeScript or a host Python installation. Python is contained inside the published image.
+## Engine modes
 
-Report reproducible problems with the Rogue Dashboard version, host platform, Docker/Compose versions, redacted Compose output and the newest relevant container logs. Never post `.env`, session cookies, API keys or the SQLite database publicly.
+`CONTAINER_ENGINE=auto` probes the mounted socket. Explicit `docker` and `podman` modes fail instead of silently switching to the other engine.
 
-Community testing outside this matrix is welcome, but compatibility is not guaranteed until it is documented here.
+Podman-specific capabilities outside the cross-engine container API are not yet exposed in Rogue Dashboard 1.1; those belong either behind future capability checks or in the companion RogueForge stack manager.

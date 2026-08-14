@@ -1,76 +1,72 @@
 # Configuration reference
 
-Rogue Dashboard reads runtime values from `.env` through Docker Compose. Restart the dashboard after changing them:
+Rogue Dashboard reads runtime values from `.env`. The command used to recreate the stack depends on the selected engine.
+
+Docker:
 
 ```bash
-docker compose up -d --force-recreate dashboard
+docker compose up -d --force-recreate
+```
+
+Podman:
+
+```bash
+podman-compose --env-file .env -f compose.podman.yaml up -d
 ```
 
 ## Core values
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `TZ` | `Etc/UTC` | Container timezone. Use an IANA name such as `Europe/London`. |
+| `TZ` | `Etc/UTC` | Container timezone. Use an IANA timezone name. |
 | `RGDASH_PORT` | `7805` | Host port published for the browser. |
-| `RGDASH_BACKUP_KEEP` | `0` | Successful upgrade backups to retain. `0` disables automatic pruning. |
-| `RGDASH_IMAGE` | `ghcr.io/rogueassassin/rogue-dashboard:latest` | Optional release tag or digest pin. |
-| `PUID` / `PGID` | `1000` | Host user and group used for persistent files. |
-| `DOCKER_GID` | `999` | Group ID of `/var/run/docker.sock`; the installer detects it. |
-| `DOCKER_AGENT_TOKEN` | generated | Private dashboard-to-agent credential. Do not share it. |
-| `MEDIA_NETWORK` | `media-net` | External Docker network shared with apps and a proxy. |
-| `RGDASH_EXTRA_NETWORK` | empty | Optional second existing application network attached only to the dashboard. Install and upgrade auto-select `rogueroute-gpx` when it already exists and this value is empty. |
-| `RGDASH_ROGUEROUTE_URL` | empty | Optional public URL for a discovered RogueRoute GPX Web card. |
-| `SECURE_COOKIES` | `false` | Force Secure session cookies. Use `true` behind HTTPS when required. |
-| `RGDASH_TRUST_PROXY_HEADERS` | `true` | Honour forwarded protocol information from a trusted proxy path. |
-| `RGDASH_ALLOWED_HOSTS` | empty | Optional comma-separated host header allowlist. |
+| `RGDASH_BACKUP_KEEP` | `0` | Successful upgrade backups to retain; `0` keeps all. |
+| `RGDASH_IMAGE` | `ghcr.io/rogueassassin/rogue-dashboard:latest` | Optional tag or digest pin. |
+| `PUID` / `PGID` | `1000` | Host ownership used for persistent data where applicable. |
+| `CONTAINER_ENGINE` | `auto` | `auto`, `docker`, or `podman`. |
+| `CONTAINER_SOCKET` | auto-detected | Native engine socket path. |
+| `CONTAINER_AGENT_URL` | deployment-specific | Internal restricted-agent URL. |
+| `CONTAINER_AGENT_TOKEN` | generated | Private dashboard-to-agent credential. |
+| `MEDIA_NETWORK` | `media-net` | External application/proxy network. |
+| `RGDASH_EXTRA_NETWORK` | empty | Optional second application network attached only to the dashboard. |
+| `SECURE_COOKIES` | `false` | Force Secure session cookies. |
+| `RGDASH_TRUST_PROXY_HEADERS` | `true` | Honour trusted forwarded protocol headers. |
+| `RGDASH_ALLOWED_HOSTS` | empty | Optional comma-separated Host allowlist. |
+
+### Native socket examples
+
+```text
+Docker:          /var/run/docker.sock
+Podman rootful:  /run/podman/podman.sock
+Podman rootless: /run/user/<uid>/podman/podman.sock
+```
+
+Legacy `DOCKER_SOCKET`, `DOCKER_AGENT_URL`, `DOCKER_AGENT_TOKEN`, and `DOCKER_GID` are retained for compatibility with older Docker deployments. New Podman installations should not create a Docker socket symlink.
 
 ## Service credentials
 
-| Integration | Environment variable | Usual private URL |
+| Integration | Environment variable | Typical private URL |
 | --- | --- | --- |
-| qBittorrent 5.2+ | `RGDASH_QBITTORRENT_API_KEY` | `http://qbittorrent:8080` or your configured WebUI port |
-| qBittorrent fallback | `RGDASH_QBITTORRENT_USERNAME`, `RGDASH_QBITTORRENT_PASSWORD` | same as above |
+| qBittorrent 5.2+ | `RGDASH_QBITTORRENT_API_KEY` | `http://qbittorrent:8080` or configured WebUI port |
+| qBittorrent fallback | `RGDASH_QBITTORRENT_USERNAME`, `RGDASH_QBITTORRENT_PASSWORD` | same |
 | Prowlarr | `RGDASH_PROWLARR_KEY` | `http://prowlarr:9696` |
 | Radarr | `RGDASH_RADARR_KEY` | `http://radarr:7878` |
 | Sonarr | `RGDASH_SONARR_KEY` | `http://sonarr:8989` |
 | Seerr | `RGDASH_SEERR_KEY` | `http://seerr:5055` |
 | Bazarr | `RGDASH_BAZARR_KEY` | `http://bazarr:6767` |
 | Tautulli | `RGDASH_TAUTULLI_KEY` | `http://tautulli:8181` |
-| Pi-hole | `RGDASH_PIHOLE_KEY` | the Pi-hole HTTP address on the shared network |
+| Pi-hole | `RGDASH_PIHOLE_KEY` | Pi-hole HTTP address on the shared network |
 
-Private URLs are examples, not enforced defaults. Use the actual container DNS name and internal WebUI port from your stack.
-
-## RogueRoute GPX cards
-
-When Docker discovery finds the standard RogueRoute container names, Rogue Dashboard applies these safe defaults:
-
-| Container | Card behaviour |
-| --- | --- |
-| `rogueroute-gpx-web` | Opens `RGDASH_ROGUEROUTE_URL` and checks `http://rogueroute-gpx-web:9080/api/health`. |
-| `rogueroute-gpx-osrm` | Status-only; checks `http://rogueroute-gpx-web:9080/api/health/osrm`. |
-| `rogueroute-gpx-manager` | Status-only; checks `http://rogueroute-gpx-manager:9090/health`. |
-
-All three use bundled local icons. Container-backed cards use Docker's native health state as the authoritative status and retain the private endpoint probe as a connection diagnostic. The dashboard installer and upgrader automatically join an existing `rogueroute-gpx` network when `RGDASH_EXTRA_NETWORK` is empty. Set it explicitly if automatic detection is not possible:
-
-```dotenv
-RGDASH_EXTRA_NETWORK=rogueroute-gpx
-RGDASH_ROGUEROUTE_URL=https://gpx.example.com
-```
-
-Run `./upgrade.sh` after changing the value. Existing schema 6 cards are migrated to the current endpoints when the dashboard loads them.
+Use internal DNS names on a network shared with the dashboard service. Docker and Podman both provide container-network DNS; exact behaviour depends on the selected network backend.
 
 ## qBittorrent authentication order
 
-For qBittorrent 5.2 or later, create an API key in the WebUI and set `RGDASH_QBITTORRENT_API_KEY`. Rogue Dashboard tries that bearer key first. If the key is absent or rejected and both fallback values are present, it performs a WebUI cookie login with the configured username and password.
-
-Keeping all three values is valid and provides automatic fallback. **Customise → Connect** reports which method succeeded without returning the credentials.
+Rogue Dashboard prefers the qBittorrent 5.2+ API key. If the key is absent or rejected and both WebUI credentials are configured, it falls back to cookie authentication.
 
 ## Legacy environment migration
 
-`migrate-env.sh` converts recognised `HOMEPAGE_VAR_*` and `HOMEPAGE_*` keys into `RGDASH_*` keys. Existing `RGDASH_*` values win. The script creates `.env.pre-rgdash` once and never prints credential values.
+`migrate-env.sh` converts recognised Homepage-era variables to `RGDASH_*`. Existing `RGDASH_*` values win and credentials are never printed.
 
 ```bash
 ./migrate-env.sh .env
 ```
-
-Review the file after migration, restart the dashboard and keep both environment files private.

@@ -2,6 +2,19 @@
 
 Rogue Dashboard follows semantic versioning for published container tags. Detailed upgrade notes live in `docs/`.
 
+## 1.1.0
+
+- Added first-class Docker and Podman engine detection with capability probing.
+- Added native Podman API socket support using `/run/podman/podman.sock` without a Docker socket compatibility symlink.
+- Added engine-neutral `CONTAINER_ENGINE`, `CONTAINER_SOCKET`, and `CONTAINER_AGENT_*` settings while retaining legacy `DOCKER_*` aliases for upgrades.
+- Added `compose.podman.yaml` for Podman-native deployment.
+- Kept the existing restricted agent boundary for container list, stats and lifecycle actions.
+- Updated runtime image metadata and documentation for Docker + Podman deployments.
+- Refreshed the complete documentation set for dual-engine deployment and added coordinated Rogue Dashboard / RogueForge branding assets.
+- Updated remaining user-facing Docker-only setup wording to engine-neutral container terminology.
+
+See [the 1.1.0 release notes](docs/RELEASE_1.1.0.md).
+
 ## 1.0.1
 
 - Made native Docker health authoritative for container-backed cards while retaining private endpoint diagnostics.
@@ -21,41 +34,3 @@ See [the 1.0.1 release notes](docs/RELEASE_1.0.1.md).
 - Published a support matrix, migration policy and complete deployment guide.
 
 See [the 1.0.0 release notes](docs/RELEASE_1.0.0.md).
-
-## 0.8.0
-
-- Added up to 20 named dashboard pages with page-aware groups and Docker discovery.
-- Added page creation, renaming and guarded deletion to the live Customise panel.
-- Added validated JSON restore during first setup and from the Connection centre.
-- Migrated every existing single-page layout to a compatible Home page automatically.
-
-See [the 0.8.0 release notes](docs/RELEASE_0.8.0.md).
-
-## 0.7.0
-
-- Added opt-in live CPU, memory and network counters to authenticated Docker discovery.
-- Kept raw Docker statistics inside the restricted agent and returned only a bounded metric summary.
-- Added opt-in successful-backup retention with failed-upgrade protection.
-- Updated the repository's GitHub Actions to their validated current major versions.
-
-See [the 0.7.0 release notes](docs/RELEASE_0.7.0.md).
-
-## 0.6.0
-
-- Added Docker network visibility and duplicate-safe container discovery.
-- Added stable container links for discovered and migrated RogueRoute GPX cards.
-- Improved Docker-agent failure feedback in the dashboard header.
-- Hardened imports, static/custom asset serving, setup transactions and response headers.
-- Added process limits, graceful shutdown and bounded container logs.
-- Made GHCR publishing tag-only with release-alignment and Compose validation gates.
-- Expanded operational documentation and the staged roadmap.
-
-See [the 0.6.0 release notes](docs/RELEASE_0.6.0.md).
-
-## 0.5.0
-
-- Introduced the public pull-based GHCR installation flow and generic documentation.
-- Added the red favicon, dark Customise controls and flexible second-network overlay.
-- Added RogueRoute GPX presets and the qBittorrent 5.2+ API-key-first authentication path.
-
-See [the 0.5.0 release notes](docs/RELEASE_0.5.0.md).

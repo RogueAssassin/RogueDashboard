@@ -1,155 +1,116 @@
 # Installation and networking
 
-This guide installs Rogue Dashboard from scratch by pulling its public GHCR image. The server does not need Python, Node.js or a source build toolchain.
+Rogue Dashboard 1.1 supports both Docker and Podman. Choose the engine-specific deployment path rather than installing a compatibility shim.
 
 ## Requirements
 
-- Docker Engine 24+ or a current Docker Desktop release
+### Docker
+
+- Docker Engine 24+ or current Docker Desktop
 - Docker Compose v2
-- A Linux-style shell for the helper scripts
-- Permission to use the Docker daemon
 
-## Recommended install
+### Podman
 
-```bash
-git clone https://github.com/RogueAssassin/rogue-dashboard.git
-cd rogue-dashboard
-chmod +x install.sh upgrade.sh migrate-env.sh
-./install.sh
-```
+- Current Podman with its API socket enabled
+- `podman-compose`
+- Rootful or rootless deployment with a socket path accessible to the restricted agent
 
-The installer is safe to rerun. It:
+A Linux-style shell is required for helper scripts. WSL 2 is supported.
 
-1. verifies Docker and Compose;
-2. copies `.env.example` to `.env` only when `.env` is absent;
-3. records the current user, group and Docker socket group IDs;
-4. creates a random internal agent token;
-5. prepares `data/`, `custom/icons/` and `custom/backgrounds/`;
-6. migrates recognised legacy variable names without printing values;
-7. creates the configured shared Docker network when needed;
-8. pulls and starts the GHCR image;
-9. waits for the dashboard health check.
-
-Open `http://localhost:7805` after installation.
-
-## Folder layout
+## Persistent files
 
 | Path | Purpose | Back up? |
 | --- | --- | --- |
-| `.env` | Runtime settings and integration credentials | Yes |
+| `.env` | Runtime settings and service credentials | Yes |
 | `data/` | SQLite database, users, sessions and dashboard layout | Yes |
 | `custom/` | User icons and backgrounds | Yes |
 | `backups/` | Timestamped upgrade backups | As needed |
-| `docker-compose.yaml` | Runtime definition | Re-downloadable |
+| `docker-compose.yaml` / `compose.podman.yaml` | Runtime definitions | Re-downloadable |
 
-## Choose the host port
+## Docker deployment
 
-Set the left side of the port mapping through `.env`:
+```bash
+cp .env.example .env
+# edit .env
+CONTAINER_ENGINE=docker
+CONTAINER_SOCKET=/var/run/docker.sock
+
+docker compose -f docker-compose.yaml config
+docker compose -f docker-compose.yaml up -d
+```
+
+## Podman deployment
+
+Enable the Podman API socket first. For the rootful server deployment used by the native compose file:
+
+```bash
+sudo systemctl enable --now podman.socket
+```
+
+Configure:
 
 ```dotenv
-RGDASH_PORT=7805
+CONTAINER_ENGINE=podman
+CONTAINER_SOCKET=/run/podman/podman.sock
 ```
 
-Then recreate the dashboard:
+Validate and start:
 
 ```bash
-docker compose up -d
+podman-compose --env-file .env -f compose.podman.yaml config
+podman-compose --env-file .env -f compose.podman.yaml up -d
 ```
 
-Container port `8080` does not change. Reverse proxies on the shared Docker network should always target `rogue-dashboard:8080`.
+The Podman deployment mounts `/run/podman/podman.sock` directly into the restricted agent. Do not create `/var/run/docker.sock` for a new Podman-only install.
 
-## Shared network
+## Shared application network
 
-Rogue Dashboard creates and joins `${MEDIA_NETWORK:-media-net}`. Attach monitored services and your reverse proxy to that same external network when you want container-name DNS:
+Rogue Dashboard expects a shared application/proxy network, normally `media-net`. Attach the dashboard and monitored services to that same external network when you want DNS-by-container-name.
 
-```yaml
-services:
-  example-service:
-    networks:
-      - media-net
+Docker and Podman use different networking implementations internally, but the application contract is the same: the dashboard must share a network with services it addresses by container name.
 
-networks:
-  media-net:
-    external: true
-```
+## Optional extra network
 
-You can select another network before installation:
-
-```dotenv
-MEDIA_NETWORK=proxy
-```
-
-The network must use the same name in each Compose project. A service cannot be reached by container name when it shares no network with the dashboard.
-
-## Multiple Docker networks
-
-Some applications use an isolated network that should not be replaced by `media-net`. Rogue Dashboard can join one additional existing network while its Docker agent stays private.
-
-RogueRoute GPX creates the network `rogueroute-gpx`. When that network exists and `RGDASH_EXTRA_NETWORK` is empty, `install.sh` and `upgrade.sh` detect and configure it automatically. To set it yourself, use:
-
-```dotenv
-RGDASH_EXTRA_NETWORK=rogueroute-gpx
-```
-
-First, find the exact network attached to the target container:
-
-```bash
-docker inspect TARGET_CONTAINER \
-  --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}'
-```
-
-Set that exact name in `.env`:
-
-```dotenv
-RGDASH_EXTRA_NETWORK=application-network
-```
-
-Apply the deployment:
-
-```bash
-./upgrade.sh
-```
-
-For a fresh install, set the value before running `./install.sh`. The network must already exist because its application stack owns it; Rogue Dashboard intentionally does not create or delete the extra network.
-
-Verify both containers share it:
-
-```bash
-docker network inspect application-network \
-  --format '{{range $id, $container := .Containers}}{{println $container.Name}}{{end}}'
-```
-
-An immediate, temporary test is also possible:
-
-```bash
-docker network connect application-network rogue-dashboard
-```
-
-Manual connections disappear if the dashboard container is recreated, so use `RGDASH_EXTRA_NETWORK` for the permanent configuration.
+Set `RGDASH_EXTRA_NETWORK` when an application lives on a second existing network. Only the dashboard service should join it; the privileged engine agent remains isolated from application networks.
 
 ## WSL 2 notes
 
-- Enable Docker Desktop integration for the Linux distribution that runs the scripts.
-- Store the project inside the Linux filesystem for better bind-mount performance.
-- Run `./install.sh` as your normal WSL user; use a Docker group or Docker Desktop integration rather than running the whole stack as root.
+- Keep the project inside the Linux filesystem where practical.
+- For headless server use, enable WSL systemd and keep the distribution running with a Windows-side headless task if required by your environment.
+- Podman rootful services can be managed by systemd inside WSL.
+- Docker Desktop integration is only required for Docker-based WSL deployments.
 
-## Verify the deployment
+## Verify
+
+Docker:
 
 ```bash
 docker compose ps
 docker compose logs --tail=100 dashboard
+```
+
+Podman:
+
+```bash
+podman ps
+podman logs --tail=100 rogue-dashboard
+podman logs --tail=100 rogue-dashboard-agent
+```
+
+Application health:
+
+```bash
 curl --fail http://localhost:7805/api/ping
 ```
 
-The dashboard and agent should both be healthy. The agent intentionally has no host port.
-
-For RogueRoute, also verify its Web and OSRM containers and the shared network:
+For Podman, verify the agent's native socket mount:
 
 ```bash
-docker inspect rogueroute-gpx-web rogueroute-gpx-osrm \
-  --format '{{.Name}} {{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}'
-docker network inspect rogueroute-gpx \
-  --format '{{range $id, $container := .Containers}}{{println $container.Name}}{{end}}'
+podman inspect rogue-dashboard-agent --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
 ```
 
-`rogue-dashboard`, `rogueroute-gpx-web` and `rogueroute-gpx-osrm` should appear on the network. RogueRoute Manager may also appear because it belongs to that private application stack.
+Expected rootful mount:
+
+```text
+/run/podman/podman.sock -> /run/podman/podman.sock
+```
