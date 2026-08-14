@@ -123,11 +123,11 @@ function renderSetup() {
     <main class="setup-shell">
       <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark">R</div><div><strong>Rogue Dashboard</strong><span>Docker setup</span></div></header>
+        <header class="setup-brand"><div class="brand-mark">R</div><div><strong>Rogue Dashboard</strong><span>Container setup</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
-          <h1>Your Docker services, without the configuration headache.</h1>
+          <h1>Your container services, without the configuration headache.</h1>
           <p class="lead">Name the dashboard, optionally import your previous configuration, then create the local administrator who can change it.</p>
           <label class="field"><span>Dashboard name</span><input id="setup-title" maxlength="100" value="${escapeHtml(state.draft.meta.title)}" required></label>
           <label class="upload-zone" id="setup-upload">
@@ -208,7 +208,7 @@ async function completeSetup(event) {
     return;
   }
   const dashboard = structuredClone(state.draft);
-  dashboard.meta.title = document.getElementById("setup-title").value.trim() || "My Docker Dashboard";
+  dashboard.meta.title = document.getElementById("setup-title").value.trim() || "My Container Dashboard";
   const button = document.getElementById("setup-submit");
   button.disabled = true;
   button.textContent = "Finishing setup…";
@@ -263,7 +263,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>Rogue Dashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.0.1")}</strong></span><span>Local-first · Docker-powered</span></footer>
+        <footer class="page-footer"><span>Rogue Dashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.0")}</strong></span><span>Local-first · Docker + Podman</span></footer>
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -435,7 +435,7 @@ function editorMarkup() {
         <button class="button secondary full-button" id="export-json">⇩ Export JSON backup</button>
       </section>
       <section class="editor-section editor-tab-panel ${state.editorTab === "docker" ? "active" : ""}" data-editor-panel="docker">
-        <div class="notice info">Scan the restricted Docker agent to add cards or safely start, stop and restart containers.</div>
+        <div class="notice info">Scan the restricted Engine agent to add cards or safely start, stop and restart containers.</div>
         <button class="button secondary full-button" id="discover-docker">▣ Scan Docker containers</button><div class="container-list" id="container-list"></div>
       </section>
       <section class="editor-section editor-tab-panel ${state.editorTab === "admin" ? "active" : ""}" data-editor-panel="admin">
@@ -474,7 +474,7 @@ function bindEditor() {
   };
   Object.entries(fields).forEach(([id, key]) => document.getElementById(id).oninput = event => {
     state.draft.meta[key] = event.target.value;
-    if (key === "title") document.querySelector(".brand-block h1").textContent = event.target.value || "My Docker Dashboard";
+    if (key === "title") document.querySelector(".brand-block h1").textContent = event.target.value || "My Container Dashboard";
     if (key === "subtitle") document.querySelector(".brand-block p").textContent = event.target.value;
     if (key === "accent" && /^#[0-9a-fA-F]{6}$/.test(event.target.value)) {
       document.getElementById("shell").style.setProperty("--accent", event.target.value);
@@ -812,8 +812,8 @@ function updateStats() {
   const containerCount = document.getElementById("container-count");
   const containerLabel = document.getElementById("container-label");
   containerCount.textContent = state.system.totalContainers == null ? "—" : `${state.system.runningContainers}/${state.system.totalContainers}`;
-  containerCount.title = state.system.dockerStatus === "ok" ? "Running / total Docker containers" : "Docker agent unavailable; check DOCKER_GID and agent logs";
-  containerLabel.textContent = state.system.dockerStatus === "ok" ? "Containers running" : "Docker agent offline";
+  containerCount.title = state.system.dockerStatus === "ok" ? "Running / total Docker containers" : "Engine agent unavailable; check DOCKER_GID and agent logs";
+  containerLabel.textContent = state.system.dockerStatus === "ok" ? "Containers running" : "Engine agent offline";
   document.getElementById("memory-count").textContent = formatBytes(state.system.memoryUsed);
   document.getElementById("memory-total").textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
   document.getElementById("load-count").textContent = Number(state.system.load).toFixed(2);

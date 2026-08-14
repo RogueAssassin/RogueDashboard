@@ -1,67 +1,49 @@
-# Fresh install, upgrade and release guide
+# Deployment guide
 
-## Fresh installation
+This guide covers release/developer validation for Rogue Dashboard 1.1.0.
 
-```bash
-git clone https://github.com/RogueAssassin/rogue-dashboard.git
-cd rogue-dashboard
-chmod +x install.sh upgrade.sh migrate-env.sh
-./install.sh
-```
+## Before publishing
 
-Open `http://localhost:7805`, create the local administrator and optionally restore a Rogue Dashboard JSON backup or import Homepage ZIP/YAML files.
+1. Confirm all release metadata reports `1.1.0`.
+2. Run the Python tests and syntax validation.
+3. Validate both Docker and Podman compose definitions where tooling is available.
+4. Test Docker Engine lifecycle operations.
+5. Test native Podman lifecycle operations against `/run/podman/podman.sock`.
+6. Confirm the dashboard service has no engine socket mount.
+7. Confirm the engine agent has no published host port.
+8. Verify `.env`, `data/` and `custom/` survive replacement.
 
-The installer creates `.env` only when it is absent, generates the private agent token, detects host IDs, prepares `data/` and `custom/`, pulls GHCR images and waits for health.
-
-## Normal upgrade
-
-Back up or retain these operator-owned paths:
-
-- `.env`
-- `data/`
-- `custom/`
-
-Then run:
+## Local validation
 
 ```bash
-git pull --ff-only
-./upgrade.sh
+python -m unittest discover -s tests -v
+python -m compileall -q app
+sh -n install.sh migrate-env.sh upgrade.sh scripts/validate-release.sh
+sh scripts/validate-release.sh
 ```
 
-Do not replace `.env` with `.env.example`, delete `data/`, or run `docker compose down -v`. The upgrade script creates `backups/YYYYMMDD-HHMMSS/`, pulls before stopping, starts the replacement and rolls the image back if health fails.
+Docker:
 
-## Publish staged releases with GitHub Desktop
-
-Use this sequence when uploading the prepared 0.7.0, 0.8.0, 1.0.0 and 1.0.1 source folders.
-
-1. In GitHub Desktop, clone `RogueAssassin/rogue-dashboard` and select `main`.
-2. Copy the contents of the prepared `rogue-dashboard-v0.7.0` folder over the clone. Do not copy a real `.env`, `data`, `custom` artwork or `backups` directory.
-3. Review the changed-file list, commit as `Release Rogue Dashboard 0.7.0`, and push.
-4. Wait for both Validate jobs to pass in GitHub Actions.
-5. On GitHub, create a release whose new tag is `v0.7.0` and targets the validated commit. Publishing that tag starts the GHCR workflow.
-6. Verify the package contains `0.7.0`, `0.7` and `latest` tags.
-7. Repeat with the prepared 0.8.0 folder and tag `v0.8.0` only after 0.7 succeeds.
-8. Repeat with the prepared 1.0.0 folder and tag `v1.0.0` only after 0.8 succeeds.
-9. Repeat with the prepared 1.0.1 folder and tag `v1.0.1` only after 1.0.0 succeeds.
-
-Do not create all three tags first: the tag is the release gate and updates `latest`.
-
-## Upgrade a live installation to a staged release
-
-After its GHCR tag finishes publishing, pin the version in `.env` if desired:
-
-```dotenv
-RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:1.0.1
+```bash
+docker compose -f docker-compose.yaml config
 ```
 
-Then run `./upgrade.sh`. Verify `docker compose ps`, login, Docker discovery, service widgets, pages and **Customise → Admin**.
+Podman:
 
-## Rollback
+```bash
+podman-compose --env-file .env -f compose.podman.yaml config
+```
 
-If `upgrade.sh` fails its health check, it automatically restores the previous local image and `.env`. For a manual rollback:
+## GitHub Desktop workflow
 
-1. stop the stack;
-2. restore the matching timestamped `data`, `.env` and `custom` backup;
-3. pin the earlier image tag;
-4. run `docker compose up -d --pull never`;
-5. verify `/api/ping` and login before removing any backup.
+For a manually tested source bundle:
+
+1. Extract the prepared 1.1.0 tree outside your repository.
+2. Back up the local repository checkout.
+3. Copy the prepared tree into the GitHub Desktop checkout, preserving `.git/`.
+4. Review every changed file in GitHub Desktop.
+5. Ensure no `.env`, database, backup archive or generated secret is staged.
+6. Commit the tested source with a clear 1.1.0 dual-engine message.
+7. Push to a feature branch and allow Actions to complete before merge/tagging.
+
+Do not tag `v1.1.0` until Docker and Podman live-host validation pass.

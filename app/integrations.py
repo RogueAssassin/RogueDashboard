@@ -20,7 +20,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
-USER_AGENT = "Rogue-Dashboard/1.0.1"
+USER_AGENT = "Rogue-Dashboard/1.1.0"
 MAX_RESPONSE = 2_000_000
 LARGE_LIBRARY_RESPONSE = 24_000_000
 TIMEOUT = 6

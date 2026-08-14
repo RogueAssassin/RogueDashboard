@@ -1,37 +1,24 @@
 # Roadmap
 
-The 1.0 line establishes the stable Docker-first foundation. Future work remains gated by migration safety, a useful non-technical setup flow, WSL compatibility and a narrow Docker security boundary.
+Rogue Dashboard 1.1 establishes the dual-engine foundation: one dashboard, one restricted agent contract, native Docker and Podman sockets.
 
-## Delivered through 1.0
+## 1.1 foundation
 
-- Browser setup, local authentication, SQLite persistence and backup-first upgrades.
-- Multi-page service/bookmark layouts, search, live editing, themes and local artwork.
-- Secret-safe Homepage import plus validated Rogue Dashboard JSON restore.
-- Live media-service integrations and connection diagnostics.
-- Restricted Docker discovery, network visibility, runtime metrics and confirmed lifecycle actions.
-- Administrator session review, protected revocation and bounded action history.
-- AMD64/ARM64 GHCR images with tag-gated, validated publishing.
-- Documented support matrix, storage contract and forward migration policy.
+- Docker + Podman engine detection and native sockets.
+- Container discovery, networks, runtime health/stats and confirmed lifecycle actions.
+- Browser setup, local authentication, pages, widgets and themes.
+- Narrow privileged agent boundary.
 
-## 1.1 direction: deeper operations
+## Next Dashboard milestones
 
-- Time-series container metrics with configurable local retention and storage budgets.
-- Uptime Kuma status-page summaries and reusable integration presets.
-- Per-widget refresh intervals and selectable metrics.
-- Dedicated Docker socket, DNS and shared-network diagnostics.
+- Rename remaining historical internal `docker_*` implementation labels to engine-neutral names without breaking migrations.
+- Surface engine identity/version/capabilities in the Admin UI.
+- Add regression tests dedicated to Docker and Podman detection paths.
+- Improve rootless Podman documentation and validation.
+- Add optional multi-host read-only agents with explicit identity and permissions.
 
-## 1.2 direction: distributed installations
+## RogueForge companion
 
-- Optional remote Docker agents with explicit host identity and per-host permissions.
-- Page/group access policies and read-only operator roles.
-- Full-instance encrypted backup export and validated restore manifests.
-- Card template packs with a documented community contribution contract.
+RogueForge is the stack-management companion using the same Rogue visual language. Planned capabilities include compose editing, `.env` management with secret masking, stack lifecycle, logs, updates, networks, volumes, Podman pods, rollback snapshots and controlled multi-host management.
 
-## Later exploration
-
-- Optional identity-provider authentication behind supported reverse proxies.
-- Personal favourites and per-user presentation settings.
-- Safe embedded views only for applications that explicitly permit framing.
-- Repository governance and an explicit source licence selected by the repository owner.
-
-Requests are best proposed as focused GitHub issues with the user problem, expected behaviour, Docker topology and a redacted example configuration.
+Rogue Dashboard should remain focused on visibility and safe service controls rather than becoming a full privileged orchestration console.

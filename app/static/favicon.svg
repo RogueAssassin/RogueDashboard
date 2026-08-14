@@ -1,13 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Rogue Dashboard">
-  <defs>
-    <linearGradient id="red" x1="8" y1="5" x2="56" y2="59" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ff5368"/>
-      <stop offset="0.55" stop-color="#ed1c3b"/>
-      <stop offset="1" stop-color="#a90025"/>
-    </linearGradient>
-  </defs>
-  <rect x="3" y="3" width="58" height="58" rx="17" fill="#10070b"/>
-  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#red)"/>
-  <path d="M20 18h15.2c8.5 0 13.3 4.2 13.3 11.3 0 5-2.5 8.4-7.1 10l8.1 7.7h-9.7l-6.7-6.8h-4.8V47H20V18Zm8.3 7.2v8h6.2c3.6 0 5.5-1.3 5.5-4s-1.9-4-5.5-4h-6.2Z" fill="#fff"/>
-  <path d="M12 17 17 12M47 52l5-5" stroke="#ff9cac" stroke-width="2.5" stroke-linecap="round" opacity=".85"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g"><stop stop-color="#7c5cff"/><stop offset="1" stop-color="#00e5ff"/></linearGradient></defs><rect x="3" y="3" width="58" height="58" rx="17" fill="#0d111b" stroke="url(#g)" stroke-width="3"/><circle cx="32" cy="32" r="16" fill="none" stroke="url(#g)" stroke-width="4"/><path d="M32 11v8M32 45v8M11 32h8M45 32h8" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/><text x="32" y="37" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="14" font-weight="700">RD</text></svg>

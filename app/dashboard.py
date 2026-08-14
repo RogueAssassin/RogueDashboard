@@ -33,7 +33,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 PORT = int(os.environ.get("PORT", "8080"))
 AGENT_PORT = int(os.environ.get("AGENT_PORT", "8081"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
@@ -106,7 +106,7 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
     result: dict[str, Any] = {
         "version": 7,
         "meta": {
-            "title": text(raw_meta.get("title"), 100, "My Docker Dashboard").strip() or "My Docker Dashboard",
+            "title": text(raw_meta.get("title"), 100, "My Container Dashboard").strip() or "My Container Dashboard",
             "subtitle": text(raw_meta.get("subtitle"), 180, "Your self-hosted command centre"),
             "theme": theme,
             "accent": accent,
@@ -797,7 +797,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if "application/json" not in self.headers.get("Content-Type", ""):
             raise ValueError("Content-Type must be application/json")
         return json.loads(self.rfile.read(length))
-
     def session_token(self) -> str | None:
         cookie = SimpleCookie(self.headers.get("Cookie", ""))
         return cookie[SESSION_COOKIE].value if SESSION_COOKIE in cookie else None
