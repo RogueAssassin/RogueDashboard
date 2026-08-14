@@ -17,10 +17,10 @@ services:
       CUSTOM_DIR: /custom
       CONTAINER_ENGINE: ${CONTAINER_ENGINE:-podman}
       CONTAINER_AGENT_URL: http://engine-agent:8081
-      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN:-${DOCKER_AGENT_TOKEN}}
-      # Backward-compatible internal alias until the legacy route names are removed.
+      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
+      # Temporary internal aliases for the existing application routes.
       DOCKER_AGENT_URL: http://engine-agent:8081
-      DOCKER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN:-${DOCKER_AGENT_TOKEN}}
+      DOCKER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
     ports:
       - "${RGDASH_PORT:-7805}:8080"
     volumes:
@@ -56,10 +56,10 @@ services:
       AGENT_PORT: 8081
       CONTAINER_ENGINE: podman
       CONTAINER_SOCKET: /run/podman/podman.sock
-      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN:-${DOCKER_AGENT_TOKEN}}
-      # Backward-compatible internal aliases.
+      CONTAINER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
+      # Temporary internal aliases for the existing application routes.
       DOCKER_SOCKET: /run/podman/podman.sock
-      DOCKER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN:-${DOCKER_AGENT_TOKEN}}
+      DOCKER_AGENT_TOKEN: ${CONTAINER_AGENT_TOKEN}
       HEALTHCHECK_URL: http://127.0.0.1:8081/health
     user: "0:0"
     volumes:
