@@ -106,6 +106,14 @@ class WidgetFixtureHandler(BaseHTTPRequestHandler):
             self.respond({"queries": {"total": 1000, "blocked": 245, "percent_blocked": 24.5}, "clients": {"active": 9}, "gravity": {"domains_being_blocked": 123456}})
         elif parsed.path == "/api/v1/request/count" and self.headers.get("X-Api-Key") == "seerr-key":
             self.respond({"pending": 2, "approved": 3, "processing": 1, "available": 7})
+        elif parsed.path == "/api/status":
+            self.respond({"appVersion": "0.8.8", "engine": "podman", "version": "5.7.0", "apiVersion": "5.7.0"})
+        elif parsed.path == "/api/stacks":
+            self.respond([
+                {"name": "one", "state": "running"},
+                {"name": "two", "state": "running"},
+                {"name": "three", "state": "stopped"},
+            ])
         else:
             self.respond({"error": "not found"}, 404)
 
@@ -174,7 +182,8 @@ class RogueDashboardTests(unittest.TestCase):
                 ("seerr", ["TEST_SEERR_KEY"], {"key": "TEST_SEERR_KEY"}, ["Pending", "Approved", "Processing", "Available"]),
                 ("tautulli", ["TEST_TAUTULLI_KEY"], {"key": "TEST_TAUTULLI_KEY"}, ["Playing", "Transcoding", "Bitrate"]),
                 ("bazarr", ["TEST_BAZARR_KEY"], {"key": "TEST_BAZARR_KEY"}, ["Missing episodes", "Missing movies"]),
-                ("pihole", ["TEST_PIHOLE_KEY"], {"key": "TEST_PIHOLE_KEY"}, ["Queries", "Blocked", "Gravity", "Clients"]),
+                ("pihole", ["TEST_PIHOLE_KEY"], {"key": "TEST_PIHOLE_KEY"}, ["Queries", "Blocked", "Gravity", "Clients"]),                ("rogueforge", [], {}, ["Version", "Engine", "Stacks", "Running"]),
+
             ]
             for index, (kind, refs, bindings, labels) in enumerate(cases):
                 item = {"id": f"widget-{index}", "widget": {"type": kind, "url": base, "secretRefs": refs, "secretBindings": bindings}}
