@@ -574,6 +574,55 @@ class RogueDashboardTests(unittest.TestCase):
         self.assertEqual(metadata["license"], "MIT")
 
 
+    def test_rogueforge_widget_uses_public_read_only_endpoints(self):
+        class RogueForgeFixtureHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def respond(self, value):
+                payload = json.dumps(value).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def do_GET(self):
+                if self.path == "/api/status":
+                    self.respond({"appVersion": "0.8.8", "engine": "podman", "version": "5.7.0"})
+                elif self.path == "/api/stacks":
+                    self.respond([{"state": "running"}, {"state": "running"}, {"state": "stopped"}])
+                elif self.path == "/api/containers":
+                    self.respond([{"state": "running"}, {"state": "running"}, {"state": "running"}, {"state": "exited"}])
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RogueForgeFixtureHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = collect_widget({
+                "id": "rogueforge",
+                "widget": {
+                    "type": "rogueforge",
+                    "url": f"http://127.0.0.1:{server.server_port}",
+                    "secretRefs": [],
+                    "secretBindings": {},
+                },
+            })
+            self.assertEqual(result["state"], "ok")
+            self.assertEqual(
+                [(metric["label"], metric["value"]) for metric in result["metrics"]],
+                [("Version", "0.8.8"), ("Engine", "Podman"), ("Stacks", "2/3"), ("Containers", "3/4")],
+            )
+            self.assertEqual(result["environment"], [])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+
 
 if __name__ == "__main__":
     unittest.main()
