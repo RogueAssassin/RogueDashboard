@@ -56,6 +56,7 @@ const INTEGRATION_DEFAULTS = {
   bazarr: { refs: ["RGDASH_BAZARR_KEY"], bindings: { key: "RGDASH_BAZARR_KEY" } },
   tautulli: { refs: ["RGDASH_TAUTULLI_KEY"], bindings: { key: "RGDASH_TAUTULLI_KEY" } },
   pihole: { refs: ["RGDASH_PIHOLE_KEY"], bindings: { key: "RGDASH_PIHOLE_KEY" } },
+  rogueforge: { refs: [], bindings: {} },
 };
 
 function escapeHtml(value) {
@@ -294,12 +295,6 @@ function renderDashboard() {
           <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps and bookmarks…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
-        <section class="build-strip" aria-label="RogueDashboard build information">
-          <span><small>version</small><strong>${escapeHtml(state.bootstrap?.build?.version || state.bootstrap?.version || "1.2.0")}</strong></span>
-          <span><small>runtime</small><strong>${escapeHtml(state.bootstrap?.build?.runtime || "Container")}</strong></span>
-          <span><small>platform</small><strong>${escapeHtml(`${state.bootstrap?.build?.platform || "Linux"} ${state.bootstrap?.build?.arch || ""}`.trim())}</strong></span>
-          <span><small>license</small><strong>${escapeHtml(state.bootstrap?.build?.license || "MIT")}</strong></span>
-        </section>
         <section class="stat-strip" id="stats">
           <div class="hero-time"><span>◷</span><div><strong id="clock">--:--</strong><span id="date">Loading…</span></div></div>
           <div class="mini-stat"><span>▣</span><div><strong id="container-count">—</strong><span id="container-label">Containers running</span></div></div>
@@ -787,7 +782,7 @@ function openItem(groupIndex, itemIndex) {
     <label class="field full"><span>Description</span><input id="item-description" value="${escapeHtml(item.description || "")}"></label>
     <label class="field"><span>Icon URL or local path</span><input id="item-icon" value="${escapeHtml(item.icon || "")}" placeholder="/custom/icons/my-service.svg"><small>Leave blank for local override → GitHub asset → bundled fallback.</small></label>
     <label class="field"><span>Status</span><select id="item-status"><option value="dot">Dot</option><option value="badge">Badge</option><option value="none">Hidden</option></select></label>
-    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
+    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
     <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port"></label>
     <div class="notice info full" id="integration-env">${escapeHtml(integrationHint(item.widget?.type || ""))}</div>
   </div><div class="button-row spread">${itemIndex === undefined ? "<span></span>" : `<button type="button" class="button ghost danger-text" id="item-delete">Delete</button>`}<button class="button primary">Save card</button></div></form></section></div>`;
@@ -813,7 +808,12 @@ function saveItem(event) {
   if (integration) {
     const defaults = INTEGRATION_DEFAULTS[integration];
     const previousWidget = previous?.widget?.type === integration ? previous.widget : {};
-    item.widget = { ...previousWidget, type: integration, url: document.getElementById("item-widget-url").value || item.monitorUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
+    const integrationUrl = document.getElementById("item-widget-url").value || item.monitorUrl || (integration === "rogueforge" ? "http://rogueforge:7810" : "");
+    item.widget = { ...previousWidget, type: integration, url: integrationUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
+    if (integration === "rogueforge") {
+      item.monitorUrl = item.monitorUrl || "http://rogueforge:7810/health";
+      item.icon = item.icon || "rogueforge";
+    }
     if (integration === "pihole") item.widget.version = 6;
   }
   if (itemIndex === undefined) state.draft.groups[groupIndex].items.push(item); else state.draft.groups[groupIndex].items[itemIndex] = item;
