@@ -515,6 +515,56 @@ class RogueDashboardTests(unittest.TestCase):
 
 
 
+    def test_socket_free_health_check_uses_endpoint_only(self):
+        class HealthHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_HEAD(self):
+                self.send_response(204)
+                self.end_headers()
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), HealthHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = dashboard_app.health_check({
+                "id": "socket-free",
+                "monitorUrl": f"http://127.0.0.1:{server.server_port}/health",
+                "containerName": "ignored-by-1.2",
+            })
+            self.assertEqual(result["state"], "online")
+            self.assertEqual(result["source"], "endpoint")
+            self.assertEqual(result["status"], 204)
+            self.assertNotIn("containerState", result)
+            self.assertNotIn("containerHealth", result)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_legacy_database_filename_is_migrated_without_data_loss(self):
+        previous_data_dir = dashboard_app.DATA_DIR
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                dashboard_app.DATA_DIR = Path(temp_dir)
+                legacy = dashboard_app.DATA_DIR / "rogue-dashboard.sqlite"
+                legacy.write_bytes(b"legacy-database")
+                resolved = dashboard_app.resolve_database_path()
+                self.assertEqual(resolved.name, "roguedashboard.sqlite")
+                self.assertFalse(legacy.exists())
+                self.assertEqual(resolved.read_bytes(), b"legacy-database")
+        finally:
+            dashboard_app.DATA_DIR = previous_data_dir
+
+    def test_runtime_metadata_is_exposed_in_bootstrap_contract(self):
+        metadata = dashboard_app.runtime_metadata()
+        self.assertIn(metadata["runtime"], {"Podman", "Docker", "Container"} | ({os.environ.get("RGDASH_RUNTIME")} if os.environ.get("RGDASH_RUNTIME") and os.environ.get("RGDASH_RUNTIME").lower() != "auto" else set()))
+        self.assertTrue(metadata["platform"])
+        self.assertTrue(metadata["arch"])
+        self.assertEqual(metadata["license"], "MIT")
+
+
 
 if __name__ == "__main__":
     unittest.main()
