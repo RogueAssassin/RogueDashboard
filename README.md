@@ -56,7 +56,7 @@ For full Docker/Podman container and Compose-stack management, install RogueForg
 
 **[Download / view RogueForge on GitHub](https://github.com/RogueAssassin/RogueForge)**
 
-Both applications can share the same `media-net` network. RogueDashboard can then read RogueForge's lightweight status APIs without receiving Docker/Podman socket access or RogueForge administrator credentials.
+Both applications can share the same `media-net` network. RogueRoute GPX testing also joins this network using the aliases `rogueroute-gpx-web`, `rogueroute-gpx-manager` and `rogueroute-gpx-osrm`, so the dashboard can use its built-in private health URLs without publishing the manager or OSRM endpoints. RogueDashboard can then read RogueForge's lightweight status APIs without receiving Docker/Podman socket access or RogueForge administrator credentials.
 
 ## Container images
 
@@ -209,7 +209,7 @@ Development is validated through the `testing` branch. Successful CI publishes:
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:1.3.0-testing
+ghcr.io/rogueassassin/roguedashboard:1.3.1-testing
 ```
 
 The pipeline runs application tests, Python validation, Compose validation, an amd64 build and a multi-architecture amd64/arm64 publish.
