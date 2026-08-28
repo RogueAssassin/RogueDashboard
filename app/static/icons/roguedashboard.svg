@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="RogueDashboard">
+<defs><linearGradient id="g" x1="12" y1="12" x2="116" y2="116"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+<rect width="128" height="128" rx="28" fill="#0b0f16"/><circle cx="64" cy="64" r="49" fill="none" stroke="url(#g)" stroke-width="5"/>
+<path d="M35 34h28c17 0 28 9 28 23 0 10-6 18-15 21l18 19H76L60 80H51v17H35V34zm16 14v18h12c8 0 12-3 12-9s-4-9-12-9H51z" fill="#e2e8f0"/>
+<path d="M69 51h16c17 0 28 9 28 23s-11 23-28 23H69V83h16c8 0 12-3 12-9s-4-9-12-9H69V51z" fill="url(#g)"/></svg>
