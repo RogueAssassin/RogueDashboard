@@ -20,7 +20,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
-USER_AGENT = "Rogue-Dashboard/1.1.3"
+USER_AGENT = "RogueDashboard/1.2.0"
 MAX_RESPONSE = 2_000_000
 LARGE_LIBRARY_RESPONSE = 24_000_000
 TIMEOUT = 6
@@ -30,6 +30,7 @@ SUPPORTED_WIDGETS = {
     "prowlarr",
     "qbittorrent",
     "radarr",
+    "rogueforge",
     "seerr",
     "sonarr",
     "tautulli",
@@ -395,6 +396,29 @@ def _pihole(widget: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect lightweight public RogueForge runtime and stack summary data."""
+    base = _base_url(widget.get("url"))
+    status = _json_request(f"{base}/api/status")
+    stacks = _json_request(f"{base}/api/stacks")
+    if not isinstance(status, dict):
+        raise ValueError("RogueForge returned an invalid status response.")
+    stacks = stacks if isinstance(stacks, list) else []
+    running = sum(
+        1 for stack in stacks
+        if isinstance(stack, dict) and stack.get("state") == "running"
+    )
+    engine = str(status.get("engine") or "unknown")
+    engine_version = str(status.get("version") or "").strip()
+    engine_label = f"{engine} {engine_version}".strip()
+    return [
+        _metric("Version", status.get("appVersion") or "unknown"),
+        _metric("Engine", engine_label),
+        _metric("Stacks", len(stacks)),
+        _metric("Running", running),
+    ]
+
+
 class MissingSecrets(Exception):
     pass
 
@@ -405,6 +429,7 @@ COLLECTORS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "prowlarr": _prowlarr,
     "qbittorrent": _qbittorrent,
     "radarr": lambda widget: _arr(widget, "radarr"),
+    "rogueforge": _rogueforge,
     "seerr": _seerr,
     "sonarr": lambda widget: _arr(widget, "sonarr"),
     "tautulli": _tautulli,
