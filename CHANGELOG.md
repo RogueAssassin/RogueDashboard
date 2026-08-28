@@ -21,6 +21,11 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Added RogueForge artwork for RogueForge service cards.
 - Refreshed the interface with the cleaner RogueForge surface, border and typography treatment while keeping animations and effects lightweight.
 - Added migration and socket-free health regression tests.
+- Removed version/runtime/platform/license badges from the live dashboard and kept build metadata in project documentation.
+- Removed the remaining engine-agent status tile and obsolete container-management editor surface from the socket-free UI.
+- Added a native RogueForge widget that reads public RogueForge status/stack summaries without exposing engine sockets or credentials.
+- Upgraded the RogueDashboard RD branding to a higher-detail vector set with segmented Rogue neon rings, metallic depth, dark/light variants and a compact service-card mark.
+- Tightened the dashboard status row and reduced unnecessary UI work for a cleaner, faster live view.
 
 ## 1.1.3
 
