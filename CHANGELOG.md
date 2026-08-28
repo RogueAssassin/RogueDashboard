@@ -2,6 +2,24 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
+## 1.3.0
+
+- Promoted the polished socket-free dashboard architecture to the next stable feature release.
+- Finalized a new interlocked metallic **RD** monogram with dedicated base, dark, light and compact SVG variants.
+- Kept RogueDashboard branding independent from RogueForge while aligning both products to the same Rogue visual language.
+- Removed release/runtime/platform/license badges and legacy engine-agent presentation from the live dashboard.
+- Added native RogueForge service-card monitoring for application version, engine, stacks and container summaries.
+- Kept RogueDashboard free of Docker/Podman socket access and administrator credentials from RogueForge.
+- Improved the main status layout and removed obsolete container-management UI left over from the pre-1.1.3 architecture.
+- Standardized the runtime folder, container, Compose project and GHCR identity around `roguedashboard`.
+- Retained `RGDASH_*` as the stable environment-variable contract.
+- Preserved existing `.env`, SQLite data, users, pages, groups, integrations and local custom assets during upgrades.
+- Continued unified Docker/Podman deployment through one `compose.yaml`.
+- Added cache-busted bundled core branding so testing and production builds cannot display stale artwork from another branch.
+- Cleaned and simplified the README around what RogueDashboard does, how it works and how it complements RogueForge.
+- Added a prominent RogueForge GitHub link for users who also want container and Compose-stack management.
+- Updated the testing channel and release workflows for `1.3.0`.
+
 ## 1.2.1
 
 - Removed the version/runtime/platform/license badge strip from the live dashboard; release metadata now lives in the README.
