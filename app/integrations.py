@@ -344,6 +344,58 @@ def _bazarr(widget: dict[str, Any]) -> list[dict[str, str]]:
     return [_metric("Missing episodes", _total(episodes)), _metric("Missing movies", _total(movies))]
 
 
+def _seerr(widget: dict[str, Any]) -> list[dict[str, str]]:
+    base = _base_url(widget.get("url"))
+    api_key = _value(widget, "key", "apikey", "api_key")
+    if not api_key:
+        raise MissingSecrets
+    data = _json_request(f"{base}/api/v1/request/count", headers={"X-Api-Key": api_key})
+    return [
+        _metric("Pending", _number(_nested(data, "pending"))),
+        _metric("Approved", _number(_nested(data, "approved"))),
+        _metric("Processing", _number(_nested(data, "processing"))),
+        _metric("Available", _number(_nested(data, "available"))),
+    ]
+
+
+def _pihole(widget: dict[str, Any]) -> list[dict[str, str]]:
+    base = _base_url(widget.get("url"))
+    password = _value(widget, "key", "password", "apikey", "api_key")
+    headers: dict[str, str] = {}
+    sid = ""
+    if password:
+        auth = _json_request(
+            f"{base}/api/auth",
+            method="POST",
+            data=json.dumps({"password": password}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        session = auth.get("session", {}) if isinstance(auth, dict) else {}
+        if session.get("valid") is not True or not session.get("sid"):
+            raise PermissionError("The service rejected its credentials.")
+        sid = str(session["sid"])
+        headers["X-FTL-SID"] = sid
+    try:
+        summary = _json_request(f"{base}/api/stats/summary", headers=headers)
+    finally:
+        if sid:
+            try:
+                _json_request(f"{base}/api/auth", method="DELETE", headers={"X-FTL-SID": sid})
+            except Exception:
+                pass
+    queries = _nested(summary, "queries", "total")
+    blocked = _nested(summary, "queries", "blocked")
+    percent = float(_nested(summary, "queries", "percent_blocked") or 0)
+    clients = _nested(summary, "clients", "active")
+    gravity = _nested(summary, "gravity", "domains_being_blocked")
+    return [
+        _metric("Queries", _number(queries)),
+        _metric("Blocked", f"{_number(blocked)} ({percent:.0f}%)"),
+        _metric("Gravity", _number(gravity)),
+        _metric("Clients", _number(clients)),
+    ]
+
+
 def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
     """Collect lightweight public RogueForge runtime, stack and container summaries."""
     base = _base_url(widget.get("url"))
