@@ -23,17 +23,22 @@ const app = document.getElementById("app");
 const overlay = document.getElementById("overlay");
 const toastElement = document.getElementById("toast");
 
-const LOCAL_ICONS = {
-  qbittorrent: "/icons/qbittorrent.svg", prowlarr: "/icons/prowlarr.svg",
-  radarr: "/icons/radarr.svg", sonarr: "/icons/sonarr.svg", seerr: "/icons/seerr.svg",
-  jellyseerr: "/icons/seerr.svg", overseerr: "/icons/seerr.svg", bazarr: "/icons/bazarr.svg",
-  tautulli: "/icons/tautulli.svg", pihole: "/icons/pihole.svg", dozzle: "/icons/dozzle.svg",
-  uptimekuma: "/icons/uptime-kuma.svg", dockge: "/icons/dockge.svg",
-  flaresolverr: "/icons/flaresolverr.svg",
-  github: "/icons/github.svg",
-  rogueroutegpx: "/icons/rogueroute-gpx.svg", rogueroutegpxweb: "/icons/rogueroute-gpx.svg",
-  roguerouteosrm: "/icons/rogueroute-osrm.svg", rogueroutegpxosrm: "/icons/rogueroute-osrm.svg",
-  rogueroutemanager: "/icons/rogueroute-manager.svg", rogueroutegpxmanager: "/icons/rogueroute-manager.svg",
+const ICON_FILES = {
+  qbittorrent: "qbittorrent.svg", prowlarr: "prowlarr.svg",
+  radarr: "radarr.svg", sonarr: "sonarr.svg", seerr: "seerr.svg",
+  jellyseerr: "seerr.svg", overseerr: "seerr.svg", bazarr: "bazarr.svg",
+  tautulli: "tautulli.svg", pihole: "pihole.svg", dozzle: "dozzle.svg",
+  uptimekuma: "uptime-kuma.svg", dockge: "dockge.svg",
+  flaresolverr: "flaresolverr.svg", github: "github.svg",
+  rogueforge: "rogueforge.jpg", roguedashboard: "roguedashboard.svg",
+  rogueroutegpx: "rogueroute-gpx.svg", rogueroutegpxweb: "rogueroute-gpx.svg",
+  roguerouteosrm: "rogueroute-osrm.svg", rogueroutegpxosrm: "rogueroute-osrm.svg",
+  rogueroutemanager: "rogueroute-manager.svg", rogueroutegpxmanager: "rogueroute-manager.svg",
+};
+
+const ICON_REMOTE_OVERRIDES = {
+  rogueforge: "https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg",
+  roguedashboard: "/branding/roguedashboard.svg?v=1.3.0",
 };
 
 const THEME_PRESETS = {
@@ -51,6 +56,7 @@ const INTEGRATION_DEFAULTS = {
   bazarr: { refs: ["RGDASH_BAZARR_KEY"], bindings: { key: "RGDASH_BAZARR_KEY" } },
   tautulli: { refs: ["RGDASH_TAUTULLI_KEY"], bindings: { key: "RGDASH_TAUTULLI_KEY" } },
   pihole: { refs: ["RGDASH_PIHOLE_KEY"], bindings: { key: "RGDASH_PIHOLE_KEY" } },
+  rogueforge: { refs: [], bindings: {} },
 };
 
 function escapeHtml(value) {
@@ -76,11 +82,45 @@ function iconKey(value) {
   return String(value || "").split(/[\\/]/).pop().replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-function iconFor(item) {
+function iconCandidates(item) {
   const supplied = item.icon || "";
-  if (/^(https?:|data:|\/custom\/|\/icons\/)/i.test(supplied)) return safeUrl(supplied);
-  const candidates = [iconKey(supplied), iconKey(item.widget?.type), iconKey(item.name)];
-  return candidates.map(key => LOCAL_ICONS[key]).find(Boolean) || "";
+  if (/^(https?:|data:|\/custom\/|\/icons\/)/i.test(supplied)) return [safeUrl(supplied)].filter(Boolean);
+  const keys = [iconKey(supplied), iconKey(item.widget?.type), iconKey(item.name)];
+  const key = keys.find(candidate => ICON_FILES[candidate]);
+  const file = key ? ICON_FILES[key] : "";
+  if (!file) return [];
+  const base = String(state.bootstrap?.assets?.baseUrl || "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static").replace(/\/$/, "");
+  const remote = ICON_REMOTE_OVERRIDES[key] || `${base}/icons/${file}`;
+  return [
+    `/custom/icons/${file}`,
+    remote,
+    `/icons/${file}`,
+  ];
+}
+
+function iconMarkupFor(item) {
+  const candidates = iconCandidates(item);
+  if (!candidates.length) return `<span>${escapeHtml(initials(item.name))}</span>`;
+  const fallback = escapeHtml(JSON.stringify(candidates.slice(1)));
+  return `<img src="${candidates[0]}" data-icon-fallbacks="${fallback}" alt="">`;
+}
+
+function bindIconFallbacks(root) {
+  root.querySelectorAll("img[data-icon-fallbacks]").forEach(img => {
+    img.addEventListener("error", () => {
+      let remaining = [];
+      try { remaining = JSON.parse(img.dataset.iconFallbacks || "[]"); } catch {}
+      const next = remaining.shift();
+      if (next) {
+        img.dataset.iconFallbacks = JSON.stringify(remaining);
+        img.src = next;
+      } else {
+        const fallback = document.createElement("span");
+        fallback.textContent = initials(img.closest(".service-card")?.querySelector(".service-name strong")?.textContent || "?");
+        img.replaceWith(fallback);
+      }
+    });
+  });
 }
 
 async function request(path, options = {}) {
@@ -113,7 +153,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img src="/rogue-dashboard-logo.png" alt="Rogue Dashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/branding/roguedashboard-dark.svg?v=1.3.0" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -123,7 +163,7 @@ function renderSetup() {
     <main class="setup-shell">
       <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img src="/rogue-dashboard-logo.png" alt="Rogue Dashboard"></div><div><strong>Rogue Dashboard</strong><span>Container setup</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/branding/roguedashboard-dark.svg?v=1.3.0" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -132,7 +172,7 @@ function renderSetup() {
           <label class="field"><span>Dashboard name</span><input id="setup-title" maxlength="100" value="${escapeHtml(state.draft.meta.title)}" required></label>
           <label class="upload-zone" id="setup-upload">
             <input id="setup-files" type="file" accept=".json,.zip,.yaml,.yml" multiple>
-            <strong>Restore Rogue Dashboard JSON or choose legacy ZIP/YAML</strong><span>Credentials remain environment references</span>
+            <strong>Restore RogueDashboard JSON or choose legacy ZIP/YAML</strong><span>Credentials remain environment references</span>
           </label>
           <div id="setup-import-result"></div>
           <div class="form-grid">
@@ -251,19 +291,19 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          <div class="brand-block"><div class="brand-mark small"><img src="/rogue-dashboard-logo.png" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
+          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/branding/roguedashboard-dark.svg?v=1.3.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
           <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps and bookmarks…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
         <section class="stat-strip" id="stats">
           <div class="hero-time"><span>◷</span><div><strong id="clock">--:--</strong><span id="date">Loading…</span></div></div>
-          <div class="mini-stat"><span>▣</span><div><strong id="container-count">—</strong><span id="container-label">Containers running</span></div></div>
+          <div class="mini-stat"><span>◆</span><div><strong id="container-count">—</strong><span id="container-label">Live widgets</span></div></div>
           <div class="mini-stat"><span>●</span><div><strong id="online-count">—</strong><span>Services online</span></div></div>
           <div class="mini-stat"><span>▤</span><div><strong id="memory-count">—</strong><span id="memory-total">Memory</span></div></div>
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>Rogue Dashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.3")}</strong></span><span>${escapeHtml((state.system?.engine?.name || "Container runtime + Container runtime").replace(/^./, c => c.toUpperCase()))} · local-first</span></footer>
+        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.3")}</strong></span><span>Service monitoring · local-first</span></footer>
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -305,6 +345,7 @@ function renderGroups() {
     return `<section class="service-group ${brandedLinks ? "branded-links-group" : ""}" data-group="${groupIndex}"><header class="group-header"><button class="group-title collapse-group" data-id="${escapeHtml(group.id)}"><span>${collapsed ? "›" : "⌄"}</span><h2>${escapeHtml(group.name)}</h2><span>${items.length}</span></button>${state.editor ? `<button class="button tiny add-card" data-group="${groupIndex}">+ Add card</button>` : ""}</header>${collapsed ? "" : `<div class="card-grid ${group.kind === "bookmarks" ? "bookmark-menu" : ""} ${state.draft.meta.equalHeights ? "equal" : ""}" style="--group-columns:${Math.min(group.columns, state.draft.meta.maxColumns)}">${items.map(({ item, itemIndex }) => cardMarkup(item, groupIndex, itemIndex, group.kind)).join("")}${state.editor && !items.length ? `<button class="empty-group add-card" data-group="${groupIndex}">+ Add the first card</button>` : ""}</div>`}</section>`;
   }).join("");
   container.innerHTML = html || `<section class="empty-search"><h2>No matching cards</h2><p>Try another search or add a service.</p></section>`;
+  bindIconFallbacks(container);
   document.getElementById("result-count").textContent = query ? `${visibleCount} results for “${state.search}”` : "";
   container.querySelectorAll(".collapse-group").forEach(button => button.onclick = () => {
     state.collapsed.has(button.dataset.id) ? state.collapsed.delete(button.dataset.id) : state.collapsed.add(button.dataset.id);
@@ -320,12 +361,12 @@ function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const widget = state.widgets.get(item.id);
   const statusState = status?.state || "unknown";
   const href = safeUrl(item.href);
-  const iconUrl = iconFor(item);
+  const iconMarkup = iconMarkupFor(item);
   const statusTitle = status?.message || (statusState === "unknown" ? "Waiting for health status" : statusState);
   const statusMarkup = item.statusStyle !== "none" && item.monitorUrl ? `<span class="status ${statusState} ${item.statusStyle === "badge" ? "badge" : ""}" title="${escapeHtml(statusTitle)}">${item.statusStyle === "badge" ? escapeHtml(statusState) : ""}</span>` : "";
   const latency = Number.isFinite(widget?.latencyMs) ? widget.latencyMs : status?.latencyMs;
   const latencyMarkup = state.draft.meta.showLatency && Number.isFinite(latency) ? `<span class="connection-latency ${widget?.state === "error" || statusState === "offline" ? "failed" : ""}">${latency} ms</span>` : "";
-  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${href ? `href="${href}" target="_blank" rel="noreferrer"` : ""}><div class="service-main"><div class="service-icon">${iconUrl ? `<img src="${iconUrl}" alt="">` : `<span>${escapeHtml(initials(item.name))}</span>`}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? "↗" : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p></div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
+  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${href ? `href="${href}" target="_blank" rel="noreferrer"` : ""}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? "↗" : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p></div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
 }
 
 function widgetCardMarkup(item, widget) {
@@ -400,7 +441,7 @@ function moveItem(sourceGroup, sourceItem, targetGroup, targetItem) {
 function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header"><div><span class="eyebrow">LIVE PREVIEW</span><h2>Customise</h2></div><button class="icon-button" id="close-editor">×</button></header>
-    <nav class="editor-tabs"><button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}">Appearance</button><button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}">Layout</button><button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}">Connect</button><button data-editor-tab="containers" class="${state.editorTab === "containers" ? "active" : ""}">Services</button><button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}">Admin</button></nav>
+    <nav class="editor-tabs"><button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}">Appearance</button><button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}">Layout</button><button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}">Connect</button><button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}">Admin</button></nav>
     <div class="editor-content">
       <section class="editor-section editor-tab-panel ${state.editorTab === "appearance" ? "active" : ""}" data-editor-panel="appearance">
         <label class="field"><span>Dashboard title</span><input id="edit-title" value="${escapeHtml(state.draft.meta.title)}"></label>
@@ -431,15 +472,11 @@ function editorMarkup() {
         <div class="section-heading"><div><h3>Connection centre</h3><p>Private network, .env loading and API authentication.</p></div><button class="button tiny" id="refresh-monitor">↻ Test now</button></div>
         ${proxyDiagnosticsMarkup()}
         <div id="widget-diagnostics">${connectionDiagnosticsMarkup()}</div>
-        <label class="compact-upload"><input id="editor-import" type="file" accept=".json,.zip,.yaml,.yml" multiple><span>⇧ Restore Rogue Dashboard JSON or import legacy ZIP/YAML</span></label>
+        <label class="compact-upload"><input id="editor-import" type="file" accept=".json,.zip,.yaml,.yml" multiple><span>⇧ Restore RogueDashboard JSON or import legacy ZIP/YAML</span></label>
         <button class="button secondary full-button" id="export-json">⇩ Export JSON backup</button>
       </section>
-      <section class="editor-section editor-tab-panel ${state.editorTab === "containers" ? "active" : ""}" data-editor-panel="containers">
-        <div class="notice info">Scan the restricted Engine agent to add cards or safely start, stop and restart containers.</div>
-        <button class="button secondary full-button" id="discover-containers">▣ Refresh services</button><div class="container-list" id="container-list"></div>
-      </section>
       <section class="editor-section editor-tab-panel ${state.editorTab === "admin" ? "active" : ""}" data-editor-panel="admin">
-        <div class="section-heading"><div><h3>Service monitoring</h3><p>Detected through the restricted engine agent.</p></div></div>
+        <div class="section-heading"><div><h3>Service monitoring</h3><p>RogueDashboard monitors services directly over HTTP/API without a container-engine socket.</p></div></div>
         <div class="admin-list"><div class="admin-row"><div><strong>${escapeHtml((state.system?.engine?.name || "Unknown").replace(/^./, c => c.toUpperCase()))}</strong><span>Version ${escapeHtml(state.system?.engine?.version || "unknown")} · API ${escapeHtml(state.system?.engine?.apiVersion || "unknown")}</span></div><span class="status-dot ${state.system?.engineStatus === "ok" ? "online" : ""}">${state.system?.engineStatus === "ok" ? "Connected" : "Offline"}</span></div></div>
         <div class="section-heading"><div><h3>Administrator sessions</h3><p>Review active sign-ins and revoke sessions you no longer recognise.</p></div><button class="button tiny" id="refresh-admin">↻ Refresh</button></div>
         <div class="admin-list" id="admin-sessions"><div class="notice info">Open this tab to load sessions.</div></div>
@@ -727,6 +764,7 @@ function exportJson() {
 function integrationHint(type) {
   const config = INTEGRATION_DEFAULTS[type];
   if (type === "qbittorrent") return "qBittorrent 5.2+: use RGDASH_QBITTORRENT_API_KEY. Username and password are the automatic fallback.";
+  if (type === "rogueforge") return "RogueForge uses its read-only public status APIs. No credentials are stored. Default private URL: http://rogueforge:7810.";
   return config ? `Add ${config.refs.join(" and ")} to .env.` : "Health-check monitoring only; no API credentials required.";
 }
 
@@ -739,9 +777,9 @@ function openItem(groupIndex, itemIndex) {
     <label class="field full"><span>Open URL</span><input id="item-href" value="${escapeHtml(item.href || "")}" placeholder="https://…"></label>
     <label class="field full"><span>Private health-check URL</span><input id="item-monitor" value="${escapeHtml(item.monitorUrl || "")}" placeholder="http://container:port"></label>
     <label class="field full"><span>Description</span><input id="item-description" value="${escapeHtml(item.description || "")}"></label>
-    <label class="field"><span>Icon URL or local path</span><input id="item-icon" value="${escapeHtml(item.icon || "")}" placeholder="/custom/icons/my-service.svg"><small>Leave blank to use a bundled icon when recognised.</small></label>
+    <label class="field"><span>Icon URL or local path</span><input id="item-icon" value="${escapeHtml(item.icon || "")}" placeholder="/custom/icons/my-service.svg"><small>Leave blank for local override → GitHub asset → bundled fallback.</small></label>
     <label class="field"><span>Status</span><select id="item-status"><option value="dot">Dot</option><option value="badge">Badge</option><option value="none">Hidden</option></select></label>
-    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
+    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
     <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port"></label>
     <div class="notice info full" id="integration-env">${escapeHtml(integrationHint(item.widget?.type || ""))}</div>
   </div><div class="button-row spread">${itemIndex === undefined ? "<span></span>" : `<button type="button" class="button ghost danger-text" id="item-delete">Delete</button>`}<button class="button primary">Save card</button></div></form></section></div>`;
@@ -749,8 +787,16 @@ function openItem(groupIndex, itemIndex) {
   document.getElementById("item-status").value = item.statusStyle;
   document.getElementById("item-integration").value = item.widget?.type || "";
   document.getElementById("item-integration").onchange = event => {
-    document.getElementById("integration-env").textContent = integrationHint(event.target.value);
-    if (event.target.value && !document.getElementById("item-widget-url").value) document.getElementById("item-widget-url").value = document.getElementById("item-monitor").value;
+    const selected = event.target.value;
+    document.getElementById("integration-env").textContent = integrationHint(selected);
+    const widgetUrl = document.getElementById("item-widget-url");
+    const monitorUrl = document.getElementById("item-monitor");
+    if (selected === "rogueforge") {
+      if (!widgetUrl.value) widgetUrl.value = "http://rogueforge:7810";
+      if (!monitorUrl.value) monitorUrl.value = "http://rogueforge:7810/health";
+    } else if (selected && !widgetUrl.value) {
+      widgetUrl.value = monitorUrl.value;
+    }
   };
   document.getElementById("item-close").onclick = closeOverlay;
   document.getElementById("item-form").onsubmit = saveItem;
@@ -767,7 +813,12 @@ function saveItem(event) {
   if (integration) {
     const defaults = INTEGRATION_DEFAULTS[integration];
     const previousWidget = previous?.widget?.type === integration ? previous.widget : {};
-    item.widget = { ...previousWidget, type: integration, url: document.getElementById("item-widget-url").value || item.monitorUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
+    const integrationUrl = document.getElementById("item-widget-url").value || item.monitorUrl || (integration === "rogueforge" ? "http://rogueforge:7810" : "");
+    item.widget = { ...previousWidget, type: integration, url: integrationUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
+    if (integration === "rogueforge") {
+      item.monitorUrl = item.monitorUrl || "http://rogueforge:7810/health";
+      item.icon = item.icon || "rogueforge";
+    }
     if (integration === "pihole") item.widget.version = 6;
   }
   if (itemIndex === undefined) state.draft.groups[groupIndex].items.push(item); else state.draft.groups[groupIndex].items[itemIndex] = item;
@@ -807,19 +858,29 @@ function updateClock() {
 }
 
 function updateStats() {
-  if (!document.getElementById("container-count")) return;
   const online = [...state.health.values()].filter(item => item.state === "online").length;
-  document.getElementById("online-count").textContent = state.health.size ? `${online}/${state.health.size}` : "—";
+  const onlineCount = document.getElementById("online-count");
+  if (onlineCount) onlineCount.textContent = state.health.size ? `${online}/${state.health.size}` : "—";
+
+  const widgetValues = [...state.widgets.values()];
+  const liveWidgets = widgetValues.filter(item => item.state === "ok").length;
+  const widgetCount = document.getElementById("container-count");
+  const widgetLabel = document.getElementById("container-label");
+  if (widgetCount) {
+    widgetCount.textContent = widgetValues.length ? `${liveWidgets}/${widgetValues.length}` : "—";
+    widgetCount.title = widgetValues.length ? "Live integrations / configured integrations" : "No live integrations configured";
+  }
+  if (widgetLabel) widgetLabel.textContent = "Live widgets";
+
   if (!state.system) return;
-  const containerCount = document.getElementById("container-count");
-  const containerLabel = document.getElementById("container-label");
-  containerCount.textContent = state.system.totalContainers == null ? "—" : `${state.system.runningContainers}/${state.system.totalContainers}`;
-  containerCount.title = state.system.engineStatus === "ok" ? `Running / total ${state.system.engine?.name || "container"} containers` : "Engine agent unavailable; check agent logs";
-  containerLabel.textContent = state.system.engineStatus === "ok" ? `${(state.system.engine?.name || "Container").replace(/^./, c => c.toUpperCase())} containers running` : "Engine agent offline";
-  document.getElementById("memory-count").textContent = formatBytes(state.system.memoryUsed);
-  document.getElementById("memory-total").textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
-  document.getElementById("load-count").textContent = Number(state.system.load).toFixed(2);
-  document.getElementById("uptime-count").textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;
+  const memoryCount = document.getElementById("memory-count");
+  const memoryTotal = document.getElementById("memory-total");
+  const loadCount = document.getElementById("load-count");
+  const uptimeCount = document.getElementById("uptime-count");
+  if (memoryCount) memoryCount.textContent = formatBytes(state.system.memoryUsed);
+  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
+  if (loadCount) loadCount.textContent = Number(state.system.load).toFixed(2);
+  if (uptimeCount) uptimeCount.textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;
 }
 
 async function refreshRuntime(force = false) {
