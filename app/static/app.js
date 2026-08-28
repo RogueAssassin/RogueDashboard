@@ -30,7 +30,7 @@ const ICON_FILES = {
   tautulli: "tautulli.svg", pihole: "pihole.svg", dozzle: "dozzle.svg",
   uptimekuma: "uptime-kuma.svg", dockge: "dockge.svg",
   flaresolverr: "flaresolverr.svg", github: "github.svg",
-  rogueforge: "rogueforge.svg", roguedashboard: "roguedashboard.svg",
+  rogueforge: "rogueforge.jpg", roguedashboard: "roguedashboard.svg",
   rogueroutegpx: "rogueroute-gpx.svg", rogueroutegpxweb: "rogueroute-gpx.svg",
   roguerouteosrm: "rogueroute-osrm.svg", rogueroutegpxosrm: "rogueroute-osrm.svg",
   rogueroutemanager: "rogueroute-manager.svg", rogueroutegpxmanager: "rogueroute-manager.svg",
