@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">RogueDashboard</title><desc id="desc">Original RD monogram for RogueDashboard</desc>
+<defs>
+  <linearGradient id="ring" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#8b5cf6"/><stop offset=".48" stop-color="#a855f7"/><stop offset="1" stop-color="#22d3ee"/>
+  </linearGradient>
+  <linearGradient id="metal" x1="148" y1="118" x2="364" y2="394" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#f8fafc"/><stop offset=".35" stop-color="#cbd5e1"/><stop offset=".7" stop-color="#64748b"/><stop offset="1" stop-color="#e2e8f0"/>
+  </linearGradient>
+  <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="512" height="512" rx="112" fill="#080a0f"/>
+<circle cx="256" cy="256" r="207" fill="#0d1118" stroke="#1f2937" stroke-width="18"/>
+<circle cx="256" cy="256" r="184" fill="none" stroke="url(#ring)" stroke-width="10" filter="url(#glow)"/>
+<circle cx="256" cy="256" r="158" fill="#090d14" stroke="#273244" stroke-width="3"/>
+<path d="M146 142h112c63 0 105 34 105 88 0 39-22 67-57 80l70 74h-69l-62-67h-37v67h-62V142zm62 54v67h47c28 0 45-12 45-34 0-21-17-33-45-33h-47z" fill="url(#metal)" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
+<path d="M278 205h63c64 0 105 33 105 90 0 57-41 89-105 89h-63v-55h61c28 0 44-12 44-34 0-23-16-35-44-35h-61v-55z" fill="url(#ring)" opacity=".98"/>
+<path d="M278 205v179" stroke="#f8fafc" stroke-opacity=".28" stroke-width="3"/>
+</svg>
