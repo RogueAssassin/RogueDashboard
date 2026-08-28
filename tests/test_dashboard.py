@@ -114,6 +114,13 @@ class WidgetFixtureHandler(BaseHTTPRequestHandler):
                 {"name": "two", "state": "running"},
                 {"name": "three", "state": "stopped"},
             ])
+        elif parsed.path == "/api/containers":
+            self.respond([
+                {"name": "one", "state": "running"},
+                {"name": "two", "state": "running"},
+                {"name": "three", "state": "running"},
+                {"name": "four", "state": "exited"},
+            ])
         else:
             self.respond({"error": "not found"}, 404)
 
