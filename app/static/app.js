@@ -36,6 +36,11 @@ const ICON_FILES = {
   rogueroutemanager: "rogueroute-manager.svg", rogueroutegpxmanager: "rogueroute-manager.svg",
 };
 
+const ICON_REMOTE_OVERRIDES = {
+  rogueforge: "https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg",
+  roguedashboard: "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static/rogue-dashboard-logo.png",
+};
+
 const THEME_PRESETS = {
   neon: ["#ff2bd6", "#00e5ff"], midnight: ["#7c5cff", "#1db7bd"],
   graphite: ["#aeb6c5", "#667085"], ocean: ["#24a8ff", "#38f2cf"],
@@ -80,12 +85,14 @@ function iconCandidates(item) {
   const supplied = item.icon || "";
   if (/^(https?:|data:|\/custom\/|\/icons\/)/i.test(supplied)) return [safeUrl(supplied)].filter(Boolean);
   const keys = [iconKey(supplied), iconKey(item.widget?.type), iconKey(item.name)];
-  const file = keys.map(key => ICON_FILES[key]).find(Boolean);
+  const key = keys.find(candidate => ICON_FILES[candidate]);
+  const file = key ? ICON_FILES[key] : "";
   if (!file) return [];
   const base = String(state.bootstrap?.assets?.baseUrl || "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static").replace(/\/$/, "");
+  const remote = ICON_REMOTE_OVERRIDES[key] || `${base}/icons/${file}`;
   return [
     `/custom/icons/${file}`,
-    `${base}/icons/${file}`,
+    remote,
     `/icons/${file}`,
   ];
 }
