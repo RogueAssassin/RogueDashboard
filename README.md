@@ -78,17 +78,24 @@ docker compose --env-file .env -f compose.yaml up -d
 
 ## Updating
 
+Keep the current `.env`, `data/` and `custom/` directories. Only refresh the Compose definition and image:
+
 ```bash
-cd /opt/media-server/roguedashboard
+cd /opt/media-server/roguedashboard   # or your existing /opt/media-server/rogue-dashboard folder
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/compose.yaml -o compose.yaml
 podman compose --env-file .env -f compose.yaml pull
 podman compose --env-file .env -f compose.yaml up -d
 ```
 
-No Git checkout is required on the production host.
+Do not re-download `.env.example` over an existing `.env`. No Git checkout is required on the production host.
 
 ## Migration from 1.1.3
 
-The application data format is retained. Copy or move the existing `data/` and `custom/` directories into the new `roguedashboard/` runtime folder, download the new `compose.yaml`, and keep your existing `.env` file. `RGDASH_*` integration variables remain valid.
+The application data format is retained and upgrades must preserve the existing `.env`, `data/`, and `custom/` contents. Do **not** overwrite an existing `.env` with `.env.example` during an upgrade. Existing installations may remain in their current `/opt/media-server/rogue-dashboard` host folder; new installs can use `/opt/media-server/roguedashboard`.
+
+If an existing `.env` still sets `RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:<tag>`, 1.2.0 remains compatible because releases are published under both the canonical `roguedashboard` package name and the legacy `rogue-dashboard` package name. This lets the remaining settings and secrets stay untouched.
+
+On first 1.2.0 start, an existing `data/rogue-dashboard.sqlite` database is migrated in place to `data/roguedashboard.sqlite`. Dashboard configuration, administrator accounts, sessions and saved settings are retained.
 
 If other services address the dashboard by its old network alias, 1.2.0 keeps `rogue-dashboard` as a compatibility alias while making `roguedashboard` the canonical internal name.
 
