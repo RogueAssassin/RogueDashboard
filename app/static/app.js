@@ -297,7 +297,7 @@ function renderDashboard() {
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
         <section class="stat-strip" id="stats">
           <div class="hero-time"><span>◷</span><div><strong id="clock">--:--</strong><span id="date">Loading…</span></div></div>
-          <div class="mini-stat"><span>▣</span><div><strong id="container-count">—</strong><span id="container-label">Containers running</span></div></div>
+          <div class="mini-stat"><span>◆</span><div><strong id="container-count">—</strong><span id="container-label">Live widgets</span></div></div>
           <div class="mini-stat"><span>●</span><div><strong id="online-count">—</strong><span>Services online</span></div></div>
           <div class="mini-stat"><span>▤</span><div><strong id="memory-count">—</strong><span id="memory-total">Memory</span></div></div>
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
@@ -476,7 +476,7 @@ function editorMarkup() {
         <button class="button secondary full-button" id="export-json">⇩ Export JSON backup</button>
       </section>
       <section class="editor-section editor-tab-panel ${state.editorTab === "admin" ? "active" : ""}" data-editor-panel="admin">
-        <div class="section-heading"><div><h3>Service monitoring</h3><p>Detected through the restricted engine agent.</p></div></div>
+        <div class="section-heading"><div><h3>Service monitoring</h3><p>RogueDashboard monitors services directly over HTTP/API without a container-engine socket.</p></div></div>
         <div class="admin-list"><div class="admin-row"><div><strong>${escapeHtml((state.system?.engine?.name || "Unknown").replace(/^./, c => c.toUpperCase()))}</strong><span>Version ${escapeHtml(state.system?.engine?.version || "unknown")} · API ${escapeHtml(state.system?.engine?.apiVersion || "unknown")}</span></div><span class="status-dot ${state.system?.engineStatus === "ok" ? "online" : ""}">${state.system?.engineStatus === "ok" ? "Connected" : "Offline"}</span></div></div>
         <div class="section-heading"><div><h3>Administrator sessions</h3><p>Review active sign-ins and revoke sessions you no longer recognise.</p></div><button class="button tiny" id="refresh-admin">↻ Refresh</button></div>
         <div class="admin-list" id="admin-sessions"><div class="notice info">Open this tab to load sessions.</div></div>
@@ -848,7 +848,31 @@ function updateClock() {
   if (date) date.textContent = now.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
 }
 
-function updateStats() {\n  const online = [...state.health.values()].filter(item => item.state === "online").length;\n  const onlineCount = document.getElementById("online-count");\n  if (onlineCount) onlineCount.textContent = state.health.size ? `${online}/${state.health.size}` : "—";\n  if (!state.system) return;\n  const memoryCount = document.getElementById("memory-count");\n  const memoryTotal = document.getElementById("memory-total");\n  const loadCount = document.getElementById("load-count");\n  const uptimeCount = document.getElementById("uptime-count");\n  if (memoryCount) memoryCount.textContent = formatBytes(state.system.memoryUsed);\n  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;\n  if (loadCount) loadCount.textContent = Number(state.system.load).toFixed(2);\n  if (uptimeCount) uptimeCount.textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;\n}
+function updateStats() {
+  const online = [...state.health.values()].filter(item => item.state === "online").length;
+  const onlineCount = document.getElementById("online-count");
+  if (onlineCount) onlineCount.textContent = state.health.size ? `${online}/${state.health.size}` : "—";
+
+  const widgetValues = [...state.widgets.values()];
+  const liveWidgets = widgetValues.filter(item => item.state === "ok").length;
+  const widgetCount = document.getElementById("container-count");
+  const widgetLabel = document.getElementById("container-label");
+  if (widgetCount) {
+    widgetCount.textContent = widgetValues.length ? `${liveWidgets}/${widgetValues.length}` : "—";
+    widgetCount.title = widgetValues.length ? "Live integrations / configured integrations" : "No live integrations configured";
+  }
+  if (widgetLabel) widgetLabel.textContent = "Live widgets";
+
+  if (!state.system) return;
+  const memoryCount = document.getElementById("memory-count");
+  const memoryTotal = document.getElementById("memory-total");
+  const loadCount = document.getElementById("load-count");
+  const uptimeCount = document.getElementById("uptime-count");
+  if (memoryCount) memoryCount.textContent = formatBytes(state.system.memoryUsed);
+  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
+  if (loadCount) loadCount.textContent = Number(state.system.load).toFixed(2);
+  if (uptimeCount) uptimeCount.textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;
+}
 
 async function refreshRuntime(force = false) {
   const refreshButton = document.getElementById("refresh-monitor");
