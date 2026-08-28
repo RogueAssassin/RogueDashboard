@@ -344,6 +344,43 @@ def _bazarr(widget: dict[str, Any]) -> list[dict[str, str]]:
     return [_metric("Missing episodes", _total(episodes)), _metric("Missing movies", _total(movies))]
 
 
+def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect safe public RogueForge status/inventory metrics.
+
+    RogueForge deliberately exposes these read-only endpoints without requiring
+    its administrator session, so RogueDashboard never needs to store or proxy
+    RogueForge credentials.
+    """
+    base = _base_url(widget.get("url"))
+    status = _json_request(f"{base}/api/status")
+    stacks = _json_request(f"{base}/api/stacks")
+    containers = _json_request(f"{base}/api/containers")
+
+    status = status if isinstance(status, dict) else {}
+    stacks = stacks if isinstance(stacks, list) else []
+    containers = containers if isinstance(containers, list) else []
+
+    running = sum(
+        str(item.get("state", "")).lower() == "running"
+        for item in containers
+        if isinstance(item, dict)
+    )
+    healthy_stacks = sum(
+        str(item.get("state", "")).lower() == "running"
+        for item in stacks
+        if isinstance(item, dict)
+    )
+    engine = str(status.get("engine") or "unknown").strip().title()
+    version = str(status.get("appVersion") or status.get("version") or "unknown").strip()
+
+    return [
+        _metric("Version", version),
+        _metric("Engine", engine),
+        _metric("Stacks", f"{healthy_stacks}/{len(stacks)}"),
+        _metric("Containers", f"{running}/{len(containers)}"),
+    ]
+
+
 def _seerr(widget: dict[str, Any]) -> list[dict[str, str]]:
     base = _base_url(widget.get("url"))
     api_key = _value(widget, "key", "apikey", "api_key")
