@@ -1,17 +1,74 @@
 # Changelog
 
-Rogue Dashboard follows semantic versioning for published GHCR releases.
+RogueDashboard follows semantic versioning for published GHCR releases.
+
+## 1.3.0
+
+- Promoted the polished socket-free dashboard architecture to the next stable feature release.
+- Finalized a new interlocked metallic **RD** monogram with dedicated base, dark, light and compact SVG variants.
+- Kept RogueDashboard branding independent from RogueForge while aligning both products to the same Rogue visual language.
+- Removed release/runtime/platform/license badges and legacy engine-agent presentation from the live dashboard.
+- Added native RogueForge service-card monitoring for application version, engine, stacks and container summaries.
+- Kept RogueDashboard free of Docker/Podman socket access and administrator credentials from RogueForge.
+- Improved the main status layout and removed obsolete container-management UI left over from the pre-1.1.3 architecture.
+- Standardized the runtime folder, container, Compose project and GHCR identity around `roguedashboard`.
+- Retained `RGDASH_*` as the stable environment-variable contract.
+- Preserved existing `.env`, SQLite data, users, pages, groups, integrations and local custom assets during upgrades.
+- Continued unified Docker/Podman deployment through one `compose.yaml`.
+- Added cache-busted bundled core branding so testing and production builds cannot display stale artwork from another branch.
+- Cleaned and simplified the README around what RogueDashboard does, how it works and how it complements RogueForge.
+- Added a prominent RogueForge GitHub link for users who also want container and Compose-stack management.
+- Updated the testing channel and release workflows for `1.3.0`.
+
+## 1.2.1
+
+- Removed the version/runtime/platform/license badge strip from the live dashboard; release metadata now lives in the README.
+- Removed the remaining stale engine-agent status presentation from the socket-free interface.
+- Added a native RogueForge card integration for version, engine, stack and container summary metrics.
+- Reworked the RD logo into a higher-detail metallic Rogue-style monogram with segmented purple/cyan illumination.
+- Added dedicated base, dark, light and compact SVG variants and cache-busted all live branding references.
+- Removed legacy PNG favicon references from the live page and web manifest so browsers consistently use the current RD SVG identity.
+- Switched the core RogueDashboard icon to a bundled 1.2.1 asset instead of fetching the older `main` logo during testing.
+- Added a new version-neutral README banner and simplified installation, upgrade, architecture and testing documentation.
+- Updated the testing channel to publish `1.2.1-testing`.
+- Preserved `RGDASH_*`, `.env`, SQLite data and custom assets across upgrades.
+
+
+## 1.2.0
+
+- Standardized product naming from **Rogue Dashboard** to **RogueDashboard**.
+- Standardized the canonical internal container/network identity as `roguedashboard`.
+- Replaced separate Docker and Podman compose files with a single engine-neutral `compose.yaml`.
+- Standardized the GHCR image path as `ghcr.io/rogueassassin/roguedashboard`.
+- Retained the existing `RGDASH_*` environment-variable contract for compatibility with 1.1.3 installations.
+- Added the legacy `rogue-dashboard` network alias as a transition compatibility alias.
+- Kept the proven 1.1.3 socket-free architecture; container and stack management remains owned by RogueForge.
+- Prepared RogueForge-style remote-first branding and image resolution with local `/custom` overrides.
+- Updated documentation and deployment examples for the renamed GitHub repository and runtime folder.
+- Removed the stale 1.1.3 engine-agent health/system calls that could break socket-free deployments.
+- Added lightweight runtime/platform metadata without mounting Docker or Podman sockets.
+- Added an in-place SQLite filename migration from `rogue-dashboard.sqlite` to `roguedashboard.sqlite`.
+- Added dual GHCR publishing so existing `RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:...` values remain valid during upgrades.
+- Added remote-first service artwork with local `/custom/icons` overrides and bundled fallbacks.
+- Added RogueForge artwork for RogueForge service cards.
+- Refreshed the interface with the cleaner RogueForge surface, border and typography treatment while keeping animations and effects lightweight.
+- Added migration and socket-free health regression tests.
+- Removed version/runtime/platform/license badges from the live dashboard and kept build metadata in project documentation.
+- Removed the remaining engine-agent status tile and obsolete container-management editor surface from the socket-free UI.
+- Added a native RogueForge widget that reads public RogueForge status/stack summaries without exposing engine sockets or credentials.
+- Upgraded the RogueDashboard RD branding to a higher-detail vector set with segmented Rogue neon rings, metallic depth, dark/light variants and a compact service-card mark.
+- Tightened the dashboard status row and reduced unnecessary UI work for a cleaner, faster live view.
 
 ## 1.1.3
 
-- Removed direct Docker and Podman container-engine management from Rogue Dashboard.
+- Removed direct Docker and Podman container-engine management from RogueDashboard.
 - Removed the engine-agent service and all engine socket mounts.
 - Removed container lifecycle controls and engine inventory APIs.
-- Simplified Docker and Podman deployments to one Rogue Dashboard container.
+- Simplified Docker and Podman deployments to one RogueDashboard container.
 - Retained service integrations, HTTP/API health monitoring, widgets, admin/session controls and persistent configuration.
-- Kept the synchronized Rogue Dashboard branding and browser/app icon set.
+- Kept synchronized RogueDashboard branding and browser/app icon assets.
 - Simplified server upgrades to Compose `pull` + `up -d`.
-- Established RogueForge as the future home for container/stack management.
+- Established RogueForge as the home for container/stack management.
 
 ## 1.1.2
 

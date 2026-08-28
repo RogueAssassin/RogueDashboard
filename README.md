@@ -1,100 +1,221 @@
 <div align="center">
 
-![Rogue Dashboard](docs/assets/hero.png)
+![RogueDashboard](docs/assets/hero.svg)
 
-# Rogue Dashboard
-
-**A lightweight local-first service dashboard for Docker or Podman hosts.**
-
-**Version 1.1.3** · GHCR deployment · Service monitoring · Integrations · Admin/session controls
+![Version](https://img.shields.io/badge/version-1.3.0-b45332)
+![Runtime](https://img.shields.io/badge/runtime-Docker%20%7C%20Podman-2a69a6)
+![Platform](https://img.shields.io/badge/platform-Linux%20amd64%20%7C%20arm64-355f9c)
+![License](https://img.shields.io/badge/license-MIT-258b65)
 
 </div>
 
-Rogue Dashboard 1.1.3 intentionally removes direct container-engine management. The dashboard now focuses on the features that proved reliable in production: service visibility, widgets, integrations, health monitoring, admin/session controls, reverse-proxy support, persistent configuration and synchronized Rogue branding.
+RogueDashboard is a fast, local-first homepage and service-monitoring dashboard for self-hosted Docker and Podman environments. It gives you a clean view of your services, health, latency and application metrics without mounting the Docker or Podman engine socket.
 
-Container and stack management is being separated into **RogueForge**.
+RogueDashboard is designed to complement **[RogueForge](https://github.com/RogueAssassin/RogueForge)**. Use RogueDashboard for visibility and service monitoring; use RogueForge when you want full Docker/Podman stack and container management.
 
-## 1.1.3 highlights
+## What RogueDashboard does
 
-- Removed the Docker/Podman engine-agent architecture.
-- Removed all Docker/Podman socket mounts.
-- Removed container start/stop/restart controls and container inventory APIs.
-- Removed engine auto-detection and engine-specific Admin panels.
-- Single-container deployment for both Docker and Podman.
-- Keeps service/API health monitoring, widgets, integrations and admin/session features.
-- Keeps SQLite persistence and custom assets.
-- Keeps synchronized Rogue Dashboard branding across README, website, browser tab and app icons.
-- Clean GHCR-first deployment; no Git checkout or shell installer required on production hosts.
+- Displays your self-hosted services in configurable pages and groups.
+- Checks private HTTP/HTTPS health endpoints and shows live latency.
+- Collects lightweight application metrics from supported services.
+- Keeps API keys and secrets server-side through `RGDASH_*` environment variables.
+- Stores dashboard configuration, accounts and sessions in SQLite.
+- Supports Docker and Podman from one engine-neutral `compose.yaml`.
+- Runs without a Docker/Podman socket or privileged container-engine access.
+- Supports remote-first service artwork with local `/custom/icons` overrides.
+- Includes native RogueForge monitoring for version, engine, stack and container summaries.
+- Uses a responsive, low-overhead interface designed to stay lightweight on media and home servers.
 
-## Runtime folder
+## Supported live integrations
 
-A production host only needs:
+RogueDashboard includes native collectors for:
 
 ```text
-rogue-dashboard/
+qBittorrent
+Prowlarr
+Radarr
+Sonarr
+Seerr
+Bazarr
+Tautulli
+Pi-hole
+RogueForge
+```
+
+Other services can still be added as normal health-checked cards.
+
+## Rogue ecosystem
+
+### RogueDashboard
+
+Visibility, service health, latency, application widgets and your day-to-day self-hosted homepage.
+
+### RogueForge
+
+For full Docker/Podman container and Compose-stack management, install RogueForge alongside RogueDashboard:
+
+**[Download / view RogueForge on GitHub](https://github.com/RogueAssassin/RogueForge)**
+
+Both applications can share the same `media-net` network. RogueDashboard can then read RogueForge's lightweight status APIs without receiving Docker/Podman socket access or RogueForge administrator credentials.
+
+## Container images
+
+Production:
+
+```text
+ghcr.io/rogueassassin/roguedashboard:1.3.0
+```
+
+Latest stable:
+
+```text
+ghcr.io/rogueassassin/roguedashboard:latest
+```
+
+Testing:
+
+```text
+ghcr.io/rogueassassin/roguedashboard:testing
+```
+
+## Runtime layout
+
+A normal installation only needs:
+
+```text
+roguedashboard/
 ├── .env
-├── compose.podman.yaml       # Podman
-# or docker-compose.yaml      # Docker
+├── compose.yaml
 ├── data/
 └── custom/
 ```
 
-The application image is:
+- `.env` — persistent `RGDASH_*` configuration and integration secrets.
+- `data/` — SQLite database and application state.
+- `custom/` — optional local icons and artwork overrides.
+- `compose.yaml` — the same deployment definition for Docker or Podman.
+
+## Install with Podman
+
+```bash
+mkdir -p /opt/media-server/roguedashboard/{data,custom}
+cd /opt/media-server/roguedashboard
+
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/compose.yaml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/.env.example -o .env
+
+podman network inspect media-net >/dev/null 2>&1 || podman network create media-net
+podman compose --env-file .env -f compose.yaml pull
+podman compose --env-file .env -f compose.yaml up -d
+```
+
+## Install with Docker
+
+```bash
+mkdir -p /opt/roguedashboard/{data,custom}
+cd /opt/roguedashboard
+
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/compose.yaml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/.env.example -o .env
+
+docker network inspect media-net >/dev/null 2>&1 || docker network create media-net
+docker compose --env-file .env -f compose.yaml pull
+docker compose --env-file .env -f compose.yaml up -d
+```
+
+## Updating without losing settings
+
+Keep your existing `.env`, `data/` and `custom/` directories. Do not overwrite an existing `.env` with `.env.example`.
+
+Podman:
+
+```bash
+cd /opt/media-server/roguedashboard
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/compose.yaml -o compose.yaml
+podman compose --env-file .env -f compose.yaml pull
+podman compose --env-file .env -f compose.yaml up -d
+```
+
+Docker:
+
+```bash
+cd /opt/roguedashboard
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/compose.yaml -o compose.yaml
+docker compose --env-file .env -f compose.yaml pull
+docker compose --env-file .env -f compose.yaml up -d
+```
+
+Existing settings, users, pages, groups, integrations and custom artwork remain persistent. Older `data/rogue-dashboard.sqlite` databases are migrated to `data/roguedashboard.sqlite`.
+
+## RogueForge card
+
+When RogueForge shares the same container network, create a card with:
 
 ```text
-ghcr.io/rogueassassin/rogue-dashboard:1.1.3
+Name: RogueForge
+Open URL: https://manage.example.com
+Live integration: RogueForge
+Private API URL: http://rogueforge:7810
+Private health URL: http://rogueforge:7810/health
+Icon: rogueforge
 ```
 
-## Podman install
+The card can display RogueForge version, container engine, running/total stacks and running/total containers.
 
-```bash
-mkdir -p /opt/media-server/rogue-dashboard/{data,custom}
-cd /opt/media-server/rogue-dashboard
+## Branding and icons
 
-curl -fsSLO https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/compose.podman.yaml
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/rogue-dashboard/main/.env.example -o .env
+RogueDashboard has its own interlocked **RD** identity while staying visually aligned with the wider Rogue ecosystem.
 
-sudo podman network inspect media-net >/dev/null 2>&1 || sudo podman network create media-net
-sudo chown -R 10001:10001 data
+```text
+app/static/branding/
+├── roguedashboard.svg
+├── roguedashboard-dark.svg
+├── roguedashboard-light.svg
+└── branding-switch.js
 
-sudo podman-compose --env-file .env -f compose.podman.yaml pull
-sudo podman-compose --env-file .env -f compose.podman.yaml up -d
+app/static/icons/
+└── roguedashboard.svg
 ```
 
-## Updating
+Core RogueDashboard branding is bundled and versioned with the application. Service-card artwork can still use GitHub-hosted assets or local overrides.
 
-```bash
-cd /opt/media-server/rogue-dashboard
-sudo podman-compose --env-file .env -f compose.podman.yaml pull
-sudo podman-compose --env-file .env -f compose.podman.yaml up -d
-```
+Icon resolution:
 
-No Git checkout is required on the Linux server.
+1. local `/custom/icons` override,
+2. configured HTTPS/GitHub asset,
+3. bundled fallback,
+4. initials fallback.
 
 ## Architecture
 
 ```text
 Browser
-   ↓
-Rogue Dashboard
-   ↓
-Service APIs / health endpoints
-   ↓
-qBittorrent / Prowlarr / Radarr / Sonarr / Bazarr / Seerr / Tautulli / RogueRoute / others
+  ↓
+RogueDashboard
+  ├─ HTTP/HTTPS health probes
+  ├─ API widget collectors
+  ├─ SQLite configuration
+  └─ RogueForge read-only status integration
+
+RogueForge
+  └─ Docker / Podman stack and container management
 ```
 
-Rogue Dashboard does **not** mount `/run/podman/podman.sock` or `/var/run/docker.sock`.
+This separation keeps RogueDashboard fast and avoids giving a homepage unnecessary control over the container engine.
 
-## Branding
+## Testing channel
 
-The 1.1.3 identity remains synchronized across:
+Development is validated through the `testing` branch. Successful CI publishes:
 
-- `docs/assets/hero.png`
-- `docs/assets/rogue-dashboard-logo.png`
-- `app/static/rogue-dashboard-logo.png`
-- favicon PNG/ICO files
-- Apple touch icon
-- 192×192 and 512×512 app icons
-- `site.webmanifest`
+```text
+ghcr.io/rogueassassin/roguedashboard:testing
+ghcr.io/rogueassassin/roguedashboard:1.3.0-testing
+```
 
-See the documentation under [`docs/`](docs/).
+The pipeline runs application tests, Python validation, Compose validation, an amd64 build and a multi-architecture amd64/arm64 publish.
+
+See [docs/TESTING.md](docs/TESTING.md).
+
+## License
+
+MIT

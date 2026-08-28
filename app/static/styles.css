@@ -84,7 +84,7 @@ a { color: inherit; }
 .full-button { width: 100%; }
 .danger-text { color: #ff7e88 !important; }
 
-.stat-strip { display: grid; grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(150px, 1fr)); gap: 10px; margin-bottom: 32px; }
+.stat-strip { display: grid; grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(150px, 1fr)); gap: 10px; margin-bottom: 26px; }
 .stat-strip > div { min-height: 78px; display: flex; align-items: center; gap: 13px; padding: 14px 17px; border: 1px solid var(--border); border-radius: 17px; background: color-mix(in srgb, var(--surface-strong) var(--surface-opacity), transparent); backdrop-filter: blur(18px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
 .stat-strip svg { color: color-mix(in srgb, var(--accent) 75%, white); }
 .stat-strip strong, .stat-strip span { display: block; }
@@ -374,3 +374,66 @@ a { color: inherit; }
 /* Rogue Dashboard synchronized v1.1.3 branding */
 .brand-mark { overflow:hidden; padding:0; background:#080b12; }
 .brand-mark img { width:100%; height:100%; display:block; object-fit:cover; }
+
+
+/* RogueForge-aligned 1.2.0 shell */
+:root {
+  --rf-bg:#080a0f;
+  --rf-surface:#11151e;
+  --rf-surface-2:#171c27;
+  --rf-surface-3:#1c2230;
+  --rf-border:#242a37;
+  --rf-border-hi:#343c4d;
+  --rf-text:#f3f5f8;
+  --rf-muted:#8c96a8;
+  --rf-purple:#8b6cff;
+  --rf-cyan:#37c9dd;
+  --rf-green:#3ddc97;
+  --rf-shadow:0 18px 44px rgba(0,0,0,.24);
+}
+html,body { background:var(--rf-bg); color:var(--rf-text); }
+.app-shell {
+  background:
+    radial-gradient(circle at 86% 5%, rgba(139,108,255,.08), transparent 28rem),
+    var(--rf-bg);
+}
+.dashboard-background,.ambient { opacity:.32; }
+.topbar {
+  border:1px solid var(--rf-border);
+  background:rgba(13,16,23,.92);
+  box-shadow:var(--rf-shadow);
+  backdrop-filter:blur(10px);
+}
+.brand-block h1,.group-title h2,.service-name strong { color:var(--rf-text); }
+.brand-block p,.service-copy p,.muted { color:var(--rf-muted); }
+.search-box,.page-tabs,.stat-strip,.service-group,.editor-panel,.modal,.setup-card {
+  border-color:var(--rf-border);
+  background:var(--rf-surface);
+}
+.service-card {
+  border:1px solid var(--rf-border);
+  background:linear-gradient(145deg,var(--rf-surface),#0f131b);
+  box-shadow:none;
+  transition:border-color .14s ease, transform .14s ease, background .14s ease;
+}
+.service-card:hover {
+  border-color:var(--rf-border-hi);
+  background:var(--rf-surface-2);
+  transform:translateY(-1px);
+}
+.service-icon {
+  border:1px solid var(--rf-border-hi);
+  background:var(--rf-surface-3);
+}
+.button,.page-tabs button,.group-title {
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.button.primary,.page-tabs button.active {
+  border-color:rgba(139,108,255,.35);
+  background:linear-gradient(135deg,rgba(139,108,255,.22),rgba(108,77,241,.14));
+  color:#d8d0ff;
+}
+@media (prefers-reduced-motion:reduce) {
+  .service-card,.button,.page-tabs button,.group-title { transition:none; }
+  .service-card:hover { transform:none; }
+}

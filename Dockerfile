@@ -1,11 +1,11 @@
 FROM python:3.13-alpine
 
-ARG RGDASH_VERSION=1.1.3
+ARG RGDASH_VERSION=1.2.0
 
-LABEL org.opencontainers.image.title="Rogue Dashboard" \
+LABEL org.opencontainers.image.title="RogueDashboard" \
       org.opencontainers.image.description="Local-first service dashboard" \
-      org.opencontainers.image.source="https://github.com/RogueAssassin/rogue-dashboard" \
-      org.opencontainers.image.url="https://github.com/RogueAssassin/rogue-dashboard" \
+      org.opencontainers.image.source="https://github.com/RogueAssassin/RogueDashboard" \
+      org.opencontainers.image.url="https://github.com/RogueAssassin/RogueDashboard" \
       org.opencontainers.image.version="${RGDASH_VERSION}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -17,14 +17,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN addgroup -g 10001 dashboard \
-    && adduser -D -u 10001 -G dashboard dashboard \
+RUN addgroup -g 10001 roguedashboard \
+    && adduser -D -u 10001 -G roguedashboard roguedashboard \
     && mkdir -p /data \
-    && chown dashboard:dashboard /data
+    && chown roguedashboard:roguedashboard /data
 
-COPY --chown=dashboard:dashboard app/ /app/
+COPY --chown=roguedashboard:roguedashboard app/ /app/
 
-USER dashboard
+USER roguedashboard
 EXPOSE 8080
 STOPSIGNAL SIGTERM
 

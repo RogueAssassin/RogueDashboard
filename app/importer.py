@@ -54,6 +54,7 @@ INTEGRATION_DEFAULTS = {
     "bazarr": ("bazarr", ["RGDASH_BAZARR_KEY"], {"key": "RGDASH_BAZARR_KEY"}),
     "tautulli": ("tautulli", ["RGDASH_TAUTULLI_KEY"], {"key": "RGDASH_TAUTULLI_KEY"}),
     "pihole": ("pihole", ["RGDASH_PIHOLE_KEY"], {"key": "RGDASH_PIHOLE_KEY"}),
+    "rogueforge": ("rogueforge", [], {}),
 }
 
 

@@ -106,6 +106,21 @@ class WidgetFixtureHandler(BaseHTTPRequestHandler):
             self.respond({"queries": {"total": 1000, "blocked": 245, "percent_blocked": 24.5}, "clients": {"active": 9}, "gravity": {"domains_being_blocked": 123456}})
         elif parsed.path == "/api/v1/request/count" and self.headers.get("X-Api-Key") == "seerr-key":
             self.respond({"pending": 2, "approved": 3, "processing": 1, "available": 7})
+        elif parsed.path == "/api/status":
+            self.respond({"appVersion": "0.8.8", "engine": "podman", "version": "5.7.0", "apiVersion": "5.7.0"})
+        elif parsed.path == "/api/stacks":
+            self.respond([
+                {"name": "one", "state": "running"},
+                {"name": "two", "state": "running"},
+                {"name": "three", "state": "stopped"},
+            ])
+        elif parsed.path == "/api/containers":
+            self.respond([
+                {"name": "one", "state": "running"},
+                {"name": "two", "state": "running"},
+                {"name": "three", "state": "running"},
+                {"name": "four", "state": "exited"},
+            ])
         else:
             self.respond({"error": "not found"}, 404)
 
@@ -174,7 +189,8 @@ class RogueDashboardTests(unittest.TestCase):
                 ("seerr", ["TEST_SEERR_KEY"], {"key": "TEST_SEERR_KEY"}, ["Pending", "Approved", "Processing", "Available"]),
                 ("tautulli", ["TEST_TAUTULLI_KEY"], {"key": "TEST_TAUTULLI_KEY"}, ["Playing", "Transcoding", "Bitrate"]),
                 ("bazarr", ["TEST_BAZARR_KEY"], {"key": "TEST_BAZARR_KEY"}, ["Missing episodes", "Missing movies"]),
-                ("pihole", ["TEST_PIHOLE_KEY"], {"key": "TEST_PIHOLE_KEY"}, ["Queries", "Blocked", "Gravity", "Clients"]),
+                ("pihole", ["TEST_PIHOLE_KEY"], {"key": "TEST_PIHOLE_KEY"}, ["Queries", "Blocked", "Gravity", "Clients"]),                ("rogueforge", [], {}, ["Version", "Engine", "Stacks", "Containers"]),
+
             ]
             for index, (kind, refs, bindings, labels) in enumerate(cases):
                 item = {"id": f"widget-{index}", "widget": {"type": kind, "url": base, "secretRefs": refs, "secretBindings": bindings}}
@@ -513,6 +529,105 @@ class RogueDashboardTests(unittest.TestCase):
                 dashboard_app.DB = previous
                 dashboard_app.CUSTOM_DIR = previous_custom
 
+
+
+    def test_socket_free_health_check_uses_endpoint_only(self):
+        class HealthHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_HEAD(self):
+                self.send_response(204)
+                self.end_headers()
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), HealthHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = dashboard_app.health_check({
+                "id": "socket-free",
+                "monitorUrl": f"http://127.0.0.1:{server.server_port}/health",
+                "containerName": "ignored-by-1.2",
+            })
+            self.assertEqual(result["state"], "online")
+            self.assertEqual(result["source"], "endpoint")
+            self.assertEqual(result["status"], 204)
+            self.assertNotIn("containerState", result)
+            self.assertNotIn("containerHealth", result)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_legacy_database_filename_is_migrated_without_data_loss(self):
+        previous_data_dir = dashboard_app.DATA_DIR
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                dashboard_app.DATA_DIR = Path(temp_dir)
+                legacy = dashboard_app.DATA_DIR / "rogue-dashboard.sqlite"
+                legacy.write_bytes(b"legacy-database")
+                resolved = dashboard_app.resolve_database_path()
+                self.assertEqual(resolved.name, "roguedashboard.sqlite")
+                self.assertFalse(legacy.exists())
+                self.assertEqual(resolved.read_bytes(), b"legacy-database")
+        finally:
+            dashboard_app.DATA_DIR = previous_data_dir
+
+    def test_runtime_metadata_is_exposed_in_bootstrap_contract(self):
+        metadata = dashboard_app.runtime_metadata()
+        self.assertIn(metadata["runtime"], {"Podman", "Docker", "Container"} | ({os.environ.get("RGDASH_RUNTIME")} if os.environ.get("RGDASH_RUNTIME") and os.environ.get("RGDASH_RUNTIME").lower() != "auto" else set()))
+        self.assertTrue(metadata["platform"])
+        self.assertTrue(metadata["arch"])
+        self.assertEqual(metadata["license"], "MIT")
+
+
+    def test_rogueforge_widget_uses_public_read_only_endpoints(self):
+        class RogueForgeFixtureHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def respond(self, value):
+                payload = json.dumps(value).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def do_GET(self):
+                if self.path == "/api/status":
+                    self.respond({"appVersion": "0.8.8", "engine": "podman", "version": "5.7.0"})
+                elif self.path == "/api/stacks":
+                    self.respond([{"state": "running"}, {"state": "running"}, {"state": "stopped"}])
+                elif self.path == "/api/containers":
+                    self.respond([{"state": "running"}, {"state": "running"}, {"state": "running"}, {"state": "exited"}])
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RogueForgeFixtureHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = collect_widget({
+                "id": "rogueforge",
+                "widget": {
+                    "type": "rogueforge",
+                    "url": f"http://127.0.0.1:{server.server_port}",
+                    "secretRefs": [],
+                    "secretBindings": {},
+                },
+            })
+            self.assertEqual(result["state"], "ok")
+            self.assertEqual(
+                [(metric["label"], metric["value"]) for metric in result["metrics"]],
+                [("Version", "0.8.8"), ("Engine", "Podman"), ("Stacks", "2/3"), ("Containers", "3/4")],
+            )
+            self.assertEqual(result["environment"], [])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
 
 
