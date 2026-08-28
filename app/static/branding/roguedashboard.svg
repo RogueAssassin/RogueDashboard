@@ -1,34 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t d">
-<title id="t">RogueDashboard</title><desc id="d">Premium RogueDashboard RD monogram</desc>
+<title id="t">RogueDashboard</title><desc id="d">Premium RD monogram for RogueDashboard</desc>
 <defs>
-  <radialGradient id="bg" cx="50%" cy="43%" r="68%"><stop offset="0" stop-color="#151b27"/><stop offset=".62" stop-color="#090d14"/><stop offset="1" stop-color="#030509"/></radialGradient>
-  <linearGradient id="neon" x1="72" y1="76" x2="440" y2="438" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset=".35" stop-color="#c026d3"/><stop offset=".7" stop-color="#2563eb"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
-  <linearGradient id="steel" x1="138" y1="120" x2="363" y2="395" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset=".13" stop-color="#d8dee8"/><stop offset=".34" stop-color="#6d7685"/><stop offset=".48" stop-color="#f2f4f8"/><stop offset=".7" stop-color="#727b89"/><stop offset=".86" stop-color="#cfd5dd"/><stop offset="1" stop-color="#4b5563"/></linearGradient>
-  <linearGradient id="steelEdge" x1="174" y1="116" x2="334" y2="406"><stop stop-color="#f8fafc"/><stop offset=".5" stop-color="#687386"/><stop offset="1" stop-color="#e2e8f0"/></linearGradient>
-  <pattern id="hex" width="22" height="19.052" patternUnits="userSpaceOnUse"><path d="M5.5 0h11l5.5 9.526-5.5 9.526h-11L0 9.526Z" fill="none" stroke="#94a3b8" stroke-opacity=".055" stroke-width="1"/></pattern>
-  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".6"/></filter>
+  <radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#171d2a"/><stop offset=".55" stop-color="#0a0f18"/><stop offset="1" stop-color="#05070b"/></radialGradient>
+  <linearGradient id="ring" x1="72" y1="72" x2="440" y2="440"><stop stop-color="#9b5cff"/><stop offset=".38" stop-color="#6d45ff"/><stop offset=".72" stop-color="#2f8cff"/><stop offset="1" stop-color="#24d6ff"/></linearGradient>
+  <linearGradient id="steel" x1="155" y1="122" x2="350" y2="392"><stop stop-color="#ffffff"/><stop offset=".12" stop-color="#dce3ef"/><stop offset=".32" stop-color="#7d8796"/><stop offset=".49" stop-color="#f2f5f9"/><stop offset=".68" stop-color="#5d6674"/><stop offset=".84" stop-color="#cfd6df"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+  <linearGradient id="edge" x1="140" y1="140" x2="390" y2="390"><stop stop-color="#c084fc"/><stop offset=".55" stop-color="#7c3aed"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+  <pattern id="hex" width="20" height="17.32" patternUnits="userSpaceOnUse"><path d="M5 0h10l5 8.66-5 8.66H5L0 8.66z" fill="none" stroke="#6b7280" stroke-opacity=".12" stroke-width="1"/></pattern>
+  <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#000" flood-opacity=".55"/></filter>
 </defs>
-<rect width="512" height="512" rx="104" fill="#05070b"/>
-<circle cx="256" cy="256" r="226" fill="#0b0f16" stroke="#1f2632" stroke-width="8"/>
-<circle cx="256" cy="256" r="211" fill="url(#bg)" stroke="#30394a" stroke-width="3"/>
-<circle cx="256" cy="256" r="194" fill="none" stroke="#0f172a" stroke-width="19"/>
-<path d="M256 62a194 194 0 0 1 164 90" fill="none" stroke="url(#neon)" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
-<path d="M438 190a194 194 0 0 1-24 181" fill="none" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
-<path d="M376 407a194 194 0 0 1-205 25" fill="none" stroke="#2563eb" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
-<path d="M111 384a194 194 0 0 1-38-189" fill="none" stroke="#a855f7" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
-<path d="M92 159a194 194 0 0 1 105-88" fill="none" stroke="#7c3aed" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
-<circle cx="256" cy="256" r="163" fill="#090d14" stroke="#232c3a" stroke-width="3"/>
-<circle cx="256" cy="256" r="152" fill="url(#hex)"/>
-<g opacity=".65" stroke="#4b5563" stroke-width="2"><path d="M256 93v21M256 398v21M93 256h21M398 256h21"/><path d="M141 141l15 15M356 356l15 15M371 141l-15 15M156 356l-15 15"/></g>
+<rect width="512" height="512" rx="112" fill="#04060a"/>
+<circle cx="256" cy="256" r="222" fill="#090d14" stroke="#171d28" stroke-width="14"/>
+<circle cx="256" cy="256" r="197" fill="url(#bg)" stroke="#2a3342" stroke-width="4"/>
+<circle cx="256" cy="256" r="181" fill="none" stroke="url(#ring)" stroke-width="10" filter="url(#glow)"/>
+<circle cx="256" cy="256" r="160" fill="url(#hex)" stroke="#252e3b" stroke-width="3"/>
+<g opacity=".9"><path d="M256 77v27M256 408v27M77 256h27M408 256h27M130 130l19 19M363 363l19 19M382 130l-19 19M149 363l-19 19" stroke="#6d7a8d" stroke-width="4" stroke-linecap="round"/></g>
 <g filter="url(#shadow)">
-  <path d="M126 132h125c74 0 119 36 119 96 0 38-19 68-54 84l78 75h-83l-66-67h-42v67h-77V132Zm77 60v69h47c30 0 47-12 47-35 0-22-17-34-47-34h-47Z" fill="url(#steel)" stroke="#f8fafc" stroke-opacity=".42" stroke-width="2"/>
-  <path d="M126 132l18 18v219l-18 18V132Zm77 60 14 13h33c20 0 30 7 30 21 0 9-5 15-14 19 20-4 31-13 31-19 0-22-17-34-47-34h-47Z" fill="#111827" opacity=".52"/>
-  <path d="M270 203h70c78 0 126 35 126 92s-48 92-126 92h-70v-61h67c31 0 49-11 49-31 0-21-18-32-49-32h-67v-60Z" fill="url(#neon)" stroke="#dbeafe" stroke-opacity=".28" stroke-width="2"/>
-  <path d="M270 203l17 17v150l-17 17V203Z" fill="#312e81" opacity=".72"/>
-  <path d="M337 263c30 0 49 11 49 32 0 20-18 31-49 31h-17l18-15c19-1 29-6 29-16 0-11-11-16-30-17l-17-15h17Z" fill="#e0f2fe" opacity=".18"/>
+  <path d="M137 139h124c65 0 108 36 108 92 0 39-20 67-56 82l72 76h-74l-61-68h-42v68h-71V139zm71 58v67h50c27 0 43-12 43-34 0-21-16-33-43-33h-50z" fill="#222936" stroke="url(#edge)" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M144 132h124c65 0 108 36 108 92 0 39-20 67-56 82l72 76h-74l-61-68h-42v68h-71V132zm71 58v67h50c27 0 43-12 43-34 0-21-16-33-43-33h-50z" fill="url(#steel)" stroke="#eef2f7" stroke-opacity=".5" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M291 198h57c68 0 111 36 111 92s-43 92-111 92h-57v-61h57c27 0 42-11 42-31s-15-31-42-31h-57v-61z" fill="#162438" stroke="url(#edge)" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M298 191h57c68 0 111 36 111 92s-43 92-111 92h-57v-61h57c27 0 42-11 42-31s-15-31-42-31h-57v-61z" fill="url(#steel)" stroke="#eef2f7" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M306 204h49c50 0 83 22 91 60" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
 </g>
-<path d="M153 142h94" stroke="#fff" stroke-opacity=".62" stroke-width="3" stroke-linecap="round"/>
-<path d="M291 214h46" stroke="#fff" stroke-opacity=".46" stroke-width="3" stroke-linecap="round"/>
-<circle cx="256" cy="256" r="224" fill="none" stroke="#fff" stroke-opacity=".035" stroke-width="2"/>
+<circle cx="256" cy="256" r="181" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="2"/>
 </svg>
