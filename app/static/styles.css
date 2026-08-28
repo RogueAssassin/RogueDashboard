@@ -84,7 +84,7 @@ a { color: inherit; }
 .full-button { width: 100%; }
 .danger-text { color: #ff7e88 !important; }
 
-.stat-strip { display: grid; grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(150px, 1fr)); gap: 10px; margin-bottom: 32px; }
+.stat-strip { display: grid; grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(150px, 1fr)); gap: 10px; margin-bottom: 26px; }
 .stat-strip > div { min-height: 78px; display: flex; align-items: center; gap: 13px; padding: 14px 17px; border: 1px solid var(--border); border-radius: 17px; background: color-mix(in srgb, var(--surface-strong) var(--surface-opacity), transparent); backdrop-filter: blur(18px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
 .stat-strip svg { color: color-mix(in srgb, var(--accent) 75%, white); }
 .stat-strip strong, .stat-strip span { display: block; }
@@ -433,44 +433,6 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
   background:linear-gradient(135deg,rgba(139,108,255,.22),rgba(108,77,241,.14));
   color:#d8d0ff;
 }
-.build-strip {
-  display:flex;
-  flex-wrap:wrap;
-  gap:7px;
-  margin:10px 0 16px;
-  align-items:center;
-}
-.build-strip > span {
-  display:inline-flex;
-  align-items:center;
-  overflow:hidden;
-  min-height:24px;
-  border:1px solid var(--rf-border);
-  border-radius:6px;
-  background:#0d1118;
-  font-size:.68rem;
-  line-height:1;
-}
-.build-strip small,.build-strip strong {
-  display:block;
-  padding:6px 8px;
-  font-size:inherit;
-}
-.build-strip small {
-  color:#b5bdc9;
-  background:#2a303b;
-  font-weight:750;
-  text-transform:lowercase;
-}
-.build-strip strong {
-  color:#f4f6f9;
-  border-left:1px solid var(--rf-border);
-  font-weight:800;
-}
-.build-strip > span:nth-child(1) strong { background:#b45332; }
-.build-strip > span:nth-child(2) strong { background:#2a69a6; }
-.build-strip > span:nth-child(3) strong { background:#355f9c; }
-.build-strip > span:nth-child(4) strong { background:#258b65; }
 @media (prefers-reduced-motion:reduce) {
   .service-card,.button,.page-tabs button,.group-title { transition:none; }
   .service-card:hover { transform:none; }
