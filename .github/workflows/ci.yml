@@ -21,11 +21,11 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Validate Python
         run: python -m compileall -q app
-      - name: Validate Docker Compose
+      - name: Validate unified Compose
         run: |
           cp .env.example .env
           docker network create media-net >/dev/null 2>&1 || true
-          docker compose --env-file .env -f docker-compose.yaml config -q
+          docker compose --env-file .env -f compose.yaml config -q
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -35,5 +35,5 @@ jobs:
         with:
           context: .
           push: false
-          tags: rogue-dashboard:ci
-          build-args: RGDASH_VERSION=1.1.3
+          tags: roguedashboard:ci
+          build-args: RGDASH_VERSION=1.2.0
