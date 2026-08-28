@@ -1,6 +1,6 @@
 services:
   roguedashboard:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/roguedashboard:1.2.0}
+    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/roguedashboard:1.2.1}
     pull_policy: always
     container_name: roguedashboard
     restart: unless-stopped
