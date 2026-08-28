@@ -13,6 +13,14 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Kept the proven 1.1.3 socket-free architecture; container and stack management remains owned by RogueForge.
 - Prepared RogueForge-style remote-first branding and image resolution with local `/custom` overrides.
 - Updated documentation and deployment examples for the renamed GitHub repository and runtime folder.
+- Removed the stale 1.1.3 engine-agent health/system calls that could break socket-free deployments.
+- Added lightweight runtime/platform metadata without mounting Docker or Podman sockets.
+- Added an in-place SQLite filename migration from `rogue-dashboard.sqlite` to `roguedashboard.sqlite`.
+- Added dual GHCR publishing so existing `RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:...` values remain valid during upgrades.
+- Added remote-first service artwork with local `/custom/icons` overrides and bundled fallbacks.
+- Added RogueForge artwork for RogueForge service cards.
+- Refreshed the interface with the cleaner RogueForge surface, border and typography treatment while keeping animations and effects lightweight.
+- Added migration and socket-free health regression tests.
 
 ## 1.1.3
 
