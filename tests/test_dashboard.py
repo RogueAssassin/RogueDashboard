@@ -189,7 +189,7 @@ class RogueDashboardTests(unittest.TestCase):
                 ("seerr", ["TEST_SEERR_KEY"], {"key": "TEST_SEERR_KEY"}, ["Pending", "Approved", "Processing", "Available"]),
                 ("tautulli", ["TEST_TAUTULLI_KEY"], {"key": "TEST_TAUTULLI_KEY"}, ["Playing", "Transcoding", "Bitrate"]),
                 ("bazarr", ["TEST_BAZARR_KEY"], {"key": "TEST_BAZARR_KEY"}, ["Missing episodes", "Missing movies"]),
-                ("pihole", ["TEST_PIHOLE_KEY"], {"key": "TEST_PIHOLE_KEY"}, ["Queries", "Blocked", "Gravity", "Clients"]),                ("rogueforge", [], {}, ["Version", "Engine", "Stacks", "Running"]),
+                ("pihole", ["TEST_PIHOLE_KEY"], {"key": "TEST_PIHOLE_KEY"}, ["Queries", "Blocked", "Gravity", "Clients"]),                ("rogueforge", [], {}, ["Version", "Engine", "Stacks", "Containers"]),
 
             ]
             for index, (kind, refs, bindings, labels) in enumerate(cases):
