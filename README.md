@@ -8,6 +8,11 @@
 
 **Version 1.2.0** · GHCR deployment · Service monitoring · Integrations · Admin/session controls
 
+![Version](https://img.shields.io/badge/version-1.2.0-b45332)
+![Runtime](https://img.shields.io/badge/runtime-Docker%20%7C%20Podman-2a69a6)
+![Platform](https://img.shields.io/badge/platform-Linux%20amd64%20%7C%20arm64-355f9c)
+![License](https://img.shields.io/badge/license-MIT-258b65)
+
 </div>
 
 RogueDashboard 1.2.0 builds directly on the stable 1.1.3 architecture. Direct container-engine management remains intentionally separated into **RogueForge**; RogueDashboard stays focused on service visibility, health monitoring, widgets, integrations, reverse-proxy use, persistent configuration and local administration.
