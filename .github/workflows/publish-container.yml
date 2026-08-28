@@ -35,7 +35,9 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/rogueassassin/roguedashboard
+          images: |
+            ghcr.io/rogueassassin/roguedashboard
+            ghcr.io/rogueassassin/rogue-dashboard
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
