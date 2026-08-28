@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RogueDashboard light logo">
+<defs><linearGradient id="g" x1="70" y1="60" x2="450" y2="450"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#0284c7"/></linearGradient><linearGradient id="m" x1="160" y1="130" x2="360" y2="390"><stop stop-color="#334155"/><stop offset=".55" stop-color="#64748b"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs>
+<rect width="512" height="512" rx="112" fill="#f8fafc"/><circle cx="256" cy="256" r="202" fill="#ffffff" stroke="#dbe3ef" stroke-width="18"/><circle cx="256" cy="256" r="180" fill="none" stroke="url(#g)" stroke-width="9"/>
+<path d="M146 142h112c63 0 105 34 105 88 0 39-22 67-57 80l70 74h-69l-62-67h-37v67h-62V142zm62 54v67h47c28 0 45-12 45-34 0-21-17-33-45-33h-47z" fill="url(#m)"/>
+<path d="M278 205h63c64 0 105 33 105 90 0 57-41 89-105 89h-63v-55h61c28 0 44-12 44-34 0-23-16-35-44-35h-61v-55z" fill="url(#g)"/></svg>
