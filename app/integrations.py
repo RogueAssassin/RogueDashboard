@@ -345,114 +345,29 @@ def _bazarr(widget: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
-    """Collect safe public RogueForge status/inventory metrics.
-
-    RogueForge deliberately exposes these read-only endpoints without requiring
-    its administrator session, so RogueDashboard never needs to store or proxy
-    RogueForge credentials.
-    """
+    """Collect lightweight public RogueForge runtime, stack and container summaries."""
     base = _base_url(widget.get("url"))
     status = _json_request(f"{base}/api/status")
     stacks = _json_request(f"{base}/api/stacks")
     containers = _json_request(f"{base}/api/containers")
-
-    status = status if isinstance(status, dict) else {}
-    stacks = stacks if isinstance(stacks, list) else []
-    containers = containers if isinstance(containers, list) else []
-
-    running = sum(
-        str(item.get("state", "")).lower() == "running"
-        for item in containers
-        if isinstance(item, dict)
-    )
-    healthy_stacks = sum(
-        str(item.get("state", "")).lower() == "running"
-        for item in stacks
-        if isinstance(item, dict)
-    )
-    engine = str(status.get("engine") or "unknown").strip().title()
-    version = str(status.get("appVersion") or status.get("version") or "unknown").strip()
-
-    return [
-        _metric("Version", version),
-        _metric("Engine", engine),
-        _metric("Stacks", f"{healthy_stacks}/{len(stacks)}"),
-        _metric("Containers", f"{running}/{len(containers)}"),
-    ]
-
-
-def _seerr(widget: dict[str, Any]) -> list[dict[str, str]]:
-    base = _base_url(widget.get("url"))
-    api_key = _value(widget, "key", "apikey", "api_key")
-    if not api_key:
-        raise MissingSecrets
-    data = _json_request(f"{base}/api/v1/request/count", headers={"X-Api-Key": api_key})
-    return [
-        _metric("Pending", _number(_nested(data, "pending"))),
-        _metric("Approved", _number(_nested(data, "approved"))),
-        _metric("Processing", _number(_nested(data, "processing"))),
-        _metric("Available", _number(_nested(data, "available"))),
-    ]
-
-
-def _pihole(widget: dict[str, Any]) -> list[dict[str, str]]:
-    base = _base_url(widget.get("url"))
-    password = _value(widget, "key", "password", "apikey", "api_key")
-    headers: dict[str, str] = {}
-    sid = ""
-    if password:
-        auth = _json_request(
-            f"{base}/api/auth",
-            method="POST",
-            data=json.dumps({"password": password}).encode(),
-            headers={"Content-Type": "application/json"},
-        )
-        session = auth.get("session", {}) if isinstance(auth, dict) else {}
-        if session.get("valid") is not True or not session.get("sid"):
-            raise PermissionError("The service rejected its credentials.")
-        sid = str(session["sid"])
-        headers["X-FTL-SID"] = sid
-    try:
-        summary = _json_request(f"{base}/api/stats/summary", headers=headers)
-    finally:
-        if sid:
-            try:
-                _json_request(f"{base}/api/auth", method="DELETE", headers={"X-FTL-SID": sid})
-            except Exception:
-                pass
-    queries = _nested(summary, "queries", "total")
-    blocked = _nested(summary, "queries", "blocked")
-    percent = float(_nested(summary, "queries", "percent_blocked") or 0)
-    clients = _nested(summary, "clients", "active")
-    gravity = _nested(summary, "gravity", "domains_being_blocked")
-    return [
-        _metric("Queries", _number(queries)),
-        _metric("Blocked", f"{_number(blocked)} ({percent:.0f}%)"),
-        _metric("Gravity", _number(gravity)),
-        _metric("Clients", _number(clients)),
-    ]
-
-
-def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
-    """Collect lightweight public RogueForge runtime and stack summary data."""
-    base = _base_url(widget.get("url"))
-    status = _json_request(f"{base}/api/status")
-    stacks = _json_request(f"{base}/api/stacks")
     if not isinstance(status, dict):
         raise ValueError("RogueForge returned an invalid status response.")
     stacks = stacks if isinstance(stacks, list) else []
-    running = sum(
+    containers = containers if isinstance(containers, list) else []
+    running_stacks = sum(
         1 for stack in stacks
         if isinstance(stack, dict) and stack.get("state") == "running"
     )
+    running_containers = sum(
+        1 for container in containers
+        if isinstance(container, dict) and container.get("state") == "running"
+    )
     engine = str(status.get("engine") or "unknown")
-    engine_version = str(status.get("version") or "").strip()
-    engine_label = f"{engine} {engine_version}".strip()
     return [
         _metric("Version", status.get("appVersion") or "unknown"),
-        _metric("Engine", engine_label),
-        _metric("Stacks", len(stacks)),
-        _metric("Running", running),
+        _metric("Engine", engine[:1].upper() + engine[1:]),
+        _metric("Stacks", f"{running_stacks}/{len(stacks)}"),
+        _metric("Containers", f"{running_containers}/{len(containers)}"),
     ]
 
 
