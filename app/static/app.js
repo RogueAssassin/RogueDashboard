@@ -303,7 +303,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.3")}</strong></span><span>${escapeHtml((state.system?.engine?.name || "Container runtime + Container runtime").replace(/^./, c => c.toUpperCase()))} · local-first</span></footer>
+        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.3")}</strong></span><span>Service monitoring · local-first</span></footer>
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -441,7 +441,7 @@ function moveItem(sourceGroup, sourceItem, targetGroup, targetItem) {
 function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header"><div><span class="eyebrow">LIVE PREVIEW</span><h2>Customise</h2></div><button class="icon-button" id="close-editor">×</button></header>
-    <nav class="editor-tabs"><button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}">Appearance</button><button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}">Layout</button><button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}">Connect</button><button data-editor-tab="containers" class="${state.editorTab === "containers" ? "active" : ""}">Services</button><button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}">Admin</button></nav>
+    <nav class="editor-tabs"><button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}">Appearance</button><button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}">Layout</button><button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}">Connect</button><button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}">Admin</button></nav>
     <div class="editor-content">
       <section class="editor-section editor-tab-panel ${state.editorTab === "appearance" ? "active" : ""}" data-editor-panel="appearance">
         <label class="field"><span>Dashboard title</span><input id="edit-title" value="${escapeHtml(state.draft.meta.title)}"></label>
@@ -474,10 +474,6 @@ function editorMarkup() {
         <div id="widget-diagnostics">${connectionDiagnosticsMarkup()}</div>
         <label class="compact-upload"><input id="editor-import" type="file" accept=".json,.zip,.yaml,.yml" multiple><span>⇧ Restore RogueDashboard JSON or import legacy ZIP/YAML</span></label>
         <button class="button secondary full-button" id="export-json">⇩ Export JSON backup</button>
-      </section>
-      <section class="editor-section editor-tab-panel ${state.editorTab === "containers" ? "active" : ""}" data-editor-panel="containers">
-        <div class="notice info">Scan the restricted Engine agent to add cards or safely start, stop and restart containers.</div>
-        <button class="button secondary full-button" id="discover-containers">▣ Refresh services</button><div class="container-list" id="container-list"></div>
       </section>
       <section class="editor-section editor-tab-panel ${state.editorTab === "admin" ? "active" : ""}" data-editor-panel="admin">
         <div class="section-heading"><div><h3>Service monitoring</h3><p>Detected through the restricted engine agent.</p></div></div>
@@ -852,21 +848,7 @@ function updateClock() {
   if (date) date.textContent = now.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
 }
 
-function updateStats() {
-  if (!document.getElementById("container-count")) return;
-  const online = [...state.health.values()].filter(item => item.state === "online").length;
-  document.getElementById("online-count").textContent = state.health.size ? `${online}/${state.health.size}` : "—";
-  if (!state.system) return;
-  const containerCount = document.getElementById("container-count");
-  const containerLabel = document.getElementById("container-label");
-  containerCount.textContent = state.system.totalContainers == null ? "—" : `${state.system.runningContainers}/${state.system.totalContainers}`;
-  containerCount.title = state.system.engineStatus === "ok" ? `Running / total ${state.system.engine?.name || "container"} containers` : "Engine agent unavailable; check agent logs";
-  containerLabel.textContent = state.system.engineStatus === "ok" ? `${(state.system.engine?.name || "Container").replace(/^./, c => c.toUpperCase())} containers running` : "Engine agent offline";
-  document.getElementById("memory-count").textContent = formatBytes(state.system.memoryUsed);
-  document.getElementById("memory-total").textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
-  document.getElementById("load-count").textContent = Number(state.system.load).toFixed(2);
-  document.getElementById("uptime-count").textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;
-}
+function updateStats() {\n  const online = [...state.health.values()].filter(item => item.state === "online").length;\n  const onlineCount = document.getElementById("online-count");\n  if (onlineCount) onlineCount.textContent = state.health.size ? `${online}/${state.health.size}` : "—";\n  if (!state.system) return;\n  const memoryCount = document.getElementById("memory-count");\n  const memoryTotal = document.getElementById("memory-total");\n  const loadCount = document.getElementById("load-count");\n  const uptimeCount = document.getElementById("uptime-count");\n  if (memoryCount) memoryCount.textContent = formatBytes(state.system.memoryUsed);\n  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;\n  if (loadCount) loadCount.textContent = Number(state.system.load).toFixed(2);\n  if (uptimeCount) uptimeCount.textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;\n}
 
 async function refreshRuntime(force = false) {
   const refreshButton = document.getElementById("refresh-monitor");
