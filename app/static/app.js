@@ -764,6 +764,7 @@ function exportJson() {
 function integrationHint(type) {
   const config = INTEGRATION_DEFAULTS[type];
   if (type === "qbittorrent") return "qBittorrent 5.2+: use RGDASH_QBITTORRENT_API_KEY. Username and password are the automatic fallback.";
+  if (type === "rogueforge") return "RogueForge uses its read-only public status APIs. No credentials are stored. Default private URL: http://rogueforge:7810.";
   return config ? `Add ${config.refs.join(" and ")} to .env.` : "Health-check monitoring only; no API credentials required.";
 }
 
@@ -786,8 +787,16 @@ function openItem(groupIndex, itemIndex) {
   document.getElementById("item-status").value = item.statusStyle;
   document.getElementById("item-integration").value = item.widget?.type || "";
   document.getElementById("item-integration").onchange = event => {
-    document.getElementById("integration-env").textContent = integrationHint(event.target.value);
-    if (event.target.value && !document.getElementById("item-widget-url").value) document.getElementById("item-widget-url").value = document.getElementById("item-monitor").value;
+    const selected = event.target.value;
+    document.getElementById("integration-env").textContent = integrationHint(selected);
+    const widgetUrl = document.getElementById("item-widget-url");
+    const monitorUrl = document.getElementById("item-monitor");
+    if (selected === "rogueforge") {
+      if (!widgetUrl.value) widgetUrl.value = "http://rogueforge:7810";
+      if (!monitorUrl.value) monitorUrl.value = "http://rogueforge:7810/health";
+    } else if (selected && !widgetUrl.value) {
+      widgetUrl.value = monitorUrl.value;
+    }
   };
   document.getElementById("item-close").onclick = closeOverlay;
   document.getElementById("item-form").onsubmit = saveItem;
