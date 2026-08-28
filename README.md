@@ -132,3 +132,43 @@ This keeps the container image small while preserving offline/local override sup
 The earlier engine-agent design added Docker/Podman socket access and deployment complexity. 1.1.3 removed that layer. 1.2.0 keeps that separation and improves naming, deployment and branding instead of restoring container-engine control to the dashboard.
 
 See the documentation under [`docs/`](docs/).
+
+
+## RogueForge integration
+
+RogueDashboard 1.2.0 includes a lightweight RogueForge service-card integration. Both containers must share the same Compose network (the default examples use `media-net`).
+
+Create or edit a service card and use:
+
+```text
+Name: RogueForge
+Open URL: https://manage.example.com
+Private health-check URL: http://rogueforge:7810/health
+Live integration: RogueForge
+Private API URL: http://rogueforge:7810
+Icon: rogueforge
+```
+
+The card reads RogueForge's public status and stack summary endpoints and displays:
+
+- RogueForge application version
+- active container engine/version
+- discovered stack count
+- running stack count
+
+No Docker/Podman socket is exposed to RogueDashboard and no RogueForge administrator credentials are stored in RogueDashboard. Widget results use the same short cache as the other integrations to keep the monitoring load small.
+
+## Build information
+
+Runtime/build metadata belongs in project documentation rather than the live dashboard UI. The 1.2.0 web interface intentionally keeps version/runtime/platform/license badges out of the main dashboard surface.
+
+```text
+version   1.2.0
+runtime   Docker / Podman
+platform  Linux amd64 / arm64
+license   MIT
+```
+
+## Branding
+
+RogueDashboard has its own original **RD** identity. The 1.2.0 branding set is vector-based and includes high-detail base/dark/light artwork plus a compact service-card mark. RogueForge retains its own independent **RF** identity so each Rogue product is visually related without sharing the same logo.
