@@ -497,6 +497,14 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def resolve_database_path() -> Path:
+    database_path = DATA_DIR / "roguedashboard.sqlite"
+    legacy_database_path = DATA_DIR / "rogue-dashboard.sqlite"
+    if not database_path.exists() and legacy_database_path.exists():
+        legacy_database_path.replace(database_path)
+    return database_path
+
+
 def runtime_metadata() -> dict[str, str]:
     override = os.environ.get("RGDASH_RUNTIME", "").strip()
     if override and override.lower() != "auto":
@@ -979,11 +987,7 @@ def main() -> int:
     if command == "healthcheck":
         return healthcheck()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    database_path = DATA_DIR / "roguedashboard.sqlite"
-    legacy_database_path = DATA_DIR / "rogue-dashboard.sqlite"
-    if not database_path.exists() and legacy_database_path.exists():
-        legacy_database_path.replace(database_path)
-    DB = Database(database_path)
+    DB = Database(resolve_database_path())
     server = ThreadingHTTPServer(("0.0.0.0", PORT), DashboardHandler)
     print(f"RogueDashboard {VERSION} listening on {PORT}")
     try:
