@@ -15,6 +15,7 @@ import io
 import json
 import mimetypes
 import os
+import platform
 from pathlib import Path
 import re
 import secrets
@@ -33,7 +34,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.1.3"
+VERSION = "1.2.0"
 PORT = int(os.environ.get("PORT", "8080"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
@@ -46,7 +47,7 @@ CONFIGURED_ALLOWED_HOSTS = {
     if host.strip()
 }
 ALLOWED_HOSTS = set(CONFIGURED_ALLOWED_HOSTS)
-ALLOWED_HOSTS.update({"localhost", "127.0.0.1", "::1", "dashboard", "rogue-dashboard"})
+ALLOWED_HOSTS.update({"localhost", "127.0.0.1", "::1", "dashboard", "roguedashboard", "rogue-dashboard"})
 ROGUEROUTE_PUBLIC_URL = os.environ.get("RGDASH_ROGUEROUTE_URL", "").strip()
 if urlparse(ROGUEROUTE_PUBLIC_URL).scheme not in ("http", "https"):
     ROGUEROUTE_PUBLIC_URL = ""
@@ -445,86 +446,70 @@ def make_session() -> tuple[str, str, int]:
 
 
 def health_check(item: dict[str, Any]) -> dict[str, Any]:
+    """Probe a configured service endpoint without requiring a container-engine socket."""
     checked_at = utc_now()
     url = item.get("monitorUrl", "")
     if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
-        return {"itemId": item.get("id", ""), "state": "unknown", "checkedAt": checked_at}
+        return {"itemId": item.get("id", ""), "state": "unknown", "source": "endpoint", "checkedAt": checked_at}
+
     started = time.monotonic()
     status: int | None = None
     probe_error: str | None = None
     try:
-        request = Request(url, method="HEAD", headers={"User-Agent": f"Rogue-Dashboard/{VERSION}"})
+        request = Request(url, method="HEAD", headers={"User-Agent": f"RogueDashboard/{VERSION}"})
         with urlopen(request, timeout=4) as response:
             status = response.status
-        probe_state = "online" if status < 500 else "offline"
     except HTTPError as error:
         status = error.code
         if status in (405, 501):
             try:
-                request = Request(url, method="GET", headers={"User-Agent": f"Rogue-Dashboard/{VERSION}"})
+                request = Request(url, method="GET", headers={"User-Agent": f"RogueDashboard/{VERSION}"})
                 with urlopen(request, timeout=4) as response:
                     status = response.status
-                probe_state = "online" if status < 500 else "offline"
             except HTTPError as get_error:
                 status = get_error.code
-                probe_state = "online" if status < 500 else "offline"
             except (URLError, TimeoutError, ValueError):
                 status = None
-                probe_state = "offline"
                 probe_error = "Private endpoint is unreachable from the dashboard network"
-        else:
-            probe_state = "online" if status < 500 else "offline"
     except (URLError, TimeoutError, ValueError):
-        probe_state = "offline"
         probe_error = "Private endpoint is unreachable from the dashboard network"
 
-    container_name = item.get("containerName", "")
-    container = (containers_by_name or {}).get(container_name) if isinstance(container_name, str) else None
-    container_state = container.get("state") if container else None
-    container_health = container.get("health") if container else None
-    if container_state and container_state != "running":
-        state = "offline"
-        message = f"Container is {container_state}"
-        source = "container"
-    elif container_health == "unhealthy":
-        state = "offline"
-        message = "Container health check is failing"
-        source = "container"
-    elif container_health == "starting":
-        state = "unknown"
-        message = "Container health check is still starting"
-        source = "container"
-    elif probe_state == "offline" and status is not None:
-        state = "offline"
-        message = f"Health endpoint returned HTTP {status}"
-        source = "endpoint"
-    elif container_health == "healthy":
-        state = "online"
-        message = "Container healthy and endpoint responding" if probe_state == "online" else "Container healthy; private endpoint is not reachable from the dashboard network"
-        source = "container+endpoint" if probe_state == "online" else "container"
-    else:
-        state = probe_state
-        message = "Endpoint responding" if probe_state == "online" else probe_error or "Endpoint is offline"
-        source = "endpoint"
+    state = "online" if status is not None and status < 500 else "offline"
+    message = f"Endpoint responding (HTTP {status})" if state == "online" else (
+        f"Health endpoint returned HTTP {status}" if status is not None else (probe_error or "Endpoint is offline")
+    )
     result: dict[str, Any] = {
         "itemId": item.get("id", ""),
         "state": state,
-        "source": source,
+        "source": "endpoint",
         "message": message,
-        "probeState": probe_state,
+        "probeState": state,
         "latencyMs": round((time.monotonic() - started) * 1000),
         "checkedAt": checked_at,
     }
-    if container_state:
-        result["containerState"] = container_state
-    if container_health:
-        result["containerHealth"] = container_health
     if probe_error:
         result["probeError"] = probe_error
     if status is not None:
         result["status"] = status
     return result
 
+
+def runtime_metadata() -> dict[str, str]:
+    override = os.environ.get("RGDASH_RUNTIME", "").strip()
+    if override and override.lower() != "auto":
+        runtime = override
+    elif os.environ.get("container", "").lower() == "podman" or Path("/run/.containerenv").exists():
+        runtime = "Podman"
+    elif Path("/.dockerenv").exists():
+        runtime = "Docker"
+    else:
+        runtime = "Container"
+    return {
+        "runtime": runtime,
+        "platform": platform.system() or "Linux",
+        "arch": platform.machine() or "unknown",
+        "license": "MIT",
+    }
 
 
 def system_stats() -> dict[str, Any]:
@@ -542,30 +527,25 @@ def system_stats() -> dict[str, Any]:
         uptime = float(Path("/proc/uptime").read_text().split()[0])
     except (OSError, ValueError):
         uptime = 0
-    try:
-        containers = containers_from_agent()
-        running_containers = sum(item.get("state") == "running" for item in containers)
-        total_containers = len(containers)
-        engine_info = engine_info_from_agent()
-        engine_status = "ok"
-    except Exception:
-        running_containers = None
-        total_containers = None
-        engine_info = {"name": "unknown", "version": "unknown", "apiVersion": "unknown", "socket": ""}
-        engine_status = "unavailable"
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0
+    metadata = runtime_metadata()
     return {
         "uptimeSeconds": round(uptime),
         "memoryUsed": max(0, memory_total - memory_available),
         "memoryTotal": memory_total,
         "load": load,
         "cpuCount": os.cpu_count() or 1,
-        "runningContainers": running_containers,
-        "totalContainers": total_containers,
-        "engineStatus": engine_status,
-        "engine": engine_info,
-        # Compatibility alias for pre-1.1 clients.
-        "containerStatus": engine_status,
+        "runningContainers": None,
+        "totalContainers": None,
+        "engineStatus": "external",
+        "engine": {
+            "name": metadata["runtime"],
+            "version": "managed externally",
+            "apiVersion": "",
+            "socket": "",
+        },
+        "containerStatus": "external",
+        "runtime": metadata,
     }
 
 
@@ -677,6 +657,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.json_response(
                 {
                     "version": VERSION,
+                    "build": {"version": VERSION, **runtime_metadata()},
                     "setupRequired": DB.setup_required(),
                     "authenticated": bool(username),
                     "username": username,
@@ -703,12 +684,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     results = HEALTH_CACHE[1]
                 else:
                     items = [item for group in DB.dashboard()["groups"] for item in group["items"] if item.get("monitorUrl")]
-                    try:
-                        containers_by_name = {container["name"]: container for container in containers_from_agent()}
-                    except Exception:
-                        containers_by_name = {}
                     with ThreadPoolExecutor(max_workers=8) as pool:
-                        results = list(pool.map(lambda item: health_check(item, containers_by_name), items))
+                        results = list(pool.map(health_check, items))
                     HEALTH_CACHE = (time.time() + 15, results)
             self.json_response(results)
         elif path == "/api/widgets":
@@ -788,7 +765,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if not DB.setup_required() and not self.require_admin():
                     return
                 if not isinstance(body, dict) or "dashboard" not in body:
-                    raise ValueError("A Rogue Dashboard JSON object is required")
+                    raise ValueError("A RogueDashboard JSON object is required")
                 imported_dashboard = validate_dashboard(body["dashboard"])
                 imported_items = [item for group in imported_dashboard["groups"] for item in group["items"]]
                 self.json_response({
@@ -998,9 +975,13 @@ def main() -> int:
     if command == "healthcheck":
         return healthcheck()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    DB = Database(DATA_DIR / "rogue-dashboard.sqlite")
+    database_path = DATA_DIR / "roguedashboard.sqlite"
+    legacy_database_path = DATA_DIR / "rogue-dashboard.sqlite"
+    if not database_path.exists() and legacy_database_path.exists():
+        legacy_database_path.replace(database_path)
+    DB = Database(database_path)
     server = ThreadingHTTPServer(("0.0.0.0", PORT), DashboardHandler)
-    print(f"Rogue Dashboard {VERSION} listening on {PORT}")
+    print(f"RogueDashboard {VERSION} listening on {PORT}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
