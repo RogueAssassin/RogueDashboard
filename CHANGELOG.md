@@ -2,6 +2,20 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
+## 1.2.1
+
+- Removed the version/runtime/platform/license badge strip from the live dashboard; release metadata now lives in the README.
+- Removed the remaining stale engine-agent status presentation from the socket-free interface.
+- Added a native RogueForge card integration for version, engine, stack and container summary metrics.
+- Reworked the RD logo into a higher-detail metallic Rogue-style monogram with segmented purple/cyan illumination.
+- Added dedicated base, dark, light and compact SVG variants and cache-busted all live branding references.
+- Removed legacy PNG favicon references from the live page and web manifest so browsers consistently use the current RD SVG identity.
+- Switched the core RogueDashboard icon to a bundled 1.2.1 asset instead of fetching the older `main` logo during testing.
+- Added a new version-neutral README banner and simplified installation, upgrade, architecture and testing documentation.
+- Updated the testing channel to publish `1.2.1-testing`.
+- Preserved `RGDASH_*`, `.env`, SQLite data and custom assets across upgrades.
+
+
 ## 1.2.0
 
 - Standardized product naming from **Rogue Dashboard** to **RogueDashboard**.
