@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="RogueDashboard">
-<defs><linearGradient id="g" x1="12" y1="12" x2="116" y2="116"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
-<rect width="128" height="128" rx="28" fill="#0b0f16"/><circle cx="64" cy="64" r="49" fill="none" stroke="url(#g)" stroke-width="5"/>
-<path d="M35 34h28c17 0 28 9 28 23 0 10-6 18-15 21l18 19H76L60 80H51v17H35V34zm16 14v18h12c8 0 12-3 12-9s-4-9-12-9H51z" fill="#e2e8f0"/>
-<path d="M69 51h16c17 0 28 9 28 23s-11 23-28 23H69V83h16c8 0 12-3 12-9s-4-9-12-9H69V51z" fill="url(#g)"/></svg>
+<defs><linearGradient id="n" x1="15" y1="12" x2="115" y2="117"><stop stop-color="#7c3aed"/><stop offset=".45" stop-color="#c026d3"/><stop offset=".75" stop-color="#2563eb"/><stop offset="1" stop-color="#22d3ee"/></linearGradient><linearGradient id="s" x1="28" y1="24" x2="94" y2="103"><stop stop-color="#fff"/><stop offset=".3" stop-color="#94a3b8"/><stop offset=".55" stop-color="#f1f5f9"/><stop offset="1" stop-color="#475569"/></linearGradient></defs>
+<rect width="128" height="128" rx="28" fill="#05070b"/><circle cx="64" cy="64" r="54" fill="#0b0f16" stroke="#273142" stroke-width="3"/><circle cx="64" cy="64" r="47" fill="none" stroke="url(#n)" stroke-width="4"/>
+<path d="M29 32h31c19 0 31 10 31 25 0 10-5 18-14 22l20 19H77L61 81H49v17H29V32Zm20 15v19h11c8 0 12-3 12-10 0-6-4-9-12-9H49Z" fill="url(#s)"/>
+<path d="M67 50h18c20 0 32 10 32 24S105 98 85 98H67V82h17c9 0 14-3 14-8s-5-8-14-8H67V50Z" fill="url(#n)"/>
+</svg>
