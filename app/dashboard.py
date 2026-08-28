@@ -49,8 +49,11 @@ CONFIGURED_ALLOWED_HOSTS = {
 ALLOWED_HOSTS = set(CONFIGURED_ALLOWED_HOSTS)
 ALLOWED_HOSTS.update({"localhost", "127.0.0.1", "::1", "dashboard", "roguedashboard", "rogue-dashboard"})
 ROGUEROUTE_PUBLIC_URL = os.environ.get("RGDASH_ROGUEROUTE_URL", "").strip()
+ASSET_BASE_URL = os.environ.get("RGDASH_ASSET_BASE_URL", "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static").strip().rstrip("/")
 if urlparse(ROGUEROUTE_PUBLIC_URL).scheme not in ("http", "https"):
     ROGUEROUTE_PUBLIC_URL = ""
+if urlparse(ASSET_BASE_URL).scheme != "https":
+    ASSET_BASE_URL = "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static"
 SESSION_COOKIE = "rogue_session"
 MAX_BODY = 2_000_000
 MAX_ARCHIVE_ENTRIES = 100
@@ -668,6 +671,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "trustedHeaders": TRUST_PROXY_HEADERS,
                     },
                     "serviceUrls": {"rogueRoute": ROGUEROUTE_PUBLIC_URL},
+                    "assets": {"baseUrl": ASSET_BASE_URL},
                 }
             )
         elif path == "/api/dashboard":
