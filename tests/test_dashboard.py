@@ -819,6 +819,17 @@ class RogueDashboardTests(unittest.TestCase):
         self.assertEqual(stats["containerStatus"], "external")
         self.assertEqual(stats["engine"]["socket"], "")
 
+    def test_system_stats_reuses_short_lived_snapshot(self):
+        previous = dashboard_app.SYSTEM_STATS_CACHE
+        try:
+            dashboard_app.SYSTEM_STATS_CACHE = (0, {})
+            first = dashboard_app.system_stats()
+            second = dashboard_app.system_stats()
+            self.assertIs(first, second)
+            self.assertGreater(dashboard_app.SYSTEM_STATS_CACHE[0], time.time())
+        finally:
+            dashboard_app.SYSTEM_STATS_CACHE = previous
+
     def test_health_history_is_bounded_and_returns_compact_hour_summary(self):
         with dashboard_app.HEALTH_HISTORY_LOCK:
             dashboard_app.HEALTH_HISTORY.clear()
@@ -835,6 +846,7 @@ class RogueDashboardTests(unittest.TestCase):
             self.assertLess(summary["availability"], 100)
             self.assertIsInstance(summary["averageLatencyMs"], int)
             self.assertTrue(summary["lastFailureAt"].endswith("Z"))
+            self.assertTrue(summary["lastRecoveryAt"].endswith("Z"))
             with dashboard_app.HEALTH_HISTORY_LOCK:
                 self.assertEqual(len(dashboard_app.HEALTH_HISTORY["service-one"]), dashboard_app.HEALTH_HISTORY_LIMIT)
         finally:
