@@ -18,6 +18,8 @@ const state = {
   editingItem: null,
   editorTab: "appearance",
   activePage: "home",
+  refreshInFlight: false,
+  refreshQueued: false,
 };
 
 const app = document.getElementById("app");
@@ -361,6 +363,19 @@ function formatUptime(seconds) {
   return days ? `${days}d ${hours}h` : `${hours}h`;
 }
 
+function relativeTime(value) {
+  if (!value) return "";
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return "";
+  const seconds = Math.max(0, Math.round((Date.now() - time) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 function renderDashboard() {
   const dashboard = state.draft;
   document.title = dashboard.meta.title;
@@ -455,8 +470,11 @@ function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const tagMarkup = tags.length ? `<div class="card-tags">${tags.slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";
   const launchHint = item.launchMode === "same-tab" ? "→" : item.launchMode === "copy" ? "⧉" : "↗";
   const history = state.history.get(item.id);
-  const historyMarkup = history && history.samples > 1 ? `<div class="card-history"><span>${Number(history.availability).toFixed(1)}% 1h</span>${Number.isFinite(history.averageLatencyMs) ? `<span>${history.averageLatencyMs} ms avg</span>` : ""}</div>` : "";
-  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}${historyMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
+  const degraded = statusState === "online" && widget && widget.state !== "ok";
+  const recovery = history?.lastRecoveryAt ? `Recovered ${relativeTime(history.lastRecoveryAt)}` : "";
+  const failure = statusState === "offline" && history?.lastFailureAt ? `Failed ${relativeTime(history.lastFailureAt)}` : "";
+  const historyMarkup = history && history.samples > 1 ? `<div class="card-history"><span>${Number(history.availability).toFixed(1)}% 1h</span>${Number.isFinite(history.averageLatencyMs) ? `<span>${history.averageLatencyMs} ms avg</span>` : ""}${failure ? `<span class="history-failure">${escapeHtml(failure)}</span>` : recovery ? `<span class="history-recovery">${escapeHtml(recovery)}</span>` : ""}</div>` : "";
+  return `<article class="service-card ${degraded ? "is-degraded" : ""} ${statusState === "offline" ? "is-offline" : ""} ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}${historyMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
 }
 
 function widgetCardMarkup(item, widget) {
@@ -480,13 +498,15 @@ function connectionDiagnosticsMarkup() {
   return `<div class="widget-diagnostics">${items.map(item => {
     const live = state.widgets.get(item.id);
     const probe = state.health.get(item.id);
-    const stateName = live?.state === "ok" ? (probe?.state === "offline" ? "error" : "ok") : live?.state || probe?.state || "loading";
+    const stateName = probe?.state === "offline" ? "offline" : live?.state === "ok" ? "ok" : live?.state && probe?.state === "online" ? "degraded" : live?.state || probe?.state || "loading";
     const latency = Number.isFinite(live?.latencyMs) ? live.latencyMs : probe?.latencyMs;
     const loadedEnvironment = (live?.environment || []).filter(entry => entry.loaded).map(entry => entry.name);
     const environmentDetail = loadedEnvironment.length ? ` · .env loaded: ${loadedEnvironment.join(", ")}` : "";
-    const detail = live?.missingRefs?.length ? `Missing ${live.missingRefs.join(", ")}` : `${live?.message || (live?.state === "ok" ? `${live.metrics.length} API metrics responding` : probe?.message || (probe?.state === "online" ? "Container endpoint responding" : "Waiting for connection test"))}${environmentDetail}`;
+    const detail = live?.missingRefs?.length ? `Missing ${live.missingRefs.join(", ")}` : `${live?.message || (live?.state === "ok" ? `${live.metrics.length} API metrics responding` : probe?.message || (probe?.state === "online" ? "Service endpoint responding" : "Waiting for connection test"))}${environmentDetail}${historyDetail}`;
     const endpoint = item.widget?.url || item.monitorUrl || "No private URL";
-    const action = stateName === "ok" || stateName === "online" ? "Connected" : stateName === "configuration_required" ? "Configure" : stateName === "error" || stateName === "offline" ? "Check" : "Pending";
+    const history = state.history.get(item.id);
+    const historyDetail = history?.lastFailureAt ? ` · last failure ${relativeTime(history.lastFailureAt)}` : "";
+    const action = stateName === "ok" || stateName === "online" ? "Connected" : stateName === "degraded" ? "Degraded" : stateName === "configuration_required" ? "Configure" : stateName === "error" || stateName === "offline" ? "Check" : "Pending";
     return `<div class="widget-diagnostic"><span class="widget-state-dot ${escapeHtml(stateName)}"></span><div><strong>${escapeHtml(item.name)}</strong><small title="${escapeHtml(`${endpoint} · ${detail}`)}">${escapeHtml(item.widget?.type || "health probe")} · ${escapeHtml(endpoint)} · ${escapeHtml(detail)}</small></div><span>${Number.isFinite(latency) ? `${latency} ms · ` : ""}${action}</span></div>`;
   }).join("")}</div><div class="notice info">Credentials use <strong>RGDASH_*</strong> names in <strong>.env</strong>. Changes take effect after restarting the <strong>roguedashboard</strong> service.</div>`;
 }
@@ -1103,26 +1123,41 @@ function updateStats() {
 }
 
 async function refreshRuntime(force = false) {
+  if (document.hidden && !force) return;
+  if (state.refreshInFlight) {
+    if (force) state.refreshQueued = true;
+    return;
+  }
+  state.refreshInFlight = true;
   const refreshButton = document.getElementById("refresh-monitor");
-  if (force) {
-    if (refreshButton) { refreshButton.disabled = true; refreshButton.textContent = "Testing…"; }
-    try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
-    catch (error) { toast(error.message); }
+  try {
+    if (force) {
+      if (refreshButton) { refreshButton.disabled = true; refreshButton.textContent = "Testing…"; }
+      try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
+      catch (error) { toast(error.message); }
+    }
+    const [health, system, widgets, history] = await Promise.allSettled([
+      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"),
+    ]);
+    if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
+    if (system.status === "fulfilled") state.system = system.value;
+    if (history.status === "fulfilled") state.history = new Map(Object.entries(history.value.services || {}));
+    if (widgets.status === "fulfilled") {
+      state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
+      state.widgetSupport = widgets.value.supported;
+    }
+    updateStats();
+    renderGroups();
+    const diagnostics = document.getElementById("widget-diagnostics");
+    if (diagnostics) diagnostics.innerHTML = connectionDiagnosticsMarkup();
+  } finally {
+    state.refreshInFlight = false;
+    if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = "↻ Test now"; }
+    if (state.refreshQueued) {
+      state.refreshQueued = false;
+      queueMicrotask(() => refreshRuntime(true));
+    }
   }
-  const [health, system, widgets, history] = await Promise.allSettled([
-    request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"),
-  ]);
-  if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
-  if (system.status === "fulfilled") state.system = system.value;
-  if (history.status === "fulfilled") state.history = new Map(Object.entries(history.value.services || {}));
-  if (widgets.status === "fulfilled") {
-    state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
-    state.widgetSupport = widgets.value.supported;
-  }
-  updateStats(); renderGroups();
-  const diagnostics = document.getElementById("widget-diagnostics");
-  if (diagnostics) diagnostics.innerHTML = connectionDiagnosticsMarkup();
-  if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = "↻ Test now"; }
 }
 
 document.addEventListener("keydown", event => {
@@ -1139,6 +1174,10 @@ document.addEventListener("keydown", event => {
   }
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshRuntime();
+});
+
 setInterval(updateClock, 1000);
-setInterval(refreshRuntime, 30000);
+setInterval(() => refreshRuntime(), 30000);
 load();
