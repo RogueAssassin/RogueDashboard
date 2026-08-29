@@ -2,6 +2,27 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
+## 1.3.5
+
+- Integrated the corrected approved RogueDashboard icon-pack artwork into the runtime UI.
+- Standardized all active RogueDashboard branding on the corrected `roguedashboard-approved-128.png` asset so GitHub README rendering, browser icons and runtime UI all use the same source.
+- Reworked the main shell for tighter header, stats, group-title and service-card alignment.
+- Reduced unnecessary blur/shadow work while retaining the Rogue purple/cyan visual identity.
+- Rebuilt the Customise experience into clearer Appearance, Layout, Connect and Admin sections.
+- Grouped related settings into consistent editor cards with improved descriptions and responsive spacing.
+- Reworked the administrator sign-in modal to match the RogueDashboard setup/customiser design.
+- Added explicit sign-in progress/error feedback and consistent session messaging.
+- Removed the remaining obsolete pre-socket-free container discovery binding from the customiser.
+- Replaced stale engine-agent administration presentation with RogueDashboard runtime/session information.
+- Improved mobile/tablet behaviour for the dashboard, customiser and authentication surfaces.
+- Updated the README banner to load the corrected RogueDashboard PNG from an absolute raw GitHub URL with cache-busting, avoiding GitHub's unreliable nested/relative image rendering.
+- Replaced the old README badge row with container-release style release, GHCR, live build, runtime, engine and platform badges.
+- The README build badge now follows the testing CI workflow live on every push.
+- Removed superseded RogueDashboard SVG branding assets so all active core branding resolves to the approved artwork.
+- Fixed the README header so the approved RogueDashboard artwork renders directly in GitHub instead of relying on an SVG that referenced another repository asset.
+- Advanced the testing line from 1.3.1 to 1.3.5 to clearly identify this broader visual/authentication/README refresh.
+- Kept existing `RGDASH_*`, `.env`, database and custom-asset compatibility intact.
+
 ## 1.3.0
 
 - Promoted the polished socket-free dashboard architecture to the next stable feature release.

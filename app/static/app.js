@@ -30,7 +30,7 @@ const ICON_FILES = {
   tautulli: "tautulli.svg", pihole: "pihole.svg", dozzle: "dozzle.svg",
   uptimekuma: "uptime-kuma.svg", dockge: "dockge.svg",
   flaresolverr: "flaresolverr.svg", github: "github.svg",
-  rogueforge: "rogueforge.jpg", roguedashboard: "roguedashboard.svg",
+  rogueforge: "rogueforge.jpg", roguedashboard: "roguedashboard-approved-128.png",
   rogueroutegpx: "rogueroute-gpx.svg", rogueroutegpxweb: "rogueroute-gpx.svg",
   roguerouteosrm: "rogueroute-osrm.svg", rogueroutegpxosrm: "rogueroute-osrm.svg",
   rogueroutemanager: "rogueroute-manager.svg", rogueroutegpxmanager: "rogueroute-manager.svg",
@@ -38,7 +38,7 @@ const ICON_FILES = {
 
 const ICON_REMOTE_OVERRIDES = {
   rogueforge: "https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg",
-  roguedashboard: "/branding/roguedashboard.svg?v=1.3.0",
+  roguedashboard: "/icons/roguedashboard-approved-128.png?v=1.3.5",
 };
 
 const THEME_PRESETS = {
@@ -153,7 +153,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/branding/roguedashboard-dark.svg?v=1.3.0" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -163,7 +163,7 @@ function renderSetup() {
     <main class="setup-shell">
       <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/branding/roguedashboard-dark.svg?v=1.3.0" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -291,7 +291,7 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/branding/roguedashboard-dark.svg?v=1.3.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
+          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
           <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps and bookmarks…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
@@ -439,52 +439,114 @@ function moveItem(sourceGroup, sourceItem, targetGroup, targetItem) {
 }
 
 function editorMarkup() {
+  const runtime = state.system?.runtime || {};
+  const runtimeName = runtime.runtime || "Container";
+  const runtimePlatform = [runtime.platform || "Linux", runtime.arch || ""].filter(Boolean).join(" ");
   return `<aside class="editor-panel">
-    <header class="editor-header"><div><span class="eyebrow">LIVE PREVIEW</span><h2>Customise</h2></div><button class="icon-button" id="close-editor">×</button></header>
-    <nav class="editor-tabs"><button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}">Appearance</button><button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}">Layout</button><button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}">Connect</button><button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}">Admin</button></nav>
+    <header class="editor-header">
+      <div class="editor-brand">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="">
+        <div><span class="eyebrow">LIVE CUSTOMISER</span><h2>Customise RogueDashboard</h2><p>Preview changes instantly, then save when everything looks right.</p></div>
+      </div>
+      <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
+    </header>
+    <nav class="editor-tabs" aria-label="Customise sections">
+      <button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}"><span class="tab-symbol">◈</span><span>Appearance</span></button>
+      <button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}"><span class="tab-symbol">▦</span><span>Layout</span></button>
+      <button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}"><span class="tab-symbol">↔</span><span>Connect</span></button>
+      <button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}"><span class="tab-symbol">⌾</span><span>Admin</span></button>
+    </nav>
     <div class="editor-content">
       <section class="editor-section editor-tab-panel ${state.editorTab === "appearance" ? "active" : ""}" data-editor-panel="appearance">
-        <label class="field"><span>Dashboard title</span><input id="edit-title" value="${escapeHtml(state.draft.meta.title)}"></label>
-        <label class="field"><span>Subtitle</span><input id="edit-subtitle" value="${escapeHtml(state.draft.meta.subtitle)}"></label>
-        <div class="form-grid">
-          <label class="field"><span>Theme preset</span><select id="edit-theme"><option value="neon">Electric Neon</option><option value="midnight">Midnight</option><option value="graphite">Graphite</option><option value="ocean">Ocean</option><option value="ember">Ember</option><option value="light">Daylight</option></select></label>
-          <label class="field"><span>Card density</span><select id="edit-density"><option value="compact">Compact operations</option><option value="comfortable">Comfortable</option></select></label>
-          <label class="field full"><span>Background effect</span><select id="edit-background-mode"><option value="neon-grid">Neon grid</option><option value="aurora">Aurora glow</option><option value="mesh">Colour mesh</option><option value="solid">Solid</option><option value="image">Custom image</option></select></label>
+        <div class="editor-section-intro"><span class="eyebrow">IDENTITY</span><h3>Appearance</h3><p>Keep the dashboard visually consistent with the Rogue ecosystem while retaining your own title, colours and background.</p></div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Dashboard identity</strong><span>Shown in the browser header and main dashboard title.</span></div></div>
+          <label class="field"><span>Dashboard title</span><input id="edit-title" value="${escapeHtml(state.draft.meta.title)}"></label>
+          <label class="field"><span>Subtitle</span><input id="edit-subtitle" value="${escapeHtml(state.draft.meta.subtitle)}"></label>
         </div>
-        <label class="field color-field"><span>Primary neon colour</span><div><input id="edit-accent" type="color" value="${escapeHtml(state.draft.meta.accent)}"><input id="edit-accent-text" value="${escapeHtml(state.draft.meta.accent)}"></div></label>
-        <label class="field color-field"><span>Secondary neon colour</span><div><input id="edit-accent-secondary" type="color" value="${escapeHtml(state.draft.meta.accentSecondary)}"><input id="edit-accent-secondary-text" value="${escapeHtml(state.draft.meta.accentSecondary)}"></div></label>
-        <label class="field range-field"><span>Neon glow <strong id="glow-value">${state.draft.meta.glow}%</strong></span><input id="edit-glow" type="range" min="0" max="100" value="${state.draft.meta.glow}"></label>
-        <label class="field range-field"><span>Card opacity <strong id="opacity-value">${state.draft.meta.surfaceOpacity}%</strong></span><input id="edit-opacity" type="range" min="45" max="100" value="${state.draft.meta.surfaceOpacity}"></label>
-        <label class="field"><span>Custom background URL or local path</span><input id="edit-background" value="${escapeHtml(state.draft.meta.background)}" placeholder="/custom/backgrounds/my-background.jpg"><small>Choose Custom image above to display it.</small></label>
-        <button class="button secondary full-button" id="reset-appearance">Restore Electric Neon defaults</button>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Theme & density</strong><span>Choose a base style, spacing and background treatment.</span></div></div>
+          <div class="form-grid">
+            <label class="field"><span>Theme preset</span><select id="edit-theme"><option value="neon">Electric Neon</option><option value="midnight">Midnight</option><option value="graphite">Graphite</option><option value="ocean">Ocean</option><option value="ember">Ember</option><option value="light">Daylight</option></select></label>
+            <label class="field"><span>Card density</span><select id="edit-density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
+            <label class="field full"><span>Background effect</span><select id="edit-background-mode"><option value="neon-grid">Neon grid</option><option value="aurora">Aurora glow</option><option value="mesh">Colour mesh</option><option value="solid">Solid</option><option value="image">Custom image</option></select></label>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Rogue colour system</strong><span>Fine-tune the purple/cyan accents and surface depth.</span></div></div>
+          <label class="field color-field"><span>Primary accent</span><div><input id="edit-accent" type="color" value="${escapeHtml(state.draft.meta.accent)}"><input id="edit-accent-text" value="${escapeHtml(state.draft.meta.accent)}"></div></label>
+          <label class="field color-field"><span>Secondary accent</span><div><input id="edit-accent-secondary" type="color" value="${escapeHtml(state.draft.meta.accentSecondary)}"><input id="edit-accent-secondary-text" value="${escapeHtml(state.draft.meta.accentSecondary)}"></div></label>
+          <label class="field range-field"><span>Ambient glow <strong id="glow-value">${state.draft.meta.glow}%</strong></span><input id="edit-glow" type="range" min="0" max="100" value="${state.draft.meta.glow}"></label>
+          <label class="field range-field"><span>Card opacity <strong id="opacity-value">${state.draft.meta.surfaceOpacity}%</strong></span><input id="edit-opacity" type="range" min="45" max="100" value="${state.draft.meta.surfaceOpacity}"></label>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Custom background</strong><span>Use a local path or HTTPS URL when Custom image is selected.</span></div></div>
+          <label class="field"><span>Background URL / local path</span><input id="edit-background" value="${escapeHtml(state.draft.meta.background)}" placeholder="/custom/backgrounds/my-background.jpg"><small>Custom files remain outside the container image and survive upgrades.</small></label>
+          <button class="button secondary full-button" id="reset-appearance">Restore Rogue defaults</button>
+        </div>
       </section>
+
       <section class="editor-section editor-tab-panel ${state.editorTab === "layout" ? "active" : ""}" data-editor-panel="layout">
-        <div class="section-heading"><div><h3>Pages</h3><p>Separate services into focused dashboard views.</p></div><button class="button small" id="add-page">+ Page</button></div>
-        <div class="page-editor-list" id="page-editor-list"></div>
-        <label class="field"><span>Maximum dashboard columns</span><select id="edit-max-columns">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${state.draft.meta.maxColumns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
-        <label class="toggle-row"><input id="edit-full" type="checkbox" ${state.draft.meta.fullWidth ? "checked" : ""}><span><strong>Full-width layout</strong><small>Use the available browser width.</small></span></label>
-        <label class="toggle-row"><input id="edit-equal" type="checkbox" ${state.draft.meta.equalHeights ? "checked" : ""}><span><strong>Equal-height cards</strong><small>Keep groups visually tidy.</small></span></label>
-        <label class="toggle-row"><input id="edit-latency" type="checkbox" ${state.draft.meta.showLatency ? "checked" : ""}><span><strong>Response-time badges</strong><small>Show the container or API latency on each card.</small></span></label>
-        <div class="section-heading"><div><h3>Groups</h3><p>Rename, reorder and choose their columns.</p></div><button class="button small" id="add-group">+ Add</button></div>
-        <div class="group-editor-list" id="group-editor-list"></div>
+        <div class="editor-section-intro"><span class="eyebrow">STRUCTURE</span><h3>Layout</h3><p>Organise pages, groups and cards with consistent spacing and predictable alignment.</p></div>
+        <div class="editor-card">
+          <div class="section-heading"><div><h3>Pages</h3><p>Create focused views without duplicating services.</p></div><button class="button small" id="add-page">+ Page</button></div>
+          <div class="page-editor-list" id="page-editor-list"></div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Dashboard grid</strong><span>Controls the maximum width and card behaviour.</span></div></div>
+          <label class="field"><span>Maximum columns</span><select id="edit-max-columns">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${state.draft.meta.maxColumns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+          <label class="toggle-row"><input id="edit-full" type="checkbox" ${state.draft.meta.fullWidth ? "checked" : ""}><span><strong>Full-width layout</strong><small>Use the available browser width while retaining dashboard gutters.</small></span></label>
+          <label class="toggle-row"><input id="edit-equal" type="checkbox" ${state.draft.meta.equalHeights ? "checked" : ""}><span><strong>Equal-height cards</strong><small>Align rows even when widgets have different metric counts.</small></span></label>
+          <label class="toggle-row"><input id="edit-latency" type="checkbox" ${state.draft.meta.showLatency ? "checked" : ""}><span><strong>Response-time badges</strong><small>Show the latest health/API latency on service cards.</small></span></label>
+        </div>
+        <div class="editor-card">
+          <div class="section-heading"><div><h3>Groups</h3><p>Rename, reorder, assign pages and control columns.</p></div><button class="button small" id="add-group">+ Group</button></div>
+          <div class="group-editor-list" id="group-editor-list"></div>
+        </div>
       </section>
+
       <section class="editor-section editor-tab-panel ${state.editorTab === "connect" ? "active" : ""}" data-editor-panel="connect">
-        <div class="section-heading"><div><h3>Connection centre</h3><p>Private network, .env loading and API authentication.</p></div><button class="button tiny" id="refresh-monitor">↻ Test now</button></div>
-        ${proxyDiagnosticsMarkup()}
-        <div id="widget-diagnostics">${connectionDiagnosticsMarkup()}</div>
-        <label class="compact-upload"><input id="editor-import" type="file" accept=".json,.zip,.yaml,.yml" multiple><span>⇧ Restore RogueDashboard JSON or import legacy ZIP/YAML</span></label>
-        <button class="button secondary full-button" id="export-json">⇩ Export JSON backup</button>
+        <div class="editor-section-intro"><span class="eyebrow">INTEGRATIONS</span><h3>Connect</h3><p>Validate private endpoints, API widgets and environment-backed credentials without exposing secrets to the browser.</p></div>
+        <div class="editor-card">
+          <div class="section-heading"><div><h3>Connection centre</h3><p>Private network, proxy routing and API authentication health.</p></div><button class="button tiny" id="refresh-monitor">↻ Test now</button></div>
+          ${proxyDiagnosticsMarkup()}
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Live integrations</strong><span>Shows which configured API widgets are communicating successfully.</span></div></div>
+          <div id="widget-diagnostics">${connectionDiagnosticsMarkup()}</div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Backup & restore</strong><span>Configuration backups never include resolved secret values.</span></div></div>
+          <label class="compact-upload"><input id="editor-import" type="file" accept=".json,.zip,.yaml,.yml" multiple><span>⇧ Restore RogueDashboard JSON or import legacy ZIP/YAML</span></label>
+          <button class="button secondary full-button" id="export-json">⇩ Export JSON backup</button>
+        </div>
       </section>
+
       <section class="editor-section editor-tab-panel ${state.editorTab === "admin" ? "active" : ""}" data-editor-panel="admin">
-        <div class="section-heading"><div><h3>Service monitoring</h3><p>RogueDashboard monitors services directly over HTTP/API without a container-engine socket.</p></div></div>
-        <div class="admin-list"><div class="admin-row"><div><strong>${escapeHtml((state.system?.engine?.name || "Unknown").replace(/^./, c => c.toUpperCase()))}</strong><span>Version ${escapeHtml(state.system?.engine?.version || "unknown")} · API ${escapeHtml(state.system?.engine?.apiVersion || "unknown")}</span></div><span class="status-dot ${state.system?.engineStatus === "ok" ? "online" : ""}">${state.system?.engineStatus === "ok" ? "Connected" : "Offline"}</span></div></div>
-        <div class="section-heading"><div><h3>Administrator sessions</h3><p>Review active sign-ins and revoke sessions you no longer recognise.</p></div><button class="button tiny" id="refresh-admin">↻ Refresh</button></div>
-        <div class="admin-list" id="admin-sessions"><div class="notice info">Open this tab to load sessions.</div></div>
-        <div class="section-heading"><div><h3>Action history</h3><p>The newest 100 administrative events stored locally.</p></div></div>
-        <div class="admin-list" id="admin-audit"><div class="notice info">Open this tab to load action history.</div></div>
+        <div class="editor-section-intro"><span class="eyebrow">SECURITY</span><h3>Admin</h3><p>Review the local administrator session, application runtime and recent security activity.</p></div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>RogueDashboard runtime</strong><span>Socket-free service monitoring. Container management remains in RogueForge.</span></div><span class="health-pill online">Healthy</span></div>
+          <div class="admin-summary-grid">
+            <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
+            <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
+            <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.3.5")}</strong></div>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="section-heading"><div><h3>Administrator sessions</h3><p>Review active sign-ins and revoke sessions you no longer recognise.</p></div><button class="button tiny" id="refresh-admin">↻ Refresh</button></div>
+          <div class="admin-list" id="admin-sessions"><div class="notice info">Open this tab to load sessions.</div></div>
+        </div>
+        <div class="editor-card">
+          <div class="section-heading"><div><h3>Action history</h3><p>The newest 100 administrative events stored locally.</p></div></div>
+          <div class="admin-list" id="admin-audit"><div class="notice info">Open this tab to load action history.</div></div>
+        </div>
       </section>
     </div>
-    <footer class="editor-footer"><button class="button ghost danger-text" id="logout">Sign out</button><button class="button primary" id="save-dashboard">Save changes</button></footer>
+    <footer class="editor-footer">
+      <button class="button ghost danger-text" id="logout">Sign out</button>
+      <div class="editor-footer-actions"><span>Changes are local until saved.</span><button class="button primary" id="save-dashboard">Save changes</button></div>
+    </footer>
   </aside>`;
 }
 
@@ -567,7 +629,6 @@ function bindEditor() {
   document.getElementById("add-page").onclick = addPage;
   document.getElementById("save-dashboard").onclick = saveDashboard;
   document.getElementById("logout").onclick = logout;
-  document.getElementById("discover-containers").onclick = discoverContainers;
   document.getElementById("editor-import").onchange = importInEditor;
   document.getElementById("export-json").onclick = exportJson;
   document.getElementById("refresh-monitor").onclick = () => refreshRuntime(true);
@@ -831,17 +892,53 @@ function deleteItem() {
 }
 
 function openLogin() {
-  overlay.innerHTML = `<div class="modal-backdrop"><section class="modal"><header class="modal-header"><h2>Administrator sign in</h2><button class="icon-button" id="login-close">×</button></header><form class="modal-body" id="login-form"><p class="muted">Sign in to add, arrange and customise services.</p><label class="field"><span>Username</span><input id="login-user" value="admin" autocomplete="username" required autofocus></label><label class="field"><span>Password</span><input id="login-password" type="password" autocomplete="current-password" required></label><div class="notice error" id="login-error" hidden></div><button class="button primary full-button">Sign in</button></form></section></div>`;
+  overlay.innerHTML = `<div class="modal-backdrop auth-backdrop">
+    <section class="modal auth-modal">
+      <div class="auth-visual">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard">
+        <div><span class="eyebrow">ADMINISTRATION</span><h2>Welcome back</h2><p>Sign in locally to customise services, layouts and integrations.</p></div>
+      </div>
+      <div class="auth-content">
+        <header class="modal-header auth-header"><div><span class="eyebrow">SECURE SESSION</span><h2>Administrator sign in</h2></div><button class="icon-button" id="login-close" aria-label="Close sign in">×</button></header>
+        <form class="modal-body auth-form" id="login-form">
+          <div class="auth-note"><span>●</span><div><strong>Local authentication</strong><small>Credentials are verified by RogueDashboard and are never sent to connected services.</small></div></div>
+          <label class="field"><span>Username</span><input id="login-user" value="admin" autocomplete="username" required autofocus></label>
+          <label class="field"><span>Password</span><input id="login-password" type="password" autocomplete="current-password" required></label>
+          <div class="notice error" id="login-error" hidden></div>
+          <button class="button primary full-button auth-submit" id="login-submit">Sign in to customise <span>→</span></button>
+        </form>
+      </div>
+    </section>
+  </div>`;
   document.getElementById("login-close").onclick = closeOverlay;
   document.getElementById("login-form").onsubmit = login;
 }
 
 async function login(event) {
   event.preventDefault();
+  const button = document.getElementById("login-submit");
+  const box = document.getElementById("login-error");
+  box.hidden = true;
+  button.disabled = true;
+  button.textContent = "Signing in…";
   try {
-    await request("/api/auth/login", { method: "POST", body: JSON.stringify({ username: document.getElementById("login-user").value, password: document.getElementById("login-password").value }) });
-    closeOverlay(); await load(); openEditor();
-  } catch (error) { const box = document.getElementById("login-error"); box.textContent = error.message; box.hidden = false; }
+    await request("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        username: document.getElementById("login-user").value.trim(),
+        password: document.getElementById("login-password").value,
+      }),
+    });
+    closeOverlay();
+    await load();
+    openEditor();
+    toast("Administrator session connected");
+  } catch (error) {
+    box.textContent = error.message;
+    box.hidden = false;
+    button.disabled = false;
+    button.innerHTML = 'Sign in to customise <span>→</span>';
+  }
 }
 
 async function logout() {

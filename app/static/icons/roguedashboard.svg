@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="RogueDashboard">
-<defs><linearGradient id="n" x1="15" y1="12" x2="115" y2="117"><stop stop-color="#8b5cf6"/><stop offset=".34" stop-color="#b832d9"/><stop offset=".7" stop-color="#2563eb"/><stop offset="1" stop-color="#22d3ee"/></linearGradient><linearGradient id="s" x1="30" y1="24" x2="96" y2="104"><stop stop-color="#fff"/><stop offset=".15" stop-color="#d8dee6"/><stop offset=".35" stop-color="#748091"/><stop offset=".52" stop-color="#f7f8fa"/><stop offset=".75" stop-color="#7a8696"/><stop offset="1" stop-color="#e6ebf2"/></linearGradient><filter id="g" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="2.1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-<rect width="128" height="128" rx="28" fill="#05070b"/><circle cx="64" cy="64" r="55" fill="#0b0f16" stroke="#283344" stroke-width="3"/><circle cx="64" cy="64" r="48" fill="none" stroke="url(#n)" stroke-width="4" filter="url(#g)"/>
-<path d="M31 30h19l7 7v20l-7 7h-4l18 30H46L31 69V30Z" fill="url(#s)"/>
-<path d="M46 30h14c17 0 27 8 27 21 0 9-5 16-13 20L62 59c5-1 7-4 7-8 0-5-4-7-10-7H46V30Z" fill="url(#s)"/>
-<path d="M57 47h18c19 0 31 10 31 24S94 95 75 95H62l-9-15h22c9 0 14-3 14-9s-5-9-14-9H61l-4-15Z" fill="url(#s)"/>
-<path d="M35 34h12M61 51h12" stroke="#fff" stroke-opacity=".72" stroke-width="1.5" stroke-linecap="round"/></svg>

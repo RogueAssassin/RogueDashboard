@@ -1,10 +1,12 @@
 # Bundled offline icons
 
-These compact SVG glyphs are shipped inside the Rogue Dashboard image so recognised services have useful artwork without calling an external icon service.
+RogueDashboard ships compact local artwork for recognised services so normal dashboard use does not depend on an external icon provider.
 
-- The browser chooses an icon from the service name, widget type or configured icon filename.
-- An initials tile is used when no bundled or custom match exists.
-- User-provided artwork belongs in `custom/icons/`, not this image-owned directory.
-- RogueRoute GPX, OSRM and Manager have separate route, engine and protected-manager glyphs.
+- Service artwork is selected from the service name, widget type or configured icon filename.
+- User-provided artwork belongs in `custom/icons/` and overrides bundled assets.
+- RogueDashboard itself uses one canonical approved asset: `/icons/roguedashboard-approved-128.png`.
+- That same corrected PNG is used for the README, dashboard header, setup/login/admin surfaces, service cards and browser/app icon.
+- RogueRoute GPX, OSRM and Manager retain separate route, engine and protected-manager glyphs.
+- Initials are used when no bundled, remote or custom match exists.
 
-The glyphs are original Rogue Dashboard assets and are not presented as official product logos. Product names and trademarks belong to their respective owners.
+The bundled third-party-style glyphs are convenience artwork and are not presented as official product logos. Product names and trademarks belong to their respective owners.
