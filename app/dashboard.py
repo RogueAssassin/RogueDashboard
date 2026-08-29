@@ -191,12 +191,12 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
             item["launchMode"] = raw_item.get("launchMode") if raw_item.get("launchMode") in ("new-tab", "same-tab", "copy") else "new-tab"
             item["healthMethod"] = raw_item.get("healthMethod") if raw_item.get("healthMethod") in ("HEAD", "GET") else "HEAD"
             item["healthTimeout"] = clamp(raw_item.get("healthTimeout"), 1, 10, 4)
-            raw_statuses = raw_item.get("healthStatuses") if isinstance(raw_item.get("healthStatuses"), list) else []
-            statuses = sorted({
-                status for status in raw_statuses[:20]
-                if isinstance(status, int) and not isinstance(status, bool) and 100 <= status <= 599
-            })
-            item["healthStatuses"] = statuses or list(range(200, 500))
+            status_min = clamp(raw_item.get("healthStatusMin"), 100, 599, 200)
+            status_max = clamp(raw_item.get("healthStatusMax"), 100, 599, 499)
+            if status_min > status_max:
+                status_min, status_max = status_max, status_min
+            item["healthStatusMin"] = status_min
+            item["healthStatusMax"] = status_max
             raw_widget = raw_item.get("widget")
             if isinstance(raw_widget, dict) and isinstance(raw_widget.get("type"), str):
                 refs = raw_widget.get("secretRefs") if isinstance(raw_widget.get("secretRefs"), list) else []
@@ -473,11 +473,10 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
 
     method = item.get("healthMethod") if item.get("healthMethod") in ("HEAD", "GET") else "HEAD"
     timeout = clamp(item.get("healthTimeout"), 1, 10, 4)
-    accepted = item.get("healthStatuses") if isinstance(item.get("healthStatuses"), list) else list(range(200, 500))
-    accepted_statuses = {
-        status for status in accepted
-        if isinstance(status, int) and not isinstance(status, bool) and 100 <= status <= 599
-    } or set(range(200, 500))
+    status_min = clamp(item.get("healthStatusMin"), 100, 599, 200)
+    status_max = clamp(item.get("healthStatusMax"), 100, 599, 499)
+    if status_min > status_max:
+        status_min, status_max = status_max, status_min
 
     started = time.monotonic()
     status: int | None = None
@@ -499,7 +498,7 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
         status = None
         probe_error = "Private endpoint is unreachable from the dashboard network"
 
-    state = "online" if status is not None and status in accepted_statuses else "offline"
+    state = "online" if status is not None and status_min <= status <= status_max else "offline"
     message = f"Endpoint responding (HTTP {status})" if state == "online" else (
         f"Health endpoint returned HTTP {status}" if status is not None else (probe_error or "Endpoint is offline")
     )
