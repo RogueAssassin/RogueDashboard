@@ -2,6 +2,12 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
+## 1.4.0 (testing)
+
+- Started the next RogueDashboard testing cycle from the stable 1.3.5 main release.
+- Production remains on 1.3.5 / latest while new feature work is validated through the testing channel.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `1.4.0-testing`.
+
 ## 1.3.5
 
 - Integrated the corrected approved RogueDashboard icon-pack artwork into the runtime UI.
