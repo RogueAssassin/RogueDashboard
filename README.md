@@ -52,10 +52,54 @@ Seerr
 Bazarr
 Tautulli
 Pi-hole
+Nginx Proxy Manager
+Uptime Kuma
 RogueForge
 ```
 
 Other services can still be added as normal health-checked cards.
+
+### Native Nginx Proxy Manager
+
+The 1.4.0 testing branch includes first-class Nginx Proxy Manager metrics over its HTTP API:
+
+```text
+Proxy hosts
+Enabled proxy hosts
+Certificates
+Certificates expiring within 30 days
+```
+
+Use the private NPM address, normally `http://nginx-proxy-manager:81`. RogueDashboard automatically targets the `/api` path. Authentication is server-side through:
+
+```env
+RGDASH_NPM_TOKEN=...
+```
+
+RogueDashboard never receives the Docker or Podman socket from NPM.
+
+### Native Uptime Kuma
+
+Uptime Kuma support reads its published status-page JSON endpoints rather than depending on the internal Socket.IO administration API.
+
+Configure:
+
+```text
+Live integration: Uptime Kuma
+Private API URL: http://uptime-kuma:3001
+Status page slug: default
+```
+
+The card can show:
+
+```text
+Monitors
+Up
+Down
+24h average uptime
+```
+
+This mode requires the selected Uptime Kuma status page to be published. It requires no container-engine socket and no dashboard administrator credentials.
 
 ### Custom API widget
 
@@ -252,6 +296,15 @@ The first 1.4.0 testing stage adds:
 - removal of obsolete container-management JavaScript left over from the pre-socket-free architecture.
 
 The command palette and tag/favourite filtering are browser-only operations and add no background polling. Health checks keep the existing shared cache and bounded worker pool so this stage does not increase the normal refresh frequency.
+
+### Stage 2B — native NPM + Uptime Kuma
+
+Stage 2B adds reusable backend collectors for the two services used on the current media stack:
+
+- Nginx Proxy Manager via its bearer-authenticated HTTP API,
+- Uptime Kuma via published status-page JSON endpoints,
+- both collectors reuse the existing widget cache and bounded refresh path,
+- neither integration requires Docker/Podman socket access.
 
 ### Stage 2A — Custom API widgets
 
