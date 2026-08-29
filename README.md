@@ -1,8 +1,19 @@
 <div align="center">
 
-![RogueDashboard](docs/assets/hero.svg)
+<table>
+  <tr>
+    <td width="220" align="center">
+      <img src="app/static/branding/roguedashboard-approved.webp" width="190" alt="RogueDashboard">
+    </td>
+    <td align="left">
+      <h1>RogueDashboard</h1>
+      <p><strong>Fast, local-first visibility for Docker and Podman services.</strong></p>
+      <p>Health monitoring • API widgets • RogueForge integration • Local authentication • No engine socket required</p>
+    </td>
+  </tr>
+</table>
 
-[![Release](https://img.shields.io/badge/RELEASE-1.3.1%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-1.3.5%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/pkgs/container/roguedashboard)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.13-ff4fc8?style=for-the-badge&labelColor=45464d)
@@ -206,7 +217,7 @@ RogueForge
 
 This separation keeps RogueDashboard fast and avoids giving a homepage unnecessary control over the container engine.
 
-## 1.3.1 testing preview
+## 1.3.5 testing preview
 
 The current testing branch includes a visual polish pass focused on alignment and administration UX. The BUILD badge above is driven directly by the `testing` CI workflow, so it changes with each push. The RELEASE badge is tied to the active testing version and is updated whenever the testing version advances:
 
@@ -224,7 +235,7 @@ Development is validated through the `testing` branch. Successful CI publishes:
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:1.3.1-testing
+ghcr.io/rogueassassin/roguedashboard:1.3.5-testing
 ```
 
 The pipeline runs application tests, Python validation, Compose validation, an amd64 build and a multi-architecture amd64/arm64 publish.
