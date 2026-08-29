@@ -297,6 +297,18 @@ The first 1.4.0 testing stage adds:
 
 The command palette and tag/favourite filtering are browser-only operations and add no background polling. Health checks keep the existing shared cache and bounded worker pool so this stage does not increase the normal refresh frequency.
 
+### Stage 3 — lightweight system information
+
+Stage 3 expands the information strip without giving RogueDashboard access to the Docker or Podman engine:
+
+- effective runtime/container memory usage when cgroup limits are available,
+- normalized system load alongside CPU count and uptime,
+- persistent RogueDashboard data-volume usage,
+- runtime hostname and local container/network addresses in Admin,
+- bounded one-hour service availability and average-latency summaries.
+
+Availability history is kept in memory only: a maximum of 120 samples per monitored service and no continuous SQLite writes. It resets when RogueDashboard restarts, which keeps storage I/O and database growth at zero while still providing useful short-term health context.
+
 ### Stage 2B — native NPM + Uptime Kuma
 
 Stage 2B adds reusable backend collectors for the two services used on the current media stack:
