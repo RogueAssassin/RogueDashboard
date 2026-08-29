@@ -5,7 +5,7 @@ The `testing` branch is the integration branch for features that need live valid
 Every push to `testing` runs the full application test suite, Python validation, Compose validation and a local amd64 container build. If validation passes, GitHub Actions publishes multi-architecture testing images:
 
 - `ghcr.io/rogueassassin/roguedashboard:testing`
-- `ghcr.io/rogueassassin/roguedashboard:1.3.5-testing`
+- `ghcr.io/rogueassassin/roguedashboard:1.4.0-testing`
 - immutable SHA tag
 - equivalent legacy-package testing tags under `ghcr.io/rogueassassin/rogue-dashboard`
 
