@@ -805,6 +805,42 @@ class RogueDashboardTests(unittest.TestCase):
         self.assertEqual(metadata["license"], "MIT")
 
 
+    def test_system_stats_expose_runtime_storage_and_network_without_engine_socket(self):
+        stats = dashboard_app.system_stats()
+        self.assertGreaterEqual(stats["memoryUsed"], 0)
+        self.assertGreaterEqual(stats["memoryTotal"], 0)
+        self.assertIn(stats["memoryScope"], {"container", "runtime"})
+        self.assertGreaterEqual(stats["loadPercent"], 0)
+        self.assertLessEqual(stats["loadPercent"], 100)
+        self.assertGreaterEqual(stats["storageUsed"], 0)
+        self.assertGreaterEqual(stats["storageTotal"], 0)
+        self.assertIsInstance(stats["addresses"], list)
+        self.assertEqual(stats["engineStatus"], "external")
+        self.assertEqual(stats["containerStatus"], "external")
+        self.assertEqual(stats["engine"]["socket"], "")
+
+    def test_health_history_is_bounded_and_returns_compact_hour_summary(self):
+        with dashboard_app.HEALTH_HISTORY_LOCK:
+            dashboard_app.HEALTH_HISTORY.clear()
+        try:
+            for index in range(dashboard_app.HEALTH_HISTORY_LIMIT + 10):
+                dashboard_app.record_health_history([{
+                    "itemId": "service-one",
+                    "state": "offline" if index % 10 == 0 else "online",
+                    "latencyMs": 20 + (index % 5),
+                }])
+            summary = dashboard_app.health_history_summary()["service-one"]
+            self.assertEqual(summary["samples"], dashboard_app.HEALTH_HISTORY_LIMIT)
+            self.assertGreater(summary["availability"], 80)
+            self.assertLess(summary["availability"], 100)
+            self.assertIsInstance(summary["averageLatencyMs"], int)
+            self.assertTrue(summary["lastFailureAt"].endswith("Z"))
+            with dashboard_app.HEALTH_HISTORY_LOCK:
+                self.assertEqual(len(dashboard_app.HEALTH_HISTORY["service-one"]), dashboard_app.HEALTH_HISTORY_LIMIT)
+        finally:
+            with dashboard_app.HEALTH_HISTORY_LOCK:
+                dashboard_app.HEALTH_HISTORY.clear()
+
     def test_rogueforge_widget_uses_public_read_only_endpoints(self):
         class RogueForgeFixtureHandler(BaseHTTPRequestHandler):
             def log_message(self, *_args):
