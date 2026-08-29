@@ -7,6 +7,14 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Started the next RogueDashboard testing cycle from the stable 1.3.5 main release.
 - Production remains on 1.3.5 / latest while new feature work is validated through the testing channel.
 - Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `1.4.0-testing`.
+- Added a lightweight keyboard command palette with `Ctrl+K` / `/` shortcuts.
+- Added per-card favourites and tags with `fav:` and `tag:<name>` search filters.
+- Added per-card launch modes for new tab, same tab and copy-URL workflows.
+- Added configurable endpoint health method, timeout and accepted HTTP status range.
+- Preserved the existing 30-second browser refresh, 15-second health cache and bounded health worker pool to avoid increasing monitoring load.
+- Changed imported/default dashboard wording from Docker-specific naming to `My RogueDashboard`.
+- Removed obsolete dead container-management JavaScript from the socket-free frontend.
+- Added regression tests for the new dashboard schema fields and configurable health probes.
 
 ## 1.3.5
 
