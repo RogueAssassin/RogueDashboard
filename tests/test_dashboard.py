@@ -127,6 +127,32 @@ class WidgetFixtureHandler(BaseHTTPRequestHandler):
                 "data": {"users": 12, "nested": [{"name": "alpha"}]},
                 "build": {"version": "4.2.1"},
             })
+        elif parsed.path == "/api/nginx/proxy-hosts" and self.headers.get("Authorization") == "Bearer npm-token":
+            self.respond([
+                {"id": 1, "enabled": True},
+                {"id": 2, "enabled": True},
+                {"id": 3, "enabled": False},
+            ])
+        elif parsed.path == "/api/nginx/certificates" and self.headers.get("Authorization") == "Bearer npm-token":
+            self.respond([
+                {"id": 1, "expires_on": "2099-01-01T00:00:00Z"},
+                {"id": 2, "expires_on": "2099-02-01T00:00:00Z"},
+            ])
+        elif parsed.path == "/api/status-page/default":
+            self.respond({
+                "publicGroupList": [{
+                    "name": "Services",
+                    "monitorList": [{"id": 1, "name": "One"}, {"id": 2, "name": "Two"}],
+                }]
+            })
+        elif parsed.path == "/api/status-page/heartbeat/default":
+            self.respond({
+                "heartbeatList": {
+                    "1": [{"status": 1, "ping": 20}],
+                    "2": [{"status": 0, "ping": None}],
+                },
+                "uptimeList": {"1_24": 0.999, "2_24": 0.95},
+            })
         else:
             self.respond({"error": "not found"}, 404)
 
@@ -283,6 +309,62 @@ class RogueDashboardTests(unittest.TestCase):
         self.assertEqual(widget["authMode"], "bearer")
         self.assertEqual(len(widget["metrics"]), 4)
         self.assertEqual(widget["secretBindings"]["token"], "RGDASH_CUSTOM_API_TOKEN")
+
+    def test_npm_native_widget_uses_bearer_token_and_compact_metrics(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), WidgetFixtureHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        previous = os.environ.get("RGDASH_NPM_TOKEN")
+        os.environ["RGDASH_NPM_TOKEN"] = "npm-token"
+        try:
+            result = collect_widget({
+                "id": "npm",
+                "widget": {
+                    "type": "npm",
+                    "url": f"http://127.0.0.1:{server.server_port}",
+                    "secretRefs": ["RGDASH_NPM_TOKEN"],
+                    "secretBindings": {"token": "RGDASH_NPM_TOKEN"},
+                },
+            })
+            self.assertEqual(result["state"], "ok", result)
+            self.assertEqual(
+                [(metric["label"], metric["value"]) for metric in result["metrics"]],
+                [("Proxy hosts", "3"), ("Enabled", "2"), ("Certificates", "2"), ("Expiring 30d", "0")],
+            )
+            self.assertNotIn("npm-token", json.dumps(result))
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+            if previous is None:
+                os.environ.pop("RGDASH_NPM_TOKEN", None)
+            else:
+                os.environ["RGDASH_NPM_TOKEN"] = previous
+
+    def test_uptime_kuma_native_widget_uses_public_status_page(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), WidgetFixtureHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = collect_widget({
+                "id": "uptime-kuma",
+                "widget": {
+                    "type": "uptimekuma",
+                    "url": f"http://127.0.0.1:{server.server_port}",
+                    "statusPageSlug": "default",
+                    "secretRefs": [],
+                    "secretBindings": {},
+                },
+            })
+            self.assertEqual(result["state"], "ok", result)
+            self.assertEqual(
+                [(metric["label"], metric["value"]) for metric in result["metrics"]],
+                [("Monitors", "2"), ("Up", "1"), ("Down", "1"), ("24h uptime", "97.45%")],
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
     def test_qbittorrent_falls_back_when_api_key_is_rejected(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), WidgetFixtureHandler)
