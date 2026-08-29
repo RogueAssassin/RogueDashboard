@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -562,6 +563,29 @@ def runtime_metadata() -> dict[str, str]:
     }
 
 
+def _cgroup_memory() -> tuple[int, int]:
+    """Return cgroup-v2 memory usage/limit when the runtime exposes them."""
+    try:
+        current = int(Path("/sys/fs/cgroup/memory.current").read_text().strip())
+        raw_max = Path("/sys/fs/cgroup/memory.max").read_text().strip()
+        maximum = int(raw_max) if raw_max.isdigit() else 0
+        return max(0, current), max(0, maximum)
+    except (OSError, ValueError):
+        return 0, 0
+
+
+def _runtime_addresses() -> list[str]:
+    addresses: set[str] = set()
+    try:
+        for entry in socket.getaddrinfo(socket.gethostname(), None, type=socket.SOCK_STREAM):
+            address = entry[4][0]
+            if address and not address.startswith("127.") and address != "::1":
+                addresses.add(address)
+    except OSError:
+        pass
+    return sorted(addresses)[:4]
+
+
 def system_stats() -> dict[str, Any]:
     memory_total = memory_available = 0
     try:
@@ -573,18 +597,46 @@ def system_stats() -> dict[str, Any]:
         memory_available = values.get("MemAvailable", 0)
     except (OSError, ValueError):
         pass
+
+    cgroup_used, cgroup_limit = _cgroup_memory()
+    if cgroup_limit and cgroup_limit < memory_total:
+        memory_used = min(cgroup_used, cgroup_limit)
+        effective_total = cgroup_limit
+        memory_scope = "container"
+    else:
+        memory_used = max(0, memory_total - memory_available)
+        effective_total = memory_total
+        memory_scope = "runtime"
+
     try:
         uptime = float(Path("/proc/uptime").read_text().split()[0])
     except (OSError, ValueError):
         uptime = 0
+
+    try:
+        stat = os.statvfs(DATA_DIR)
+        storage_total = stat.f_frsize * stat.f_blocks
+        storage_available = stat.f_frsize * stat.f_bavail
+        storage_used = max(0, storage_total - storage_available)
+    except OSError:
+        storage_total = storage_used = 0
+
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0
+    cpu_count = os.cpu_count() or 1
     metadata = runtime_metadata()
     return {
         "uptimeSeconds": round(uptime),
-        "memoryUsed": max(0, memory_total - memory_available),
-        "memoryTotal": memory_total,
+        "memoryUsed": memory_used,
+        "memoryTotal": effective_total,
+        "memoryScope": memory_scope,
         "load": load,
-        "cpuCount": os.cpu_count() or 1,
+        "loadPercent": round(min(100.0, max(0.0, (load / cpu_count) * 100)), 1),
+        "cpuCount": cpu_count,
+        "storageUsed": storage_used,
+        "storageTotal": storage_total,
+        "storagePath": str(DATA_DIR),
+        "hostname": socket.gethostname()[:128],
+        "addresses": _runtime_addresses(),
         "runningContainers": None,
         "totalContainers": None,
         "engineStatus": "external",
@@ -605,7 +657,51 @@ HEALTH_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 HEALTH_LOCK = threading.Lock()
 WIDGET_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 WIDGET_LOCK = threading.Lock()
+HEALTH_HISTORY: dict[str, deque[dict[str, Any]]] = {}
+HEALTH_HISTORY_LOCK = threading.Lock()
+HEALTH_HISTORY_LIMIT = 120
 DB: Database | None = None
+
+
+def record_health_history(results: list[dict[str, Any]]) -> None:
+    """Keep a bounded in-memory availability window without database writes."""
+    now = time.time()
+    with HEALTH_HISTORY_LOCK:
+        active_ids = set()
+        for result in results:
+            item_id = str(result.get("itemId") or "")
+            if not item_id:
+                continue
+            active_ids.add(item_id)
+            samples = HEALTH_HISTORY.setdefault(item_id, deque(maxlen=HEALTH_HISTORY_LIMIT))
+            samples.append({
+                "time": now,
+                "online": result.get("state") == "online",
+                "latencyMs": result.get("latencyMs") if isinstance(result.get("latencyMs"), int) else None,
+            })
+        for item_id in list(HEALTH_HISTORY):
+            if item_id not in active_ids and not HEALTH_HISTORY[item_id]:
+                HEALTH_HISTORY.pop(item_id, None)
+
+
+def health_history_summary() -> dict[str, dict[str, Any]]:
+    cutoff = time.time() - 3600
+    summary: dict[str, dict[str, Any]] = {}
+    with HEALTH_HISTORY_LOCK:
+        for item_id, samples in HEALTH_HISTORY.items():
+            recent = [sample for sample in samples if sample["time"] >= cutoff]
+            if not recent:
+                continue
+            online = sum(1 for sample in recent if sample["online"])
+            latencies = [sample["latencyMs"] for sample in recent if isinstance(sample.get("latencyMs"), int)]
+            failures = [sample["time"] for sample in recent if not sample["online"]]
+            summary[item_id] = {
+                "samples": len(recent),
+                "availability": round((online / len(recent)) * 100, 1),
+                "averageLatencyMs": round(sum(latencies) / len(latencies)) if latencies else None,
+                "lastFailureAt": datetime.fromtimestamp(failures[-1], timezone.utc).isoformat().replace("+00:00", "Z") if failures else None,
+            }
+    return summary
 
 
 def clear_monitor_caches() -> None:
@@ -738,7 +834,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     with ThreadPoolExecutor(max_workers=8) as pool:
                         results = list(pool.map(health_check, items))
                     HEALTH_CACHE = (time.time() + 15, results)
+                    record_health_history(results)
             self.json_response(results)
+        elif path == "/api/history":
+            self.json_response({"windowSeconds": 3600, "services": health_history_summary()})
         elif path == "/api/widgets":
             global WIDGET_CACHE
             with WIDGET_LOCK:
@@ -853,7 +952,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except sqlite3.IntegrityError:
             self.json_response({"error": "That username is already in use."}, HTTPStatus.CONFLICT)
         except (HTTPError, URLError, RuntimeError, TimeoutError) as error:
-            self.json_response({"error": f"Docker action failed: {error}"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            self.json_response({"error": f"Service request failed: {error}"}, HTTPStatus.SERVICE_UNAVAILABLE)
 
     def do_PUT(self) -> None:
         if not self.require_allowed_host():
