@@ -164,20 +164,21 @@ The card can display RogueForge version, container engine, running/total stacks 
 
 ## Branding and icons
 
-RogueDashboard has its own interlocked **RD** identity while staying visually aligned with the wider Rogue ecosystem.
+RogueDashboard uses the approved high-detail **RD** artwork from the RogueDashboard icon pack. The web UI uses an optimised bundled WebP for the header, setup and administrator surfaces, plus dedicated PNG assets for service cards and browser icons.
 
 ```text
 app/static/branding/
-├── roguedashboard.svg
-├── roguedashboard-dark.svg
-├── roguedashboard-light.svg
+├── roguedashboard-approved.webp
 └── branding-switch.js
 
 app/static/icons/
-└── roguedashboard.svg
+└── roguedashboard-approved-128.png
+
+app/static/
+└── favicon-32.png
 ```
 
-Core RogueDashboard branding is bundled and versioned with the application. Service-card artwork can still use GitHub-hosted assets or local overrides.
+The source icon pack remains the design authority; runtime copies are optimised so the dashboard does not decode multi-megabyte masters on every page load. Service-card artwork can still use GitHub-hosted assets or local overrides.
 
 Icon resolution:
 
@@ -203,7 +204,19 @@ RogueForge
 
 This separation keeps RogueDashboard fast and avoids giving a homepage unnecessary control over the container engine.
 
+## 1.3.1 testing preview
+
+The current testing branch includes a visual polish pass focused on alignment and administration UX:
+
+- approved RogueDashboard icon-pack artwork throughout the live UI,
+- tighter title/group/stat alignment,
+- cleaner card spacing and responsive behaviour,
+- rebuilt Appearance, Layout, Connect and Admin customiser sections,
+- unified setup/login/customiser visual styling,
+- clearer authentication feedback and session management.
+
 ## Testing channel
+
 
 Development is validated through the `testing` branch. Successful CI publishes:
 
