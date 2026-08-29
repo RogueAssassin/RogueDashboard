@@ -27,6 +27,7 @@ TIMEOUT = 6
 SUPPORTED_WIDGETS = {
     "bazarr",
     "customapi",
+    "npm",
     "pihole",
     "prowlarr",
     "qbittorrent",
@@ -35,6 +36,7 @@ SUPPORTED_WIDGETS = {
     "seerr",
     "sonarr",
     "tautulli",
+    "uptimekuma",
 }
 
 
@@ -462,6 +464,93 @@ def _customapi(widget: dict[str, Any]) -> list[dict[str, str]]:
     return metrics
 
 
+
+def _npm(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect Nginx Proxy Manager host and certificate summaries."""
+    base = _base_url(widget.get("url"))
+    api_base = base if base.endswith("/api") else f"{base}/api"
+    token = _value(widget, "token", "key", "api_key")
+    if not token:
+        raise MissingSecrets
+    headers = {"Authorization": f"Bearer {token}"}
+    hosts = _json_request(f"{api_base}/nginx/proxy-hosts", headers=headers)
+    certificates = _json_request(f"{api_base}/nginx/certificates", headers=headers)
+    hosts = hosts if isinstance(hosts, list) else []
+    certificates = certificates if isinstance(certificates, list) else []
+    enabled_hosts = sum(1 for host in hosts if isinstance(host, dict) and host.get("enabled") is not False)
+
+    now = datetime.now(timezone.utc)
+    expiring = 0
+    for certificate in certificates:
+        if not isinstance(certificate, dict):
+            continue
+        raw_expiry = certificate.get("expires_on") or certificate.get("expiresAt") or certificate.get("expires")
+        if not isinstance(raw_expiry, str) or not raw_expiry.strip():
+            continue
+        try:
+            expires = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if now <= expires <= now + timedelta(days=30):
+                expiring += 1
+        except ValueError:
+            continue
+
+    return [
+        _metric("Proxy hosts", len(hosts)),
+        _metric("Enabled", enabled_hosts),
+        _metric("Certificates", len(certificates)),
+        _metric("Expiring 30d", expiring),
+    ]
+
+
+def _uptimekuma(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect public Uptime Kuma status-page health without socket.io."""
+    base = _base_url(widget.get("url"))
+    slug = str(widget.get("statusPageSlug") or "default").strip()[:80] or "default"
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", slug):
+        raise ValueError("Uptime Kuma status page slug contains unsupported characters.")
+
+    status_page = _json_request(f"{base}/api/status-page/{slug}")
+    heartbeat = _json_request(f"{base}/api/status-page/heartbeat/{slug}")
+    groups = status_page.get("publicGroupList", []) if isinstance(status_page, dict) else []
+    monitor_ids: list[str] = []
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        monitors = group.get("monitorList") if isinstance(group.get("monitorList"), list) else []
+        for monitor in monitors:
+            if isinstance(monitor, dict) and monitor.get("id") is not None:
+                monitor_ids.append(str(monitor["id"]))
+
+    heartbeat_list = heartbeat.get("heartbeatList", {}) if isinstance(heartbeat, dict) else {}
+    uptime_list = heartbeat.get("uptimeList", {}) if isinstance(heartbeat, dict) else {}
+    up = down = 0
+    uptimes: list[float] = []
+    for monitor_id in monitor_ids:
+        samples = heartbeat_list.get(monitor_id, []) if isinstance(heartbeat_list, dict) else []
+        latest = samples[-1] if isinstance(samples, list) and samples else None
+        status = latest.get("status") if isinstance(latest, dict) else None
+        if status == 1:
+            up += 1
+        elif status == 0:
+            down += 1
+        raw_uptime = uptime_list.get(f"{monitor_id}_24") if isinstance(uptime_list, dict) else None
+        try:
+            if raw_uptime is not None:
+                uptimes.append(float(raw_uptime) * 100)
+        except (TypeError, ValueError):
+            pass
+
+    average_uptime = (sum(uptimes) / len(uptimes)) if uptimes else 0.0
+    return [
+        _metric("Monitors", len(monitor_ids)),
+        _metric("Up", up),
+        _metric("Down", down),
+        _metric("24h uptime", f"{average_uptime:.2f}%"),
+    ]
+
+
 def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
     """Collect lightweight public RogueForge runtime, stack and container summaries."""
     base = _base_url(widget.get("url"))
@@ -496,6 +585,7 @@ class MissingSecrets(Exception):
 COLLECTORS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "bazarr": _bazarr,
     "customapi": _customapi,
+    "npm": _npm,
     "pihole": _pihole,
     "prowlarr": _prowlarr,
     "qbittorrent": _qbittorrent,
@@ -504,6 +594,7 @@ COLLECTORS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "seerr": _seerr,
     "sonarr": lambda widget: _arr(widget, "sonarr"),
     "tautulli": _tautulli,
+    "uptimekuma": _uptimekuma,
 }
 
 
