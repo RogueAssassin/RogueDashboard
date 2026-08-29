@@ -1,9 +1,9 @@
 (()=> {
   "use strict";
   const variants = {
-    base: "/branding/roguedashboard-approved.webp?v=1.3.1",
-    dark: "/branding/roguedashboard-approved.webp?v=1.3.1",
-    light: "/branding/roguedashboard-approved.webp?v=1.3.1",
+    base: "/branding/roguedashboard-approved.webp?v=1.3.5",
+    dark: "/branding/roguedashboard-approved.webp?v=1.3.5",
+    light: "/branding/roguedashboard-approved.webp?v=1.3.5",
   };
 
   function preferredVariant() {
