@@ -233,6 +233,9 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
                         if label and path:
                             metrics.append({"label": label, "path": path})
                     widget["metrics"] = metrics
+                if widget["type"].lower() == "uptimekuma":
+                    slug = text(raw_widget.get("statusPageSlug"), 80, "default").strip() or "default"
+                    widget["statusPageSlug"] = slug
                 if widget["type"].lower() == "qbittorrent":
                     bindings = widget.setdefault("secretBindings", {})
                     for binding, ref in (
