@@ -1051,3 +1051,41 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
   .stat-strip { grid-template-columns: 1fr; }
   .stat-strip .hero-time { grid-column: auto; }
 }
+
+
+/* RogueDashboard 1.4.0 release-candidate polish */
+.service-card.is-offline {
+  border-color: rgba(255, 92, 112, .28);
+  background: linear-gradient(145deg, rgba(74,20,28,.28), #0c1119 42%);
+}
+.service-card.is-offline::before {
+  opacity: 1;
+  background: #ff5c70;
+}
+.service-card.is-degraded:not(.is-offline) {
+  border-color: rgba(245, 191, 79, .24);
+}
+.service-card.is-degraded:not(.is-offline)::before {
+  opacity: .72;
+  background: #f5bf4f;
+}
+.history-failure { color: #ff8996 !important; }
+.history-recovery { color: #65dfae !important; }
+
+.widget-state-dot.degraded {
+  background: #f5bf4f;
+  box-shadow: 0 0 0 3px rgba(245,191,79,.08);
+}
+.widget-state-dot.offline {
+  background: #ff5c70;
+  box-shadow: 0 0 0 3px rgba(255,92,112,.08);
+}
+
+@media (max-width: 1180px) {
+  .stat-strip { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .stat-strip .hero-time { grid-column: span 1; }
+}
+@media (max-width: 820px) {
+  .stat-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .stat-strip .hero-time { grid-column: span 2; }
+}
