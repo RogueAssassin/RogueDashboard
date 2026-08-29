@@ -8,9 +8,9 @@ from homepage_yaml import loads
 
 
 DEFAULT_DASHBOARD = {
-    "version": 7,
+    "version": 8,
     "meta": {
-        "title": "My Docker Dashboard",
+        "title": "My RogueDashboard",
         "subtitle": "Everything running at home, in one friendly place",
         "theme": "neon",
         "accent": "#ff2bd6",
