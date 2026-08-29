@@ -1,8 +1,14 @@
 # Changelog
 
+## 1.4.1 (testing)
+
+- Started the next testing cycle from the validated RogueDashboard 1.4.0 release.
+- Stable production remains 1.4.0 / latest while 1.4.1 changes are validated on the testing channel.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.4.1-testing`.
+
 RogueDashboard follows semantic versioning for published GHCR releases.
 
-## 1.4.0 (testing)
+## 1.4.0
 
 - Started the next RogueDashboard testing cycle from the stable 1.3.5 main release.
 - Production remains on 1.3.5 / latest while new feature work is validated through the testing channel.
