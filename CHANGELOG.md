@@ -2,6 +2,21 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
+## 1.3.1 (testing)
+
+- Integrated the approved RogueDashboard icon-pack artwork into the runtime UI.
+- Added an optimised bundled WebP master, dedicated 128px service icon and browser favicon from the supplied artwork.
+- Reworked the main shell for tighter header, stats, group-title and service-card alignment.
+- Reduced unnecessary blur/shadow work while retaining the Rogue purple/cyan visual identity.
+- Rebuilt the Customise experience into clearer Appearance, Layout, Connect and Admin sections.
+- Grouped related settings into consistent editor cards with improved descriptions and responsive spacing.
+- Reworked the administrator sign-in modal to match the RogueDashboard setup/customiser design.
+- Added explicit sign-in progress/error feedback and consistent session messaging.
+- Removed the remaining obsolete pre-socket-free container discovery binding from the customiser.
+- Replaced stale engine-agent administration presentation with RogueDashboard runtime/session information.
+- Improved mobile/tablet behaviour for the dashboard, customiser and authentication surfaces.
+- Kept existing `RGDASH_*`, `.env`, database and custom-asset compatibility intact.
+
 ## 1.3.0
 
 - Promoted the polished socket-free dashboard architecture to the next stable feature release.
