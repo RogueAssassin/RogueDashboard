@@ -3,7 +3,7 @@
 <table>
   <tr>
     <td width="220" align="center">
-      <img src="app/static/branding/roguedashboard-approved.webp" width="190" alt="RogueDashboard">
+      <img src="app/static/icons/roguedashboard-approved-128.png" width="128" height="128" alt="RogueDashboard logo">
     </td>
     <td align="left">
       <h1>RogueDashboard</h1>
