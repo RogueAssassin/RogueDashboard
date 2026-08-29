@@ -121,6 +121,12 @@ class WidgetFixtureHandler(BaseHTTPRequestHandler):
                 {"name": "three", "state": "running"},
                 {"name": "four", "state": "exited"},
             ])
+        elif parsed.path == "/custom-json" and self.headers.get("Authorization") == "Bearer custom-token":
+            self.respond({
+                "status": "healthy",
+                "data": {"users": 12, "nested": [{"name": "alpha"}]},
+                "build": {"version": "4.2.1"},
+            })
         else:
             self.respond({"error": "not found"}, 404)
 
@@ -212,6 +218,71 @@ class RogueDashboardTests(unittest.TestCase):
                     os.environ.pop(key, None)
                 else:
                     os.environ[key] = value
+
+    def test_custom_api_widget_reads_json_paths_without_exposing_token(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), WidgetFixtureHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        previous = os.environ.get("RGDASH_CUSTOM_API_TOKEN")
+        os.environ["RGDASH_CUSTOM_API_TOKEN"] = "custom-token"
+        try:
+            result = collect_widget({
+                "id": "custom-api",
+                "widget": {
+                    "type": "customapi",
+                    "url": f"http://127.0.0.1:{server.server_port}/custom-json",
+                    "authMode": "bearer",
+                    "secretRefs": ["RGDASH_CUSTOM_API_TOKEN"],
+                    "secretBindings": {"token": "RGDASH_CUSTOM_API_TOKEN"},
+                    "metrics": [
+                        {"label": "Status", "path": "status"},
+                        {"label": "Users", "path": "data.users"},
+                        {"label": "First", "path": "data.nested.0.name"},
+                        {"label": "Version", "path": "build.version"},
+                    ],
+                },
+            })
+            self.assertEqual(result["state"], "ok", result)
+            self.assertEqual(
+                [(metric["label"], metric["value"]) for metric in result["metrics"]],
+                [("Status", "healthy"), ("Users", "12"), ("First", "alpha"), ("Version", "4.2.1")],
+            )
+            self.assertNotIn("custom-token", json.dumps(result))
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+            if previous is None:
+                os.environ.pop("RGDASH_CUSTOM_API_TOKEN", None)
+            else:
+                os.environ["RGDASH_CUSTOM_API_TOKEN"] = previous
+
+    def test_custom_api_configuration_is_bounded_by_dashboard_validation(self):
+        validated = dashboard_app.validate_dashboard({
+            "version": 8,
+            "meta": {"title": "Custom API"},
+            "groups": [{
+                "id": "custom", "name": "Custom", "kind": "services", "columns": 2,
+                "items": [{
+                    "id": "custom-api", "name": "Example", "type": "service",
+                    "widget": {
+                        "type": "customapi",
+                        "url": "http://example:8080/api/status",
+                        "authMode": "bearer",
+                        "secretRefs": ["RGDASH_CUSTOM_API_TOKEN"],
+                        "secretBindings": {"token": "RGDASH_CUSTOM_API_TOKEN"},
+                        "metrics": [
+                            {"label": f"Metric {index}", "path": f"data.value{index}"}
+                            for index in range(8)
+                        ],
+                    },
+                }],
+            }],
+        })
+        widget = validated["groups"][0]["items"][0]["widget"]
+        self.assertEqual(widget["authMode"], "bearer")
+        self.assertEqual(len(widget["metrics"]), 4)
+        self.assertEqual(widget["secretBindings"]["token"], "RGDASH_CUSTOM_API_TOKEN")
 
     def test_qbittorrent_falls_back_when_api_key_is_rejected(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), WidgetFixtureHandler)
