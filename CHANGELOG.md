@@ -2,7 +2,7 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
-## 1.3.5 (testing)
+## 1.3.5
 
 - Integrated the corrected approved RogueDashboard icon-pack artwork into the runtime UI.
 - Standardized all active RogueDashboard branding on the corrected `roguedashboard-approved-128.png` asset so GitHub README rendering, browser icons and runtime UI all use the same source.
