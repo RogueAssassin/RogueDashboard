@@ -3,7 +3,7 @@
 <table>
   <tr>
     <td width="220" align="center">
-      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/app/static/icons/roguedashboard-approved-128.png" width="128" height="128" alt="RogueDashboard logo">
+      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/app/static/icons/roguedashboard-approved-128.png?v=1.3.5-corrected" width="128" height="128" alt="RogueDashboard logo">
     </td>
     <td align="left">
       <h1>RogueDashboard</h1>
@@ -177,18 +177,14 @@ The card can display RogueForge version, container engine, running/total stacks 
 
 ## Branding and icons
 
-RogueDashboard uses the approved high-detail **RD** artwork from the RogueDashboard icon pack. The web UI uses an optimised bundled WebP for the header, setup and administrator surfaces, plus dedicated PNG assets for service cards and browser icons.
+RogueDashboard uses the approved high-detail **RD** artwork from the RogueDashboard icon pack. The web UI uses the corrected approved 128px PNG as the single canonical RogueDashboard mark for the header, setup, administrator surfaces, service cards and browser icon.
 
 ```text
 app/static/branding/
-├── roguedashboard-approved.webp
 └── branding-switch.js
 
 app/static/icons/
 └── roguedashboard-approved-128.png
-
-app/static/
-└── favicon-32.png
 ```
 
 The source icon pack remains the design authority; runtime copies are optimised so the dashboard does not decode multi-megabyte masters on every page load. Service-card artwork can still use GitHub-hosted assets or local overrides.
