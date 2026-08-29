@@ -54,6 +54,9 @@ INTEGRATION_DEFAULTS = {
     "bazarr": ("bazarr", ["RGDASH_BAZARR_KEY"], {"key": "RGDASH_BAZARR_KEY"}),
     "tautulli": ("tautulli", ["RGDASH_TAUTULLI_KEY"], {"key": "RGDASH_TAUTULLI_KEY"}),
     "pihole": ("pihole", ["RGDASH_PIHOLE_KEY"], {"key": "RGDASH_PIHOLE_KEY"}),
+    "nginxproxymanager": ("npm", ["RGDASH_NPM_TOKEN"], {"token": "RGDASH_NPM_TOKEN"}),
+    "npm": ("npm", ["RGDASH_NPM_TOKEN"], {"token": "RGDASH_NPM_TOKEN"}),
+    "uptimekuma": ("uptimekuma", [], {}),
     "rogueforge": ("rogueforge", [], {}),
 }
 
@@ -80,6 +83,8 @@ def suggested_widget(name: str, url: str) -> dict[str, Any] | None:
     }
     if kind == "pihole":
         result["version"] = 6
+    if kind == "uptimekuma":
+        result["statusPageSlug"] = "default"
     return result
 
 
