@@ -217,6 +217,19 @@ This separation keeps RogueDashboard fast and avoids giving a homepage unnecessa
 
 The testing branch is now the development line for the next RogueDashboard feature set. Stable production remains 1.3.5 on `main` and `:latest`.
 
+### Stage 1 — navigation and card intelligence
+
+The first 1.4.0 testing stage adds:
+
+- a lightweight `Ctrl+K` / `/` command palette for services, pages and administrator actions,
+- per-card favourites and tags, including `tag:<name>` and `fav:` filtering,
+- per-card launch behaviour: new tab, same tab or copy URL,
+- configurable health-probe method, timeout and accepted HTTP status range,
+- engine-neutral default wording (`My RogueDashboard` rather than Docker-specific defaults),
+- removal of obsolete container-management JavaScript left over from the pre-socket-free architecture.
+
+The command palette and tag/favourite filtering are browser-only operations and add no background polling. Health checks keep the existing shared cache and bounded worker pool so this stage does not increase the normal refresh frequency.
+
 ## Testing channel
 
 
@@ -225,7 +238,7 @@ Development is validated through the `testing` branch. Successful CI publishes:
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:testing
+ghcr.io/rogueassassin/roguedashboard:1.4.0-testing
 ```
 
 The pipeline runs application tests, Python validation, Compose validation, an amd64 build and a multi-architecture amd64/arm64 publish.
