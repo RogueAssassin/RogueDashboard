@@ -15,6 +15,11 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Changed imported/default dashboard wording from Docker-specific naming to `My RogueDashboard`.
 - Removed obsolete dead container-management JavaScript from the socket-free frontend.
 - Added regression tests for the new dashboard schema fields and configurable health probes.
+- Added a dependency-free Custom API widget for mapping up to four JSON dot-path values onto a service card.
+- Added optional Bearer-token and X-Api-Key authentication using server-side `RGDASH_*` environment references.
+- Bounded Custom API response size, metric count, label/path length and output length to protect dashboard performance.
+- Reused the existing cached widget refresh path; Custom API widgets add no separate timer or background polling loop.
+- Added regression tests for nested/list JSON paths, secret non-disclosure and configuration bounds.
 
 ## 1.3.5
 
