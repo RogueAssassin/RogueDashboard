@@ -78,6 +78,80 @@ function safeUrl(value) {
   }
 }
 
+function launchAttributes(item, href) {
+  if (!href) return "";
+  if (item.launchMode === "same-tab") return `href="${href}"`;
+  if (item.launchMode === "copy") return `href="#" data-copy-url="${href}"`;
+  return `href="${href}" target="_blank" rel="noreferrer"`;
+}
+
+function normalizedTags(item) {
+  return Array.isArray(item.tags) ? item.tags.filter(tag => typeof tag === "string" && tag.trim()).map(tag => tag.trim()) : [];
+}
+
+function itemMatchesQuery(item, group, query) {
+  if (!query) return true;
+  const terms = query.split(/\s+/).filter(Boolean);
+  const tags = normalizedTags(item).map(tag => tag.toLowerCase());
+  const haystack = `${item.name} ${item.description || ""} ${group.name} ${tags.join(" ")}`.toLowerCase();
+  return terms.every(term => {
+    if (term === "fav:" || term === "favorite:" || term === "favourite:") return item.favorite === true;
+    if (term.startsWith("tag:")) return tags.includes(term.slice(4));
+    return haystack.includes(term);
+  });
+}
+
+function commandItems(query = "") {
+  const needle = query.trim().toLowerCase();
+  const entries = [];
+  for (const page of state.draft.pages || []) {
+    entries.push({ kind: "Page", label: page.name, detail: "Switch dashboard page", action: () => { state.activePage = page.id; closeOverlay(); renderDashboard(); } });
+  }
+  for (const group of state.draft.groups || []) {
+    for (const item of group.items || []) {
+      const href = safeUrl(item.href);
+      entries.push({
+        kind: item.favorite ? "Favourite" : (item.type === "bookmark" ? "Bookmark" : "Service"),
+        label: item.name,
+        detail: [group.name, ...normalizedTags(item)].filter(Boolean).join(" · "),
+        action: () => {
+          closeOverlay();
+          if (!href) return;
+          if (item.launchMode === "copy") navigator.clipboard?.writeText(item.href).then(() => toast("URL copied"));
+          else if (item.launchMode === "same-tab") location.href = item.href;
+          else window.open(item.href, "_blank", "noopener,noreferrer");
+        },
+      });
+    }
+  }
+  entries.push({ kind: "Action", label: state.authenticated ? "Customise dashboard" : "Administrator sign in", detail: "Open RogueDashboard administration", action: () => { closeOverlay(); state.authenticated ? openEditor() : openLogin(); } });
+  return entries.filter(entry => !needle || `${entry.kind} ${entry.label} ${entry.detail}`.toLowerCase().includes(needle)).slice(0, 40);
+}
+
+function openCommandPalette(initial = "") {
+  overlay.innerHTML = `<div class="modal-backdrop command-backdrop"><section class="modal command-modal">
+    <header class="command-header"><span>⌕</span><input id="command-query" value="${escapeHtml(initial)}" placeholder="Search services, pages, tags or actions…" autocomplete="off"><kbd>Esc</kbd></header>
+    <div class="command-results" id="command-results"></div>
+  </section></div>`;
+  const input = document.getElementById("command-query");
+  const results = document.getElementById("command-results");
+  const render = () => {
+    const entries = commandItems(input.value);
+    results.innerHTML = entries.map((entry, index) => `<button class="command-result" data-command="${index}"><span><small>${escapeHtml(entry.kind)}</small><strong>${escapeHtml(entry.label)}</strong><em>${escapeHtml(entry.detail)}</em></span><b>↵</b></button>`).join("") || `<div class="command-empty">No matching services or actions.</div>`;
+    results.querySelectorAll("[data-command]").forEach(button => button.onclick = () => entries[Number(button.dataset.command)].action());
+  };
+  input.oninput = render;
+  input.onkeydown = event => {
+    if (event.key === "Enter") {
+      const first = commandItems(input.value)[0];
+      if (first) { event.preventDefault(); first.action(); }
+    }
+  };
+  overlay.querySelector(".command-backdrop").onclick = event => { if (event.target === event.currentTarget) closeOverlay(); };
+  render();
+  requestAnimationFrame(() => input.focus());
+}
+
 function iconKey(value) {
   return String(value || "").split(/[\\/]/).pop().replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
@@ -292,7 +366,7 @@ function renderDashboard() {
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
           <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.4.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
-          <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps and bookmarks…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
+          <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
         <section class="stat-strip" id="stats">
@@ -303,7 +377,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.3")}</strong></span><span>Service monitoring · local-first</span></footer>
+        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.4.0")}</strong></span><span>Service monitoring · local-first</span></footer>
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -318,7 +392,7 @@ function renderDashboard() {
   if (dashboard.meta.background) background.style.setProperty("--custom-background", `url("${dashboard.meta.background.replace(/["\\\n\r]/g, "")}")`);
   document.getElementById("search").oninput = event => { state.search = event.target.value; renderGroups(); };
   document.getElementById("clear-search").onclick = () => { state.search = ""; document.getElementById("search").value = ""; renderGroups(); };
-  document.getElementById("customise").onclick = () => state.authenticated ? openEditor() : openLogin();
+  document.getElementById("commands").onclick = () => openCommandPalette();\n  document.getElementById("customise").onclick = () => state.authenticated ? openEditor() : openLogin();
   document.querySelectorAll("[data-page]").forEach(button => button.onclick = () => {
     state.activePage = button.dataset.page;
     renderDashboard();
@@ -337,7 +411,7 @@ function renderGroups() {
   let visibleCount = 0;
   const html = state.draft.groups.map((group, groupIndex) => {
     if ((group.pageId || state.draft.pages?.[0]?.id || "home") !== state.activePage) return "";
-    const items = group.items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => !query || `${item.name} ${item.description || ""} ${group.name}`.toLowerCase().includes(query));
+    const items = group.items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => itemMatchesQuery(item, group, query));
     if (!items.length && (query || !state.editor)) return "";
     visibleCount += items.length;
     const collapsed = state.collapsed.has(group.id);
@@ -353,6 +427,10 @@ function renderGroups() {
   });
   container.querySelectorAll(".add-card").forEach(button => button.onclick = () => openItem(Number(button.dataset.group)));
   container.querySelectorAll(".card-edit").forEach(button => button.onclick = () => openItem(Number(button.dataset.group), Number(button.dataset.item)));
+  container.querySelectorAll("[data-copy-url]").forEach(link => link.onclick = event => {
+    event.preventDefault();
+    navigator.clipboard?.writeText(link.dataset.copyUrl).then(() => toast("URL copied"));
+  });
   if (state.editor) bindDragging(container);
 }
 
@@ -366,7 +444,7 @@ function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const statusMarkup = item.statusStyle !== "none" && item.monitorUrl ? `<span class="status ${statusState} ${item.statusStyle === "badge" ? "badge" : ""}" title="${escapeHtml(statusTitle)}">${item.statusStyle === "badge" ? escapeHtml(statusState) : ""}</span>` : "";
   const latency = Number.isFinite(widget?.latencyMs) ? widget.latencyMs : status?.latencyMs;
   const latencyMarkup = state.draft.meta.showLatency && Number.isFinite(latency) ? `<span class="connection-latency ${widget?.state === "error" || statusState === "offline" ? "failed" : ""}">${latency} ms</span>` : "";
-  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${href ? `href="${href}" target="_blank" rel="noreferrer"` : ""}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? "↗" : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p></div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
+  const tags = normalizedTags(item);\n  const tagMarkup = tags.length ? `<div class="card-tags">${tags.slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";\n  const launchHint = item.launchMode === "same-tab" ? "→" : item.launchMode === "copy" ? "⧉" : "↗";\n  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
 }
 
 function widgetCardMarkup(item, widget) {
@@ -840,12 +918,23 @@ function openItem(groupIndex, itemIndex) {
     <label class="field full"><span>Description</span><input id="item-description" value="${escapeHtml(item.description || "")}"></label>
     <label class="field"><span>Icon URL or local path</span><input id="item-icon" value="${escapeHtml(item.icon || "")}" placeholder="/custom/icons/my-service.svg"><small>Leave blank for local override → GitHub asset → bundled fallback.</small></label>
     <label class="field"><span>Status</span><select id="item-status"><option value="dot">Dot</option><option value="badge">Badge</option><option value="none">Hidden</option></select></label>
+    <label class="field"><span>Open behaviour</span><select id="item-launch"><option value="new-tab">New tab</option><option value="same-tab">Same tab</option><option value="copy">Copy URL</option></select></label>
+    <label class="field"><span>Favourite</span><select id="item-favorite"><option value="false">No</option><option value="true">Yes</option></select></label>
+    <label class="field"><span>Tags</span><input id="item-tags" value="${escapeHtml(normalizedTags(item).join(", "))}" placeholder="media, network, rogue"></label>
+    <label class="field"><span>Health method</span><select id="item-health-method"><option value="HEAD">HEAD</option><option value="GET">GET</option></select></label>
+    <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
+    <label class="field"><span>Accepted HTTP from</span><input id="item-health-min" type="number" min="100" max="599" value="${Number(item.healthStatusMin || 200)}"></label>
+    <label class="field"><span>Accepted HTTP to</span><input id="item-health-max" type="number" min="100" max="599" value="${Number(item.healthStatusMax || 499)}"></label>
     <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
     <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port"></label>
     <div class="notice info full" id="integration-env">${escapeHtml(integrationHint(item.widget?.type || ""))}</div>
   </div><div class="button-row spread">${itemIndex === undefined ? "<span></span>" : `<button type="button" class="button ghost danger-text" id="item-delete">Delete</button>`}<button class="button primary">Save card</button></div></form></section></div>`;
   document.getElementById("item-type").value = item.type;
   document.getElementById("item-status").value = item.statusStyle;
+  document.getElementById("item-launch").value = item.launchMode || "new-tab";
+  document.getElementById("item-favorite").value = item.favorite ? "true" : "false";
+  document.getElementById("item-health-method").value = item.healthMethod || "HEAD";
+  document.getElementById("item-health-timeout").value = String(item.healthTimeout || 4);
   document.getElementById("item-integration").value = item.widget?.type || "";
   document.getElementById("item-integration").onchange = event => {
     const selected = event.target.value;
@@ -868,7 +957,25 @@ function saveItem(event) {
   event.preventDefault();
   const { groupIndex, itemIndex } = state.editingItem;
   const previous = itemIndex === undefined ? null : state.draft.groups[groupIndex].items[itemIndex];
-  const item = { id: previous?.id || uniqueId(document.getElementById("item-name").value), name: document.getElementById("item-name").value, type: document.getElementById("item-type").value, href: document.getElementById("item-href").value, monitorUrl: document.getElementById("item-monitor").value, description: document.getElementById("item-description").value, icon: document.getElementById("item-icon").value, statusStyle: document.getElementById("item-status").value };
+  const statusMin = Math.max(100, Math.min(599, Number(document.getElementById("item-health-min").value) || 200));
+  const statusMax = Math.max(100, Math.min(599, Number(document.getElementById("item-health-max").value) || 499));
+  const item = {
+    id: previous?.id || uniqueId(document.getElementById("item-name").value),
+    name: document.getElementById("item-name").value,
+    type: document.getElementById("item-type").value,
+    href: document.getElementById("item-href").value,
+    monitorUrl: document.getElementById("item-monitor").value,
+    description: document.getElementById("item-description").value,
+    icon: document.getElementById("item-icon").value,
+    statusStyle: document.getElementById("item-status").value,
+    launchMode: document.getElementById("item-launch").value,
+    favorite: document.getElementById("item-favorite").value === "true",
+    tags: document.getElementById("item-tags").value.split(",").map(value => value.trim()).filter(Boolean).slice(0, 12),
+    healthMethod: document.getElementById("item-health-method").value,
+    healthTimeout: Number(document.getElementById("item-health-timeout").value),
+    healthStatusMin: Math.min(statusMin, statusMax),
+    healthStatusMax: Math.max(statusMin, statusMax),
+  };
   if (previous?.containerName) item.containerName = previous.containerName;
   const integration = document.getElementById("item-integration").value;
   if (integration) {
@@ -1001,6 +1108,20 @@ async function refreshRuntime(force = false) {
   if (diagnostics) diagnostics.innerHTML = connectionDiagnosticsMarkup();
   if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = "↻ Test now"; }
 }
+
+document.addEventListener("keydown", event => {
+  const target = event.target;
+  const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    openCommandPalette();
+  } else if (!typing && event.key === "/") {
+    event.preventDefault();
+    openCommandPalette();
+  } else if (event.key === "Escape" && overlay.innerHTML) {
+    closeOverlay();
+  }
+});
 
 setInterval(updateClock, 1000);
 setInterval(refreshRuntime, 30000);
