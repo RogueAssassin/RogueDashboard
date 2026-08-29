@@ -220,6 +220,19 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
                     widget["url"] = text(raw_widget["url"], 2000)
                 if isinstance(raw_widget.get("version"), (str, int)):
                     widget["version"] = raw_widget["version"]
+                if widget["type"].lower() == "customapi":
+                    auth_mode = raw_widget.get("authMode")
+                    widget["authMode"] = auth_mode if auth_mode in ("none", "bearer", "x-api-key") else "none"
+                    raw_metrics = raw_widget.get("metrics") if isinstance(raw_widget.get("metrics"), list) else []
+                    metrics: list[dict[str, str]] = []
+                    for raw_metric in raw_metrics[:4]:
+                        if not isinstance(raw_metric, dict):
+                            continue
+                        label = text(raw_metric.get("label"), 32).strip()
+                        path = text(raw_metric.get("path"), 120).strip()
+                        if label and path:
+                            metrics.append({"label": label, "path": path})
+                    widget["metrics"] = metrics
                 if widget["type"].lower() == "qbittorrent":
                     bindings = widget.setdefault("secretBindings", {})
                     for binding, ref in (
