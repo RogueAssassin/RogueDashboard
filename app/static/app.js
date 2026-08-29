@@ -392,7 +392,8 @@ function renderDashboard() {
   if (dashboard.meta.background) background.style.setProperty("--custom-background", `url("${dashboard.meta.background.replace(/["\\\n\r]/g, "")}")`);
   document.getElementById("search").oninput = event => { state.search = event.target.value; renderGroups(); };
   document.getElementById("clear-search").onclick = () => { state.search = ""; document.getElementById("search").value = ""; renderGroups(); };
-  document.getElementById("commands").onclick = () => openCommandPalette();\n  document.getElementById("customise").onclick = () => state.authenticated ? openEditor() : openLogin();
+  document.getElementById("commands").onclick = () => openCommandPalette();
+  document.getElementById("customise").onclick = () => state.authenticated ? openEditor() : openLogin();
   document.querySelectorAll("[data-page]").forEach(button => button.onclick = () => {
     state.activePage = button.dataset.page;
     renderDashboard();
@@ -444,7 +445,10 @@ function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const statusMarkup = item.statusStyle !== "none" && item.monitorUrl ? `<span class="status ${statusState} ${item.statusStyle === "badge" ? "badge" : ""}" title="${escapeHtml(statusTitle)}">${item.statusStyle === "badge" ? escapeHtml(statusState) : ""}</span>` : "";
   const latency = Number.isFinite(widget?.latencyMs) ? widget.latencyMs : status?.latencyMs;
   const latencyMarkup = state.draft.meta.showLatency && Number.isFinite(latency) ? `<span class="connection-latency ${widget?.state === "error" || statusState === "offline" ? "failed" : ""}">${latency} ms</span>` : "";
-  const tags = normalizedTags(item);\n  const tagMarkup = tags.length ? `<div class="card-tags">${tags.slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";\n  const launchHint = item.launchMode === "same-tab" ? "→" : item.launchMode === "copy" ? "⧉" : "↗";\n  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
+  const tags = normalizedTags(item);
+  const tagMarkup = tags.length ? `<div class="card-tags">${tags.slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";
+  const launchHint = item.launchMode === "same-tab" ? "→" : item.launchMode === "copy" ? "⧉" : "↗";
+  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
 }
 
 function widgetCardMarkup(item, widget) {
