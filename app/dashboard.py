@@ -104,9 +104,9 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_secondary):
         accent_secondary = "#00e5ff"
     result: dict[str, Any] = {
-        "version": 7,
+        "version": 8,
         "meta": {
-            "title": text(raw_meta.get("title"), 100, "My Container Dashboard").strip() or "My Container Dashboard",
+            "title": text(raw_meta.get("title"), 100, "My RogueDashboard").strip() or "My RogueDashboard",
             "subtitle": text(raw_meta.get("subtitle"), 180, "Your self-hosted command centre"),
             "theme": theme,
             "accent": accent,
@@ -181,6 +181,22 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
             for key, limit in (("monitorUrl", 2000), ("description", 300), ("icon", 500)):
                 if isinstance(raw_item.get(key), str):
                     item[key] = text(raw_item[key], limit)
+            item["favorite"] = raw_item.get("favorite", False) is True
+            raw_tags = raw_item.get("tags") if isinstance(raw_item.get("tags"), list) else []
+            item["tags"] = [
+                text(tag, 40).strip()
+                for tag in raw_tags[:12]
+                if isinstance(tag, str) and text(tag, 40).strip()
+            ]
+            item["launchMode"] = raw_item.get("launchMode") if raw_item.get("launchMode") in ("new-tab", "same-tab", "copy") else "new-tab"
+            item["healthMethod"] = raw_item.get("healthMethod") if raw_item.get("healthMethod") in ("HEAD", "GET") else "HEAD"
+            item["healthTimeout"] = clamp(raw_item.get("healthTimeout"), 1, 10, 4)
+            raw_statuses = raw_item.get("healthStatuses") if isinstance(raw_item.get("healthStatuses"), list) else []
+            statuses = sorted({
+                status for status in raw_statuses[:20]
+                if isinstance(status, int) and not isinstance(status, bool) and 100 <= status <= 599
+            })
+            item["healthStatuses"] = statuses or list(range(200, 500))
             raw_widget = raw_item.get("widget")
             if isinstance(raw_widget, dict) and isinstance(raw_widget.get("type"), str):
                 refs = raw_widget.get("secretRefs") if isinstance(raw_widget.get("secretRefs"), list) else []
@@ -455,29 +471,35 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
         return {"itemId": item.get("id", ""), "state": "unknown", "source": "endpoint", "checkedAt": checked_at}
 
+    method = item.get("healthMethod") if item.get("healthMethod") in ("HEAD", "GET") else "HEAD"
+    timeout = clamp(item.get("healthTimeout"), 1, 10, 4)
+    accepted = item.get("healthStatuses") if isinstance(item.get("healthStatuses"), list) else list(range(200, 500))
+    accepted_statuses = {
+        status for status in accepted
+        if isinstance(status, int) and not isinstance(status, bool) and 100 <= status <= 599
+    } or set(range(200, 500))
+
     started = time.monotonic()
     status: int | None = None
     probe_error: str | None = None
+
+    def probe(probe_method: str) -> int | None:
+        request = Request(url, method=probe_method, headers={"User-Agent": f"RogueDashboard/{VERSION}"})
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.status
+        except HTTPError as error:
+            return error.code
+
     try:
-        request = Request(url, method="HEAD", headers={"User-Agent": f"RogueDashboard/{VERSION}"})
-        with urlopen(request, timeout=4) as response:
-            status = response.status
-    except HTTPError as error:
-        status = error.code
-        if status in (405, 501):
-            try:
-                request = Request(url, method="GET", headers={"User-Agent": f"RogueDashboard/{VERSION}"})
-                with urlopen(request, timeout=4) as response:
-                    status = response.status
-            except HTTPError as get_error:
-                status = get_error.code
-            except (URLError, TimeoutError, ValueError):
-                status = None
-                probe_error = "Private endpoint is unreachable from the dashboard network"
+        status = probe(method)
+        if method == "HEAD" and status in (405, 501):
+            status = probe("GET")
     except (URLError, TimeoutError, ValueError):
+        status = None
         probe_error = "Private endpoint is unreachable from the dashboard network"
 
-    state = "online" if status is not None and status < 500 else "offline"
+    state = "online" if status is not None and status in accepted_statuses else "offline"
     message = f"Endpoint responding (HTTP {status})" if state == "online" else (
         f"Health endpoint returned HTTP {status}" if status is not None else (probe_error or "Endpoint is offline")
     )
@@ -489,6 +511,8 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
         "probeState": state,
         "latencyMs": round((time.monotonic() - started) * 1000),
         "checkedAt": checked_at,
+        "method": method,
+        "timeoutSeconds": timeout,
     }
     if probe_error:
         result["probeError"] = probe_error
