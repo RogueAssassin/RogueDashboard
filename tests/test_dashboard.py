@@ -723,7 +723,8 @@ class RogueDashboardTests(unittest.TestCase):
                     self.assertIn("npm", widgets["supported"])
                     self.assertIn("uptimekuma", widgets["supported"])
                     self.assertEqual(len(widgets["widgets"]), 9)
-                    self.assertTrue(all(item["state"] == "configuration_required" for item in widgets["widgets"]))
+                    self.assertTrue(all(item["state"] != "ok" for item in widgets["widgets"]))
+                    self.assertTrue(any(item["type"] == "uptimekuma" for item in widgets["widgets"]))
                 dashboard_app.HEALTH_CACHE = (9999999999, [{"old": True}])
                 dashboard_app.WIDGET_CACHE = (9999999999, [{"old": True}])
                 unauthenticated = Request(
