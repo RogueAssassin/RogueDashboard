@@ -38,7 +38,7 @@ const ICON_FILES = {
 
 const ICON_REMOTE_OVERRIDES = {
   rogueforge: "https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg",
-  roguedashboard: "/icons/roguedashboard-approved-128.png?v=1.3.5",
+  roguedashboard: "/icons/roguedashboard-approved-128.png?v=1.4.0",
 };
 
 const THEME_PRESETS = {
@@ -153,7 +153,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.4.0" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -163,7 +163,7 @@ function renderSetup() {
     <main class="setup-shell">
       <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.4.0" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -291,7 +291,7 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
+          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.4.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
           <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps and bookmarks…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
@@ -445,7 +445,7 @@ function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header">
       <div class="editor-brand">
-        <img src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.4.0" alt="">
         <div><span class="eyebrow">LIVE CUSTOMISER</span><h2>Customise RogueDashboard</h2><p>Preview changes instantly, then save when everything looks right.</p></div>
       </div>
       <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
@@ -530,7 +530,7 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.3.5")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.4.0")}</strong></div>
           </div>
         </div>
         <div class="editor-card">
@@ -895,7 +895,7 @@ function openLogin() {
   overlay.innerHTML = `<div class="modal-backdrop auth-backdrop">
     <section class="modal auth-modal">
       <div class="auth-visual">
-        <img src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.4.0" alt="RogueDashboard">
         <div><span class="eyebrow">ADMINISTRATION</span><h2>Welcome back</h2><p>Sign in locally to customise services, layouts and integrations.</p></div>
       </div>
       <div class="auth-content">
