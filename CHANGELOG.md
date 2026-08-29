@@ -26,6 +26,12 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Uptime Kuma integration deliberately uses published status-page JSON endpoints instead of its unstable internal Socket.IO administration API.
 - Reused the existing widget cache/refresh path for both integrations; no new background timer or container-engine dependency was introduced.
 - Added import auto-detection and regression tests for NPM and Uptime Kuma.
+- Added lightweight runtime storage, memory-scope, normalized load and local network information to the dashboard information layer.
+- Added a bounded in-memory one-hour health history with availability percentage and average latency per monitored service.
+- Capped history at 120 samples per service and deliberately avoided SQLite history writes to preserve storage and CPU performance.
+- Added compact dashboard-wide availability and data-storage summary tiles plus per-card one-hour availability context.
+- Added Admin runtime storage/network details without introducing Docker/Podman socket access.
+- Added regression tests for runtime information fields, socket-free behavior and bounded health-history summaries.
 
 ## 1.3.5
 
