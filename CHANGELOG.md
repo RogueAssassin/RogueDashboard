@@ -15,6 +15,10 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Removed the remaining obsolete pre-socket-free container discovery binding from the customiser.
 - Replaced stale engine-agent administration presentation with RogueDashboard runtime/session information.
 - Improved mobile/tablet behaviour for the dashboard, customiser and authentication surfaces.
+- Updated the README banner to use the approved RogueDashboard icon-pack artwork instead of the superseded hand-built RD mark.
+- Replaced the old README badge row with container-release style release, GHCR, live build, runtime, engine and platform badges.
+- The README build badge now follows the testing CI workflow live on every push.
+- Removed superseded RogueDashboard SVG branding assets so all active core branding resolves to the approved artwork.
 - Kept existing `RGDASH_*`, `.env`, database and custom-asset compatibility intact.
 
 ## 1.3.0
