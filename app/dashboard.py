@@ -586,7 +586,7 @@ def _runtime_addresses() -> list[str]:
     return sorted(addresses)[:4]
 
 
-def system_stats() -> dict[str, Any]:
+def _system_stats_uncached() -> dict[str, Any]:
     memory_total = memory_available = 0
     try:
         values = {}
@@ -651,6 +651,20 @@ def system_stats() -> dict[str, Any]:
     }
 
 
+SYSTEM_STATS_CACHE: tuple[float, dict[str, Any]] = (0, {})
+
+
+def system_stats() -> dict[str, Any]:
+    """Share a short-lived runtime snapshot across connected browsers."""
+    global SYSTEM_STATS_CACHE
+    now = time.time()
+    if SYSTEM_STATS_CACHE[0] > now:
+        return SYSTEM_STATS_CACHE[1]
+    stats = _system_stats_uncached()
+    SYSTEM_STATS_CACHE = (now + 10, stats)
+    return stats
+
+
 FAILED_LOGINS: dict[str, tuple[int, float]] = {}
 LOGIN_LOCK = threading.Lock()
 HEALTH_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
@@ -695,11 +709,16 @@ def health_history_summary() -> dict[str, dict[str, Any]]:
             online = sum(1 for sample in recent if sample["online"])
             latencies = [sample["latencyMs"] for sample in recent if isinstance(sample.get("latencyMs"), int)]
             failures = [sample["time"] for sample in recent if not sample["online"]]
+            last_recovery = None
+            for index in range(1, len(recent)):
+                if not recent[index - 1]["online"] and recent[index]["online"]:
+                    last_recovery = recent[index]["time"]
             summary[item_id] = {
                 "samples": len(recent),
                 "availability": round((online / len(recent)) * 100, 1),
                 "averageLatencyMs": round(sum(latencies) / len(latencies)) if latencies else None,
                 "lastFailureAt": datetime.fromtimestamp(failures[-1], timezone.utc).isoformat().replace("+00:00", "Z") if failures else None,
+                "lastRecoveryAt": datetime.fromtimestamp(last_recovery, timezone.utc).isoformat().replace("+00:00", "Z") if last_recovery else None,
             }
     return summary
 
