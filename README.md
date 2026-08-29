@@ -297,6 +297,20 @@ The first 1.4.0 testing stage adds:
 
 The command palette and tag/favourite filtering are browser-only operations and add no background polling. Health checks keep the existing shared cache and bounded worker pool so this stage does not increase the normal refresh frequency.
 
+### Stage 4 — release-candidate resilience
+
+The final 1.4.0 testing stage focuses on stability and presentation rather than adding more integrations:
+
+- clearer offline and degraded service-card states,
+- last-failure and last-recovery context from the bounded 1-hour history,
+- improved responsive behaviour for the expanded information strip,
+- duplicate refresh suppression so slow API calls cannot create overlapping polling work,
+- background polling pauses while the browser tab is hidden and refreshes again when it becomes visible,
+- short-lived shared runtime-stat caching so multiple browser clients do not repeat the same filesystem/network reads,
+- individual health/widget/system/history failures remain isolated through `Promise.allSettled`.
+
+This keeps the normal 30-second refresh cadence while reducing unnecessary work and makes 1.4.0 suitable for release-candidate testing.
+
 ### Stage 3 — lightweight system information
 
 Stage 3 expands the information strip without giving RogueDashboard access to the Docker or Podman engine:
