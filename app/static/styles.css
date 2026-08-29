@@ -1008,3 +1008,46 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
   .command-modal { width: calc(100vw - 18px); }
   .command-results { max-height: calc(100vh - 150px); }
 }
+
+
+/* RogueDashboard 1.4.0 stage-three information layer */
+.stat-strip {
+  grid-template-columns: minmax(205px,1.3fr) repeat(6,minmax(125px,1fr));
+  gap: 8px;
+}
+.stat-strip > div {
+  min-height: 68px;
+  padding: 11px 13px;
+}
+.stat-strip strong { font-size: .96rem; }
+.stat-strip span { font-size: .66rem; }
+
+.card-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.card-history span {
+  margin: 0;
+  padding: 2px 5px;
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 6px;
+  background: rgba(255,255,255,.025);
+  color: var(--muted);
+  font-size: .49rem;
+  line-height: 1.2;
+}
+
+@media (max-width: 1320px) {
+  .stat-strip { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .stat-strip .hero-time { grid-column: span 2; }
+}
+@media (max-width: 760px) {
+  .stat-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .stat-strip .hero-time { grid-column: span 2; }
+}
+@media (max-width: 420px) {
+  .stat-strip { grid-template-columns: 1fr; }
+  .stat-strip .hero-time { grid-column: auto; }
+}
