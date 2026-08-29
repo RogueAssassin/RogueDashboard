@@ -2,7 +2,7 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
-## 1.3.1 (testing)
+## 1.3.5 (testing)
 
 - Integrated the approved RogueDashboard icon-pack artwork into the runtime UI.
 - Added an optimised bundled WebP master, dedicated 128px service icon and browser favicon from the supplied artwork.
@@ -19,6 +19,8 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Replaced the old README badge row with container-release style release, GHCR, live build, runtime, engine and platform badges.
 - The README build badge now follows the testing CI workflow live on every push.
 - Removed superseded RogueDashboard SVG branding assets so all active core branding resolves to the approved artwork.
+- Fixed the README header so the approved RogueDashboard artwork renders directly in GitHub instead of relying on an SVG that referenced another repository asset.
+- Advanced the testing line from 1.3.1 to 1.3.5 to clearly identify this broader visual/authentication/README refresh.
 - Kept existing `RGDASH_*`, `.env`, database and custom-asset compatibility intact.
 
 ## 1.3.0
