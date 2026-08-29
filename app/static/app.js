@@ -56,6 +56,8 @@ const INTEGRATION_DEFAULTS = {
   bazarr: { refs: ["RGDASH_BAZARR_KEY"], bindings: { key: "RGDASH_BAZARR_KEY" } },
   tautulli: { refs: ["RGDASH_TAUTULLI_KEY"], bindings: { key: "RGDASH_TAUTULLI_KEY" } },
   pihole: { refs: ["RGDASH_PIHOLE_KEY"], bindings: { key: "RGDASH_PIHOLE_KEY" } },
+  npm: { refs: ["RGDASH_NPM_TOKEN"], bindings: { token: "RGDASH_NPM_TOKEN" } },
+  uptimekuma: { refs: [], bindings: {} },
   rogueforge: { refs: [], bindings: {} },
   customapi: { refs: [], bindings: {} },
 };
@@ -848,6 +850,8 @@ function integrationHint(type) {
   if (type === "qbittorrent") return "qBittorrent 5.2+: use RGDASH_QBITTORRENT_API_KEY. Username and password are the automatic fallback.";
   if (type === "rogueforge") return "RogueForge uses its read-only public status APIs. No credentials are stored. Default private URL: http://rogueforge:7810.";
   if (type === "customapi") return "Custom API reads up to four values from a JSON endpoint. Optional bearer or X-Api-Key authentication uses an RGDASH_* environment variable.";
+  if (type === "npm") return "Nginx Proxy Manager reads proxy-host and certificate summaries with RGDASH_NPM_TOKEN. Use the private NPM URL, normally http://nginx-proxy-manager:81.";
+  if (type === "uptimekuma") return "Uptime Kuma uses its published status-page JSON endpoints and does not need Docker/Podman access or an API credential.";
   return config ? `Add ${config.refs.join(" and ")} to .env.` : "Health-check monitoring only; no API credentials required.";
 }
 
@@ -869,8 +873,14 @@ function openItem(groupIndex, itemIndex) {
     <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
     <label class="field"><span>Accepted HTTP from</span><input id="item-health-min" type="number" min="100" max="599" value="${Number(item.healthStatusMin || 200)}"></label>
     <label class="field"><span>Accepted HTTP to</span><input id="item-health-max" type="number" min="100" max="599" value="${Number(item.healthStatusMax || 499)}"></label>
-    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "customapi" ? "Custom API" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
+    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "customapi" ? "Custom API" : type === "npm" ? "Nginx Proxy Manager" : type === "uptimekuma" ? "Uptime Kuma" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
     <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port/api/status"></label>
+    <div class="uptime-kuma-fields full" id="uptime-kuma-fields" ${item.widget?.type === "uptimekuma" ? "" : "hidden"}>
+      <div class="editor-card">
+        <div class="editor-card-heading"><div><strong>Uptime Kuma status page</strong><span>Uses Uptime Kuma's public status-page JSON endpoints.</span></div></div>
+        <label class="field"><span>Status page slug</span><input id="item-uptime-slug" value="${escapeHtml(item.widget?.statusPageSlug || "default")}" placeholder="default"></label>
+      </div>
+    </div>
     <div class="custom-api-fields full" id="custom-api-fields" ${item.widget?.type === "customapi" ? "" : "hidden"}>
       <div class="editor-card">
         <div class="editor-card-heading"><div><strong>Custom API mapping</strong><span>One metric per line: Label=JSON.path. Maximum four.</span></div></div>
@@ -895,9 +905,16 @@ function openItem(groupIndex, itemIndex) {
     const widgetUrl = document.getElementById("item-widget-url");
     const monitorUrl = document.getElementById("item-monitor");
     document.getElementById("custom-api-fields").hidden = selected !== "customapi";
+    document.getElementById("uptime-kuma-fields").hidden = selected !== "uptimekuma";
     if (selected === "rogueforge") {
       if (!widgetUrl.value) widgetUrl.value = "http://rogueforge:7810";
       if (!monitorUrl.value) monitorUrl.value = "http://rogueforge:7810/health";
+    } else if (selected === "npm") {
+      if (!widgetUrl.value) widgetUrl.value = "http://nginx-proxy-manager:81";
+      if (!monitorUrl.value) monitorUrl.value = "http://nginx-proxy-manager:81";
+    } else if (selected === "uptimekuma") {
+      if (!widgetUrl.value) widgetUrl.value = "http://uptime-kuma:3001";
+      if (!monitorUrl.value) monitorUrl.value = "http://uptime-kuma:3001";
     } else if (selected && !widgetUrl.value) {
       widgetUrl.value = monitorUrl.value;
     }
@@ -937,6 +954,9 @@ function saveItem(event) {
     const previousWidget = previous?.widget?.type === integration ? previous.widget : {};
     const integrationUrl = document.getElementById("item-widget-url").value || item.monitorUrl || (integration === "rogueforge" ? "http://rogueforge:7810" : "");
     item.widget = { ...previousWidget, type: integration, url: integrationUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
+    if (integration === "uptimekuma") {
+      item.widget.statusPageSlug = document.getElementById("item-uptime-slug").value.trim() || "default";
+    }
     if (integration === "customapi") {
       const authMode = document.getElementById("item-custom-auth").value;
       const tokenRef = document.getElementById("item-custom-token").value.trim().toUpperCase();
@@ -958,6 +978,13 @@ function saveItem(event) {
     if (integration === "rogueforge") {
       item.monitorUrl = item.monitorUrl || "http://rogueforge:7810/health";
       item.icon = item.icon || "rogueforge";
+    }
+    if (integration === "npm") {
+      item.monitorUrl = item.monitorUrl || "http://nginx-proxy-manager:81";
+    }
+    if (integration === "uptimekuma") {
+      item.monitorUrl = item.monitorUrl || "http://uptime-kuma:3001";
+      item.icon = item.icon || "uptimekuma";
     }
     if (integration === "pihole") item.widget.version = 6;
   }
