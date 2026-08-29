@@ -20,12 +20,14 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
-USER_AGENT = "RogueDashboard/1.3.5"
+USER_AGENT = "RogueDashboard/1.4.0"
 MAX_RESPONSE = 2_000_000
 LARGE_LIBRARY_RESPONSE = 24_000_000
 TIMEOUT = 6
 SUPPORTED_WIDGETS = {
     "bazarr",
+    "customapi",
+    "npm",
     "pihole",
     "prowlarr",
     "qbittorrent",
@@ -34,6 +36,7 @@ SUPPORTED_WIDGETS = {
     "seerr",
     "sonarr",
     "tautulli",
+    "uptimekuma",
 }
 
 
@@ -396,6 +399,158 @@ def _pihole(widget: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+
+def _json_path(value: Any, path: str) -> Any:
+    """Resolve a small dot-path such as data.status or items.0.name."""
+    current = value
+    for segment in path.split("."):
+        segment = segment.strip()
+        if not segment:
+            continue
+        if isinstance(current, dict):
+            if segment not in current:
+                raise ValueError(f"Custom API path '{path}' was not found.")
+            current = current[segment]
+        elif isinstance(current, list) and segment.isdigit():
+            index = int(segment)
+            if index >= len(current):
+                raise ValueError(f"Custom API path '{path}' is outside the returned list.")
+            current = current[index]
+        else:
+            raise ValueError(f"Custom API path '{path}' could not be resolved.")
+    return current
+
+
+def _customapi(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Read up to four lightweight values from a JSON endpoint."""
+    url = _base_url(widget.get("url"))
+    auth_mode = str(widget.get("authMode") or "none").lower()
+    token = _value(widget, "token")
+    headers: dict[str, str] = {}
+    if auth_mode != "none":
+        if not token:
+            raise MissingSecrets
+        if auth_mode == "bearer":
+            headers["Authorization"] = f"Bearer {token}"
+        elif auth_mode == "x-api-key":
+            headers["X-Api-Key"] = token
+        else:
+            raise ValueError("Custom API authentication mode is not supported.")
+
+    response = _json_request(url, headers=headers)
+    definitions = widget.get("metrics") if isinstance(widget.get("metrics"), list) else []
+    if not definitions:
+        raise ValueError("Add at least one Custom API metric.")
+    metrics: list[dict[str, str]] = []
+    for definition in definitions[:4]:
+        if not isinstance(definition, dict):
+            continue
+        label = str(definition.get("label") or "").strip()[:32]
+        path = str(definition.get("path") or "").strip()[:120]
+        if not label or not path:
+            continue
+        value = _json_path(response, path)
+        if isinstance(value, (dict, list)):
+            rendered = json.dumps(value, separators=(",", ":"))[:80]
+        elif value is None:
+            rendered = "—"
+        elif isinstance(value, bool):
+            rendered = "Yes" if value else "No"
+        else:
+            rendered = str(value)[:80]
+        metrics.append(_metric(label, rendered))
+    if not metrics:
+        raise ValueError("No valid Custom API metrics are configured.")
+    return metrics
+
+
+
+def _npm(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect Nginx Proxy Manager host and certificate summaries."""
+    base = _base_url(widget.get("url"))
+    api_base = base if base.endswith("/api") else f"{base}/api"
+    token = _value(widget, "token", "key", "api_key")
+    if not token:
+        raise MissingSecrets
+    headers = {"Authorization": f"Bearer {token}"}
+    hosts = _json_request(f"{api_base}/nginx/proxy-hosts", headers=headers)
+    certificates = _json_request(f"{api_base}/nginx/certificates", headers=headers)
+    hosts = hosts if isinstance(hosts, list) else []
+    certificates = certificates if isinstance(certificates, list) else []
+    enabled_hosts = sum(1 for host in hosts if isinstance(host, dict) and host.get("enabled") is not False)
+
+    now = datetime.now(timezone.utc)
+    expiring = 0
+    for certificate in certificates:
+        if not isinstance(certificate, dict):
+            continue
+        raw_expiry = certificate.get("expires_on") or certificate.get("expiresAt") or certificate.get("expires")
+        if not isinstance(raw_expiry, str) or not raw_expiry.strip():
+            continue
+        try:
+            expires = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if now <= expires <= now + timedelta(days=30):
+                expiring += 1
+        except ValueError:
+            continue
+
+    return [
+        _metric("Proxy hosts", len(hosts)),
+        _metric("Enabled", enabled_hosts),
+        _metric("Certificates", len(certificates)),
+        _metric("Expiring 30d", expiring),
+    ]
+
+
+def _uptimekuma(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect public Uptime Kuma status-page health without socket.io."""
+    base = _base_url(widget.get("url"))
+    slug = str(widget.get("statusPageSlug") or "default").strip()[:80] or "default"
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", slug):
+        raise ValueError("Uptime Kuma status page slug contains unsupported characters.")
+
+    status_page = _json_request(f"{base}/api/status-page/{slug}")
+    heartbeat = _json_request(f"{base}/api/status-page/heartbeat/{slug}")
+    groups = status_page.get("publicGroupList", []) if isinstance(status_page, dict) else []
+    monitor_ids: list[str] = []
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        monitors = group.get("monitorList") if isinstance(group.get("monitorList"), list) else []
+        for monitor in monitors:
+            if isinstance(monitor, dict) and monitor.get("id") is not None:
+                monitor_ids.append(str(monitor["id"]))
+
+    heartbeat_list = heartbeat.get("heartbeatList", {}) if isinstance(heartbeat, dict) else {}
+    uptime_list = heartbeat.get("uptimeList", {}) if isinstance(heartbeat, dict) else {}
+    up = down = 0
+    uptimes: list[float] = []
+    for monitor_id in monitor_ids:
+        samples = heartbeat_list.get(monitor_id, []) if isinstance(heartbeat_list, dict) else []
+        latest = samples[-1] if isinstance(samples, list) and samples else None
+        status = latest.get("status") if isinstance(latest, dict) else None
+        if status == 1:
+            up += 1
+        elif status == 0:
+            down += 1
+        raw_uptime = uptime_list.get(f"{monitor_id}_24") if isinstance(uptime_list, dict) else None
+        try:
+            if raw_uptime is not None:
+                uptimes.append(float(raw_uptime) * 100)
+        except (TypeError, ValueError):
+            pass
+
+    average_uptime = (sum(uptimes) / len(uptimes)) if uptimes else 0.0
+    return [
+        _metric("Monitors", len(monitor_ids)),
+        _metric("Up", up),
+        _metric("Down", down),
+        _metric("24h uptime", f"{average_uptime:.2f}%"),
+    ]
+
+
 def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
     """Collect lightweight public RogueForge runtime, stack and container summaries."""
     base = _base_url(widget.get("url"))
@@ -429,6 +584,8 @@ class MissingSecrets(Exception):
 
 COLLECTORS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "bazarr": _bazarr,
+    "customapi": _customapi,
+    "npm": _npm,
     "pihole": _pihole,
     "prowlarr": _prowlarr,
     "qbittorrent": _qbittorrent,
@@ -437,6 +594,7 @@ COLLECTORS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "seerr": _seerr,
     "sonarr": lambda widget: _arr(widget, "sonarr"),
     "tautulli": _tautulli,
+    "uptimekuma": _uptimekuma,
 }
 
 

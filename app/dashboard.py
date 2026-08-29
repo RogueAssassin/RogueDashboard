@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -34,7 +35,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.3.5"
+VERSION = "1.4.0"
 PORT = int(os.environ.get("PORT", "8080"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
@@ -104,9 +105,9 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_secondary):
         accent_secondary = "#00e5ff"
     result: dict[str, Any] = {
-        "version": 7,
+        "version": 8,
         "meta": {
-            "title": text(raw_meta.get("title"), 100, "My Container Dashboard").strip() or "My Container Dashboard",
+            "title": text(raw_meta.get("title"), 100, "My RogueDashboard").strip() or "My RogueDashboard",
             "subtitle": text(raw_meta.get("subtitle"), 180, "Your self-hosted command centre"),
             "theme": theme,
             "accent": accent,
@@ -181,6 +182,22 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
             for key, limit in (("monitorUrl", 2000), ("description", 300), ("icon", 500)):
                 if isinstance(raw_item.get(key), str):
                     item[key] = text(raw_item[key], limit)
+            item["favorite"] = raw_item.get("favorite", False) is True
+            raw_tags = raw_item.get("tags") if isinstance(raw_item.get("tags"), list) else []
+            item["tags"] = [
+                text(tag, 40).strip()
+                for tag in raw_tags[:12]
+                if isinstance(tag, str) and text(tag, 40).strip()
+            ]
+            item["launchMode"] = raw_item.get("launchMode") if raw_item.get("launchMode") in ("new-tab", "same-tab", "copy") else "new-tab"
+            item["healthMethod"] = raw_item.get("healthMethod") if raw_item.get("healthMethod") in ("HEAD", "GET") else "HEAD"
+            item["healthTimeout"] = clamp(raw_item.get("healthTimeout"), 1, 10, 4)
+            status_min = clamp(raw_item.get("healthStatusMin"), 100, 599, 200)
+            status_max = clamp(raw_item.get("healthStatusMax"), 100, 599, 499)
+            if status_min > status_max:
+                status_min, status_max = status_max, status_min
+            item["healthStatusMin"] = status_min
+            item["healthStatusMax"] = status_max
             raw_widget = raw_item.get("widget")
             if isinstance(raw_widget, dict) and isinstance(raw_widget.get("type"), str):
                 refs = raw_widget.get("secretRefs") if isinstance(raw_widget.get("secretRefs"), list) else []
@@ -204,6 +221,22 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
                     widget["url"] = text(raw_widget["url"], 2000)
                 if isinstance(raw_widget.get("version"), (str, int)):
                     widget["version"] = raw_widget["version"]
+                if widget["type"].lower() == "customapi":
+                    auth_mode = raw_widget.get("authMode")
+                    widget["authMode"] = auth_mode if auth_mode in ("none", "bearer", "x-api-key") else "none"
+                    raw_metrics = raw_widget.get("metrics") if isinstance(raw_widget.get("metrics"), list) else []
+                    metrics: list[dict[str, str]] = []
+                    for raw_metric in raw_metrics[:4]:
+                        if not isinstance(raw_metric, dict):
+                            continue
+                        label = text(raw_metric.get("label"), 32).strip()
+                        path = text(raw_metric.get("path"), 120).strip()
+                        if label and path:
+                            metrics.append({"label": label, "path": path})
+                    widget["metrics"] = metrics
+                if widget["type"].lower() == "uptimekuma":
+                    slug = text(raw_widget.get("statusPageSlug"), 80, "default").strip() or "default"
+                    widget["statusPageSlug"] = slug
                 if widget["type"].lower() == "qbittorrent":
                     bindings = widget.setdefault("secretBindings", {})
                     for binding, ref in (
@@ -455,29 +488,34 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
         return {"itemId": item.get("id", ""), "state": "unknown", "source": "endpoint", "checkedAt": checked_at}
 
+    method = item.get("healthMethod") if item.get("healthMethod") in ("HEAD", "GET") else "HEAD"
+    timeout = clamp(item.get("healthTimeout"), 1, 10, 4)
+    status_min = clamp(item.get("healthStatusMin"), 100, 599, 200)
+    status_max = clamp(item.get("healthStatusMax"), 100, 599, 499)
+    if status_min > status_max:
+        status_min, status_max = status_max, status_min
+
     started = time.monotonic()
     status: int | None = None
     probe_error: str | None = None
+
+    def probe(probe_method: str) -> int | None:
+        request = Request(url, method=probe_method, headers={"User-Agent": f"RogueDashboard/{VERSION}"})
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.status
+        except HTTPError as error:
+            return error.code
+
     try:
-        request = Request(url, method="HEAD", headers={"User-Agent": f"RogueDashboard/{VERSION}"})
-        with urlopen(request, timeout=4) as response:
-            status = response.status
-    except HTTPError as error:
-        status = error.code
-        if status in (405, 501):
-            try:
-                request = Request(url, method="GET", headers={"User-Agent": f"RogueDashboard/{VERSION}"})
-                with urlopen(request, timeout=4) as response:
-                    status = response.status
-            except HTTPError as get_error:
-                status = get_error.code
-            except (URLError, TimeoutError, ValueError):
-                status = None
-                probe_error = "Private endpoint is unreachable from the dashboard network"
+        status = probe(method)
+        if method == "HEAD" and status in (405, 501):
+            status = probe("GET")
     except (URLError, TimeoutError, ValueError):
+        status = None
         probe_error = "Private endpoint is unreachable from the dashboard network"
 
-    state = "online" if status is not None and status < 500 else "offline"
+    state = "online" if status is not None and status_min <= status <= status_max else "offline"
     message = f"Endpoint responding (HTTP {status})" if state == "online" else (
         f"Health endpoint returned HTTP {status}" if status is not None else (probe_error or "Endpoint is offline")
     )
@@ -489,6 +527,8 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
         "probeState": state,
         "latencyMs": round((time.monotonic() - started) * 1000),
         "checkedAt": checked_at,
+        "method": method,
+        "timeoutSeconds": timeout,
     }
     if probe_error:
         result["probeError"] = probe_error
@@ -523,7 +563,30 @@ def runtime_metadata() -> dict[str, str]:
     }
 
 
-def system_stats() -> dict[str, Any]:
+def _cgroup_memory() -> tuple[int, int]:
+    """Return cgroup-v2 memory usage/limit when the runtime exposes them."""
+    try:
+        current = int(Path("/sys/fs/cgroup/memory.current").read_text().strip())
+        raw_max = Path("/sys/fs/cgroup/memory.max").read_text().strip()
+        maximum = int(raw_max) if raw_max.isdigit() else 0
+        return max(0, current), max(0, maximum)
+    except (OSError, ValueError):
+        return 0, 0
+
+
+def _runtime_addresses() -> list[str]:
+    addresses: set[str] = set()
+    try:
+        for entry in socket.getaddrinfo(socket.gethostname(), None, type=socket.SOCK_STREAM):
+            address = entry[4][0]
+            if address and not address.startswith("127.") and address != "::1":
+                addresses.add(address)
+    except OSError:
+        pass
+    return sorted(addresses)[:4]
+
+
+def _system_stats_uncached() -> dict[str, Any]:
     memory_total = memory_available = 0
     try:
         values = {}
@@ -534,18 +597,46 @@ def system_stats() -> dict[str, Any]:
         memory_available = values.get("MemAvailable", 0)
     except (OSError, ValueError):
         pass
+
+    cgroup_used, cgroup_limit = _cgroup_memory()
+    if cgroup_limit and cgroup_limit < memory_total:
+        memory_used = min(cgroup_used, cgroup_limit)
+        effective_total = cgroup_limit
+        memory_scope = "container"
+    else:
+        memory_used = max(0, memory_total - memory_available)
+        effective_total = memory_total
+        memory_scope = "runtime"
+
     try:
         uptime = float(Path("/proc/uptime").read_text().split()[0])
     except (OSError, ValueError):
         uptime = 0
+
+    try:
+        stat = os.statvfs(DATA_DIR)
+        storage_total = stat.f_frsize * stat.f_blocks
+        storage_available = stat.f_frsize * stat.f_bavail
+        storage_used = max(0, storage_total - storage_available)
+    except OSError:
+        storage_total = storage_used = 0
+
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0
+    cpu_count = os.cpu_count() or 1
     metadata = runtime_metadata()
     return {
         "uptimeSeconds": round(uptime),
-        "memoryUsed": max(0, memory_total - memory_available),
-        "memoryTotal": memory_total,
+        "memoryUsed": memory_used,
+        "memoryTotal": effective_total,
+        "memoryScope": memory_scope,
         "load": load,
-        "cpuCount": os.cpu_count() or 1,
+        "loadPercent": round(min(100.0, max(0.0, (load / cpu_count) * 100)), 1),
+        "cpuCount": cpu_count,
+        "storageUsed": storage_used,
+        "storageTotal": storage_total,
+        "storagePath": str(DATA_DIR),
+        "hostname": socket.gethostname()[:128],
+        "addresses": _runtime_addresses(),
         "runningContainers": None,
         "totalContainers": None,
         "engineStatus": "external",
@@ -560,13 +651,76 @@ def system_stats() -> dict[str, Any]:
     }
 
 
+SYSTEM_STATS_CACHE: tuple[float, dict[str, Any]] = (0, {})
+
+
+def system_stats() -> dict[str, Any]:
+    """Share a short-lived runtime snapshot across connected browsers."""
+    global SYSTEM_STATS_CACHE
+    now = time.time()
+    if SYSTEM_STATS_CACHE[0] > now:
+        return SYSTEM_STATS_CACHE[1]
+    stats = _system_stats_uncached()
+    SYSTEM_STATS_CACHE = (now + 10, stats)
+    return stats
+
+
 FAILED_LOGINS: dict[str, tuple[int, float]] = {}
 LOGIN_LOCK = threading.Lock()
 HEALTH_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 HEALTH_LOCK = threading.Lock()
 WIDGET_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 WIDGET_LOCK = threading.Lock()
+HEALTH_HISTORY: dict[str, deque[dict[str, Any]]] = {}
+HEALTH_HISTORY_LOCK = threading.Lock()
+HEALTH_HISTORY_LIMIT = 120
 DB: Database | None = None
+
+
+def record_health_history(results: list[dict[str, Any]]) -> None:
+    """Keep a bounded in-memory availability window without database writes."""
+    now = time.time()
+    with HEALTH_HISTORY_LOCK:
+        active_ids = set()
+        for result in results:
+            item_id = str(result.get("itemId") or "")
+            if not item_id:
+                continue
+            active_ids.add(item_id)
+            samples = HEALTH_HISTORY.setdefault(item_id, deque(maxlen=HEALTH_HISTORY_LIMIT))
+            samples.append({
+                "time": now,
+                "online": result.get("state") == "online",
+                "latencyMs": result.get("latencyMs") if isinstance(result.get("latencyMs"), int) else None,
+            })
+        for item_id in list(HEALTH_HISTORY):
+            if item_id not in active_ids and not HEALTH_HISTORY[item_id]:
+                HEALTH_HISTORY.pop(item_id, None)
+
+
+def health_history_summary() -> dict[str, dict[str, Any]]:
+    cutoff = time.time() - 3600
+    summary: dict[str, dict[str, Any]] = {}
+    with HEALTH_HISTORY_LOCK:
+        for item_id, samples in HEALTH_HISTORY.items():
+            recent = [sample for sample in samples if sample["time"] >= cutoff]
+            if not recent:
+                continue
+            online = sum(1 for sample in recent if sample["online"])
+            latencies = [sample["latencyMs"] for sample in recent if isinstance(sample.get("latencyMs"), int)]
+            failures = [sample["time"] for sample in recent if not sample["online"]]
+            last_recovery = None
+            for index in range(1, len(recent)):
+                if not recent[index - 1]["online"] and recent[index]["online"]:
+                    last_recovery = recent[index]["time"]
+            summary[item_id] = {
+                "samples": len(recent),
+                "availability": round((online / len(recent)) * 100, 1),
+                "averageLatencyMs": round(sum(latencies) / len(latencies)) if latencies else None,
+                "lastFailureAt": datetime.fromtimestamp(failures[-1], timezone.utc).isoformat().replace("+00:00", "Z") if failures else None,
+                "lastRecoveryAt": datetime.fromtimestamp(last_recovery, timezone.utc).isoformat().replace("+00:00", "Z") if last_recovery else None,
+            }
+    return summary
 
 
 def clear_monitor_caches() -> None:
@@ -699,7 +853,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     with ThreadPoolExecutor(max_workers=8) as pool:
                         results = list(pool.map(health_check, items))
                     HEALTH_CACHE = (time.time() + 15, results)
+                    record_health_history(results)
             self.json_response(results)
+        elif path == "/api/history":
+            self.json_response({"windowSeconds": 3600, "services": health_history_summary()})
         elif path == "/api/widgets":
             global WIDGET_CACHE
             with WIDGET_LOCK:
@@ -814,7 +971,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except sqlite3.IntegrityError:
             self.json_response({"error": "That username is already in use."}, HTTPStatus.CONFLICT)
         except (HTTPError, URLError, RuntimeError, TimeoutError) as error:
-            self.json_response({"error": f"Docker action failed: {error}"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            self.json_response({"error": f"Service request failed: {error}"}, HTTPStatus.SERVICE_UNAVAILABLE)
 
     def do_PUT(self) -> None:
         if not self.require_allowed_host():

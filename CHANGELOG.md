@@ -2,6 +2,44 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
+## 1.4.0 (testing)
+
+- Started the next RogueDashboard testing cycle from the stable 1.3.5 main release.
+- Production remains on 1.3.5 / latest while new feature work is validated through the testing channel.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `1.4.0-testing`.
+- Added a lightweight keyboard command palette with `Ctrl+K` / `/` shortcuts.
+- Added per-card favourites and tags with `fav:` and `tag:<name>` search filters.
+- Added per-card launch modes for new tab, same tab and copy-URL workflows.
+- Added configurable endpoint health method, timeout and accepted HTTP status range.
+- Preserved the existing 30-second browser refresh, 15-second health cache and bounded health worker pool to avoid increasing monitoring load.
+- Changed imported/default dashboard wording from Docker-specific naming to `My RogueDashboard`.
+- Removed obsolete dead container-management JavaScript from the socket-free frontend.
+- Added regression tests for the new dashboard schema fields and configurable health probes.
+- Added a dependency-free Custom API widget for mapping up to four JSON dot-path values onto a service card.
+- Added optional Bearer-token and X-Api-Key authentication using server-side `RGDASH_*` environment references.
+- Bounded Custom API response size, metric count, label/path length and output length to protect dashboard performance.
+- Reused the existing cached widget refresh path; Custom API widgets add no separate timer or background polling loop.
+- Added regression tests for nested/list JSON paths, secret non-disclosure and configuration bounds.
+- Added native Nginx Proxy Manager metrics for proxy-host totals, enabled hosts, certificate totals and 30-day certificate expiry.
+- Added server-side NPM bearer-token support through `RGDASH_NPM_TOKEN`.
+- Added native Uptime Kuma status-page metrics for monitor totals, up/down state and average 24-hour uptime.
+- Uptime Kuma integration deliberately uses published status-page JSON endpoints instead of its unstable internal Socket.IO administration API.
+- Reused the existing widget cache/refresh path for both integrations; no new background timer or container-engine dependency was introduced.
+- Added import auto-detection and regression tests for NPM and Uptime Kuma.
+- Added lightweight runtime storage, memory-scope, normalized load and local network information to the dashboard information layer.
+- Added a bounded in-memory one-hour health history with availability percentage and average latency per monitored service.
+- Capped history at 120 samples per service and deliberately avoided SQLite history writes to preserve storage and CPU performance.
+- Added compact dashboard-wide availability and data-storage summary tiles plus per-card one-hour availability context.
+- Added Admin runtime storage/network details without introducing Docker/Podman socket access.
+- Added regression tests for runtime information fields, socket-free behavior and bounded health-history summaries.
+- Added explicit degraded/offline card styling and last-failure/last-recovery health context.
+- Improved responsive behavior for the expanded runtime information strip across desktop, tablet and mobile widths.
+- Added refresh de-duplication so a slow monitoring cycle cannot overlap with the next scheduled cycle.
+- Paused normal monitoring requests while the dashboard tab is hidden and resume-refreshes when visible again.
+- Added a 10-second shared runtime-stat cache to avoid repeated filesystem, storage and network reads across multiple browser clients.
+- Kept widget, health, system and history request failures isolated so one unavailable service cannot block the rest of the dashboard.
+- Added regression coverage for runtime snapshot caching and recovery timestamps.
+
 ## 1.3.5
 
 - Integrated the corrected approved RogueDashboard icon-pack artwork into the runtime UI.

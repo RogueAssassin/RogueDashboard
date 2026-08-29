@@ -3,7 +3,7 @@
 <table>
   <tr>
     <td width="220" align="center">
-      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static/icons/roguedashboard-approved-128.png?v=1.3.5" width="128" height="128" alt="RogueDashboard logo">
+      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/app/static/icons/roguedashboard-approved-128.png?v=1.4.0" width="128" height="128" alt="RogueDashboard logo">
     </td>
     <td align="left">
       <h1>RogueDashboard</h1>
@@ -13,9 +13,9 @@
   </tr>
 </table>
 
-[![Release](https://img.shields.io/badge/RELEASE-1.3.5-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/main)
+[![Release](https://img.shields.io/badge/RELEASE-1.4.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/pkgs/container/roguedashboard)
-[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Amain)
+[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.13-ff4fc8?style=for-the-badge&labelColor=45464d)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -52,10 +52,77 @@ Seerr
 Bazarr
 Tautulli
 Pi-hole
+Nginx Proxy Manager
+Uptime Kuma
 RogueForge
 ```
 
 Other services can still be added as normal health-checked cards.
+
+### Native Nginx Proxy Manager
+
+The 1.4.0 testing branch includes first-class Nginx Proxy Manager metrics over its HTTP API:
+
+```text
+Proxy hosts
+Enabled proxy hosts
+Certificates
+Certificates expiring within 30 days
+```
+
+Use the private NPM address, normally `http://nginx-proxy-manager:81`. RogueDashboard automatically targets the `/api` path. Authentication is server-side through:
+
+```env
+RGDASH_NPM_TOKEN=...
+```
+
+RogueDashboard never receives the Docker or Podman socket from NPM.
+
+### Native Uptime Kuma
+
+Uptime Kuma support reads its published status-page JSON endpoints rather than depending on the internal Socket.IO administration API.
+
+Configure:
+
+```text
+Live integration: Uptime Kuma
+Private API URL: http://uptime-kuma:3001
+Status page slug: default
+```
+
+The card can show:
+
+```text
+Monitors
+Up
+Down
+24h average uptime
+```
+
+This mode requires the selected Uptime Kuma status page to be published. It requires no container-engine socket and no dashboard administrator credentials.
+
+### Custom API widget
+
+RogueDashboard 1.4.0 testing can map up to four values from any JSON endpoint without adding a dedicated integration.
+
+Example:
+
+```text
+Live integration: Custom API
+Private API URL: http://example:8080/api/status
+Authentication: Bearer token
+Token environment variable: RGDASH_EXAMPLE_TOKEN
+
+Metrics:
+Status=status
+Users=data.users
+Version=build.version
+First node=data.nodes.0.name
+```
+
+Supported authentication is intentionally limited to **None**, **Bearer token**, or **X-Api-Key**. Tokens are resolved from `RGDASH_*` environment variables on the server and are never returned to the browser or stored as literal secret values in the dashboard database.
+
+Custom API widgets share RogueDashboard's existing widget cache and refresh cycle, so adding them does not create a new polling loop.
 
 ## Rogue ecosystem
 
@@ -213,14 +280,71 @@ RogueForge
 
 This separation keeps RogueDashboard fast and avoids giving a homepage unnecessary control over the container engine.
 
+## 1.4.0 testing
+
+The testing branch is now the development line for the next RogueDashboard feature set. Stable production remains 1.3.5 on `main` and `:latest`.
+
+### Stage 1 — navigation and card intelligence
+
+The first 1.4.0 testing stage adds:
+
+- a lightweight `Ctrl+K` / `/` command palette for services, pages and administrator actions,
+- per-card favourites and tags, including `tag:<name>` and `fav:` filtering,
+- per-card launch behaviour: new tab, same tab or copy URL,
+- configurable health-probe method, timeout and accepted HTTP status range,
+- engine-neutral default wording (`My RogueDashboard` rather than Docker-specific defaults),
+- removal of obsolete container-management JavaScript left over from the pre-socket-free architecture.
+
+The command palette and tag/favourite filtering are browser-only operations and add no background polling. Health checks keep the existing shared cache and bounded worker pool so this stage does not increase the normal refresh frequency.
+
+### Stage 4 — release-candidate resilience
+
+The final 1.4.0 testing stage focuses on stability and presentation rather than adding more integrations:
+
+- clearer offline and degraded service-card states,
+- last-failure and last-recovery context from the bounded 1-hour history,
+- improved responsive behaviour for the expanded information strip,
+- duplicate refresh suppression so slow API calls cannot create overlapping polling work,
+- background polling pauses while the browser tab is hidden and refreshes again when it becomes visible,
+- short-lived shared runtime-stat caching so multiple browser clients do not repeat the same filesystem/network reads,
+- individual health/widget/system/history failures remain isolated through `Promise.allSettled`.
+
+This keeps the normal 30-second refresh cadence while reducing unnecessary work and makes 1.4.0 suitable for release-candidate testing.
+
+### Stage 3 — lightweight system information
+
+Stage 3 expands the information strip without giving RogueDashboard access to the Docker or Podman engine:
+
+- effective runtime/container memory usage when cgroup limits are available,
+- normalized system load alongside CPU count and uptime,
+- persistent RogueDashboard data-volume usage,
+- runtime hostname and local container/network addresses in Admin,
+- bounded one-hour service availability and average-latency summaries.
+
+Availability history is kept in memory only: a maximum of 120 samples per monitored service and no continuous SQLite writes. It resets when RogueDashboard restarts, which keeps storage I/O and database growth at zero while still providing useful short-term health context.
+
+### Stage 2B — native NPM + Uptime Kuma
+
+Stage 2B adds reusable backend collectors for the two services used on the current media stack:
+
+- Nginx Proxy Manager via its bearer-authenticated HTTP API,
+- Uptime Kuma via published status-page JSON endpoints,
+- both collectors reuse the existing widget cache and bounded refresh path,
+- neither integration requires Docker/Podman socket access.
+
+### Stage 2A — Custom API widgets
+
+The next testing stage adds a safe, dependency-free Custom API collector. It reads up to four dot-path values from one JSON response, supports optional server-side Bearer/X-Api-Key authentication, limits response size, and reuses the normal widget cache rather than starting another polling timer.
+
 ## Testing channel
+
 
 
 Development is validated through the `testing` branch. Successful CI publishes:
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:testing
+ghcr.io/rogueassassin/roguedashboard:1.4.0-testing
 ```
 
 The pipeline runs application tests, Python validation, Compose validation, an amd64 build and a multi-architecture amd64/arm64 publish.

@@ -9,6 +9,7 @@ const state = {
   editor: false,
   setupImport: null,
   health: new Map(),
+  history: new Map(),
   widgets: new Map(),
   widgetSupport: [],
   system: null,
@@ -17,6 +18,8 @@ const state = {
   editingItem: null,
   editorTab: "appearance",
   activePage: "home",
+  refreshInFlight: false,
+  refreshQueued: false,
 };
 
 const app = document.getElementById("app");
@@ -38,7 +41,7 @@ const ICON_FILES = {
 
 const ICON_REMOTE_OVERRIDES = {
   rogueforge: "https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg",
-  roguedashboard: "/icons/roguedashboard-approved-128.png?v=1.3.5",
+  roguedashboard: "/icons/roguedashboard-approved-128.png?v=1.4.0-r2",
 };
 
 const THEME_PRESETS = {
@@ -56,7 +59,10 @@ const INTEGRATION_DEFAULTS = {
   bazarr: { refs: ["RGDASH_BAZARR_KEY"], bindings: { key: "RGDASH_BAZARR_KEY" } },
   tautulli: { refs: ["RGDASH_TAUTULLI_KEY"], bindings: { key: "RGDASH_TAUTULLI_KEY" } },
   pihole: { refs: ["RGDASH_PIHOLE_KEY"], bindings: { key: "RGDASH_PIHOLE_KEY" } },
+  npm: { refs: ["RGDASH_NPM_TOKEN"], bindings: { token: "RGDASH_NPM_TOKEN" } },
+  uptimekuma: { refs: [], bindings: {} },
   rogueforge: { refs: [], bindings: {} },
+  customapi: { refs: [], bindings: {} },
 };
 
 function escapeHtml(value) {
@@ -76,6 +82,80 @@ function safeUrl(value) {
   } catch {
     return "";
   }
+}
+
+function launchAttributes(item, href) {
+  if (!href) return "";
+  if (item.launchMode === "same-tab") return `href="${href}"`;
+  if (item.launchMode === "copy") return `href="#" data-copy-url="${href}"`;
+  return `href="${href}" target="_blank" rel="noreferrer"`;
+}
+
+function normalizedTags(item) {
+  return Array.isArray(item.tags) ? item.tags.filter(tag => typeof tag === "string" && tag.trim()).map(tag => tag.trim()) : [];
+}
+
+function itemMatchesQuery(item, group, query) {
+  if (!query) return true;
+  const terms = query.split(/\s+/).filter(Boolean);
+  const tags = normalizedTags(item).map(tag => tag.toLowerCase());
+  const haystack = `${item.name} ${item.description || ""} ${group.name} ${tags.join(" ")}`.toLowerCase();
+  return terms.every(term => {
+    if (term === "fav:" || term === "favorite:" || term === "favourite:") return item.favorite === true;
+    if (term.startsWith("tag:")) return tags.includes(term.slice(4));
+    return haystack.includes(term);
+  });
+}
+
+function commandItems(query = "") {
+  const needle = query.trim().toLowerCase();
+  const entries = [];
+  for (const page of state.draft.pages || []) {
+    entries.push({ kind: "Page", label: page.name, detail: "Switch dashboard page", action: () => { state.activePage = page.id; closeOverlay(); renderDashboard(); } });
+  }
+  for (const group of state.draft.groups || []) {
+    for (const item of group.items || []) {
+      const href = safeUrl(item.href);
+      entries.push({
+        kind: item.favorite ? "Favourite" : (item.type === "bookmark" ? "Bookmark" : "Service"),
+        label: item.name,
+        detail: [group.name, ...normalizedTags(item)].filter(Boolean).join(" · "),
+        action: () => {
+          closeOverlay();
+          if (!href) return;
+          if (item.launchMode === "copy") navigator.clipboard?.writeText(item.href).then(() => toast("URL copied"));
+          else if (item.launchMode === "same-tab") location.href = item.href;
+          else window.open(item.href, "_blank", "noopener,noreferrer");
+        },
+      });
+    }
+  }
+  entries.push({ kind: "Action", label: state.authenticated ? "Customise dashboard" : "Administrator sign in", detail: "Open RogueDashboard administration", action: () => { closeOverlay(); state.authenticated ? openEditor() : openLogin(); } });
+  return entries.filter(entry => !needle || `${entry.kind} ${entry.label} ${entry.detail}`.toLowerCase().includes(needle)).slice(0, 40);
+}
+
+function openCommandPalette(initial = "") {
+  overlay.innerHTML = `<div class="modal-backdrop command-backdrop"><section class="modal command-modal">
+    <header class="command-header"><span>⌕</span><input id="command-query" value="${escapeHtml(initial)}" placeholder="Search services, pages, tags or actions…" autocomplete="off"><kbd>Esc</kbd></header>
+    <div class="command-results" id="command-results"></div>
+  </section></div>`;
+  const input = document.getElementById("command-query");
+  const results = document.getElementById("command-results");
+  const render = () => {
+    const entries = commandItems(input.value);
+    results.innerHTML = entries.map((entry, index) => `<button class="command-result" data-command="${index}"><span><small>${escapeHtml(entry.kind)}</small><strong>${escapeHtml(entry.label)}</strong><em>${escapeHtml(entry.detail)}</em></span><b>↵</b></button>`).join("") || `<div class="command-empty">No matching services or actions.</div>`;
+    results.querySelectorAll("[data-command]").forEach(button => button.onclick = () => entries[Number(button.dataset.command)].action());
+  };
+  input.oninput = render;
+  input.onkeydown = event => {
+    if (event.key === "Enter") {
+      const first = commandItems(input.value)[0];
+      if (first) { event.preventDefault(); first.action(); }
+    }
+  };
+  overlay.querySelector(".command-backdrop").onclick = event => { if (event.target === event.currentTarget) closeOverlay(); };
+  render();
+  requestAnimationFrame(() => input.focus());
 }
 
 function iconKey(value) {
@@ -153,7 +233,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.4.0-r2" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -163,7 +243,7 @@ function renderSetup() {
     <main class="setup-shell">
       <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.4.0-r2" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -248,7 +328,7 @@ async function completeSetup(event) {
     return;
   }
   const dashboard = structuredClone(state.draft);
-  dashboard.meta.title = document.getElementById("setup-title").value.trim() || "My Container Dashboard";
+  dashboard.meta.title = document.getElementById("setup-title").value.trim() || "My RogueDashboard";
   const button = document.getElementById("setup-submit");
   button.disabled = true;
   button.textContent = "Finishing setup…";
@@ -283,6 +363,19 @@ function formatUptime(seconds) {
   return days ? `${days}d ${hours}h` : `${hours}h`;
 }
 
+function relativeTime(value) {
+  if (!value) return "";
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return "";
+  const seconds = Math.max(0, Math.round((Date.now() - time) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 function renderDashboard() {
   const dashboard = state.draft;
   document.title = dashboard.meta.title;
@@ -291,8 +384,8 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
-          <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps and bookmarks…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
+          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.4.0-r2" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
+          <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}</nav>
         <section class="stat-strip" id="stats">
@@ -301,9 +394,11 @@ function renderDashboard() {
           <div class="mini-stat"><span>●</span><div><strong id="online-count">—</strong><span>Services online</span></div></div>
           <div class="mini-stat"><span>▤</span><div><strong id="memory-count">—</strong><span id="memory-total">Memory</span></div></div>
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
+          <div class="mini-stat"><span>◫</span><div><strong id="storage-count">—</strong><span id="storage-total">Dashboard storage</span></div></div>
+          <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.1.3")}</strong></span><span>Service monitoring · local-first</span></footer>
+        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.4.0")}</strong></span><span>Service monitoring · local-first</span></footer>
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -318,6 +413,7 @@ function renderDashboard() {
   if (dashboard.meta.background) background.style.setProperty("--custom-background", `url("${dashboard.meta.background.replace(/["\\\n\r]/g, "")}")`);
   document.getElementById("search").oninput = event => { state.search = event.target.value; renderGroups(); };
   document.getElementById("clear-search").onclick = () => { state.search = ""; document.getElementById("search").value = ""; renderGroups(); };
+  document.getElementById("commands").onclick = () => openCommandPalette();
   document.getElementById("customise").onclick = () => state.authenticated ? openEditor() : openLogin();
   document.querySelectorAll("[data-page]").forEach(button => button.onclick = () => {
     state.activePage = button.dataset.page;
@@ -337,7 +433,7 @@ function renderGroups() {
   let visibleCount = 0;
   const html = state.draft.groups.map((group, groupIndex) => {
     if ((group.pageId || state.draft.pages?.[0]?.id || "home") !== state.activePage) return "";
-    const items = group.items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => !query || `${item.name} ${item.description || ""} ${group.name}`.toLowerCase().includes(query));
+    const items = group.items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => itemMatchesQuery(item, group, query));
     if (!items.length && (query || !state.editor)) return "";
     visibleCount += items.length;
     const collapsed = state.collapsed.has(group.id);
@@ -353,6 +449,10 @@ function renderGroups() {
   });
   container.querySelectorAll(".add-card").forEach(button => button.onclick = () => openItem(Number(button.dataset.group)));
   container.querySelectorAll(".card-edit").forEach(button => button.onclick = () => openItem(Number(button.dataset.group), Number(button.dataset.item)));
+  container.querySelectorAll("[data-copy-url]").forEach(link => link.onclick = event => {
+    event.preventDefault();
+    navigator.clipboard?.writeText(link.dataset.copyUrl).then(() => toast("URL copied"));
+  });
   if (state.editor) bindDragging(container);
 }
 
@@ -366,7 +466,15 @@ function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const statusMarkup = item.statusStyle !== "none" && item.monitorUrl ? `<span class="status ${statusState} ${item.statusStyle === "badge" ? "badge" : ""}" title="${escapeHtml(statusTitle)}">${item.statusStyle === "badge" ? escapeHtml(statusState) : ""}</span>` : "";
   const latency = Number.isFinite(widget?.latencyMs) ? widget.latencyMs : status?.latencyMs;
   const latencyMarkup = state.draft.meta.showLatency && Number.isFinite(latency) ? `<span class="connection-latency ${widget?.state === "error" || statusState === "offline" ? "failed" : ""}">${latency} ms</span>` : "";
-  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${href ? `href="${href}" target="_blank" rel="noreferrer"` : ""}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? "↗" : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p></div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
+  const tags = normalizedTags(item);
+  const tagMarkup = tags.length ? `<div class="card-tags">${tags.slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";
+  const launchHint = item.launchMode === "same-tab" ? "→" : item.launchMode === "copy" ? "⧉" : "↗";
+  const history = state.history.get(item.id);
+  const degraded = statusState === "online" && widget && widget.state !== "ok";
+  const recovery = history?.lastRecoveryAt ? `Recovered ${relativeTime(history.lastRecoveryAt)}` : "";
+  const failure = statusState === "offline" && history?.lastFailureAt ? `Failed ${relativeTime(history.lastFailureAt)}` : "";
+  const historyMarkup = history && history.samples > 1 ? `<div class="card-history"><span>${Number(history.availability).toFixed(1)}% 1h</span>${Number.isFinite(history.averageLatencyMs) ? `<span>${history.averageLatencyMs} ms avg</span>` : ""}${failure ? `<span class="history-failure">${escapeHtml(failure)}</span>` : recovery ? `<span class="history-recovery">${escapeHtml(recovery)}</span>` : ""}</div>` : "";
+  return `<article class="service-card ${degraded ? "is-degraded" : ""} ${statusState === "offline" ? "is-offline" : ""} ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}${historyMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
 }
 
 function widgetCardMarkup(item, widget) {
@@ -390,15 +498,17 @@ function connectionDiagnosticsMarkup() {
   return `<div class="widget-diagnostics">${items.map(item => {
     const live = state.widgets.get(item.id);
     const probe = state.health.get(item.id);
-    const stateName = live?.state === "ok" ? (probe?.state === "offline" ? "error" : "ok") : live?.state || probe?.state || "loading";
+    const stateName = probe?.state === "offline" ? "offline" : live?.state === "ok" ? "ok" : live?.state && probe?.state === "online" ? "degraded" : live?.state || probe?.state || "loading";
     const latency = Number.isFinite(live?.latencyMs) ? live.latencyMs : probe?.latencyMs;
     const loadedEnvironment = (live?.environment || []).filter(entry => entry.loaded).map(entry => entry.name);
     const environmentDetail = loadedEnvironment.length ? ` · .env loaded: ${loadedEnvironment.join(", ")}` : "";
-    const detail = live?.missingRefs?.length ? `Missing ${live.missingRefs.join(", ")}` : `${live?.message || (live?.state === "ok" ? `${live.metrics.length} API metrics responding` : probe?.message || (probe?.state === "online" ? "Container endpoint responding" : "Waiting for connection test"))}${environmentDetail}`;
+    const detail = live?.missingRefs?.length ? `Missing ${live.missingRefs.join(", ")}` : `${live?.message || (live?.state === "ok" ? `${live.metrics.length} API metrics responding` : probe?.message || (probe?.state === "online" ? "Service endpoint responding" : "Waiting for connection test"))}${environmentDetail}${historyDetail}`;
     const endpoint = item.widget?.url || item.monitorUrl || "No private URL";
-    const action = stateName === "ok" || stateName === "online" ? "Connected" : stateName === "configuration_required" ? "Configure" : stateName === "error" || stateName === "offline" ? "Check" : "Pending";
+    const history = state.history.get(item.id);
+    const historyDetail = history?.lastFailureAt ? ` · last failure ${relativeTime(history.lastFailureAt)}` : "";
+    const action = stateName === "ok" || stateName === "online" ? "Connected" : stateName === "degraded" ? "Degraded" : stateName === "configuration_required" ? "Configure" : stateName === "error" || stateName === "offline" ? "Check" : "Pending";
     return `<div class="widget-diagnostic"><span class="widget-state-dot ${escapeHtml(stateName)}"></span><div><strong>${escapeHtml(item.name)}</strong><small title="${escapeHtml(`${endpoint} · ${detail}`)}">${escapeHtml(item.widget?.type || "health probe")} · ${escapeHtml(endpoint)} · ${escapeHtml(detail)}</small></div><span>${Number.isFinite(latency) ? `${latency} ms · ` : ""}${action}</span></div>`;
-  }).join("")}</div><div class="notice info">Credentials use <strong>RGDASH_*</strong> names in <strong>.env</strong>. Changes take effect after <strong>docker compose restart dashboard</strong>.</div>`;
+  }).join("")}</div><div class="notice info">Credentials use <strong>RGDASH_*</strong> names in <strong>.env</strong>. Changes take effect after restarting the <strong>roguedashboard</strong> service.</div>`;
 }
 
 function proxyDiagnosticsMarkup() {
@@ -445,7 +555,7 @@ function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header">
       <div class="editor-brand">
-        <img src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.4.0-r2" alt="">
         <div><span class="eyebrow">LIVE CUSTOMISER</span><h2>Customise RogueDashboard</h2><p>Preview changes instantly, then save when everything looks right.</p></div>
       </div>
       <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
@@ -530,7 +640,9 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.3.5")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.4.0")}</strong></div>
+            <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
+            <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
         </div>
         <div class="editor-card">
@@ -755,68 +867,6 @@ async function importInEditor(event) {
   } catch (error) { toast(error.message); }
 }
 
-async function discoverContainers() {
-  const list = document.getElementById("container-list");
-  list.innerHTML = `<div class="notice info">Scanning containers…</div>`;
-  try {
-    const result = await request("/api/removed-container-management");
-    list.innerHTML = result.containers.map((container, index) => {
-      const added = isContainerAdded(container);
-      const runtimeHealthy = container.state === "running" && !["unhealthy", "starting"].includes(container.health);
-      const publicPort = container.ports.find(port => port.publicPort)?.publicPort || "no public port";
-      const networks = container.networks?.length ? container.networks.join(", ") : "no network data";
-      const stats = container.stats?.available ? `CPU ${container.stats.cpuPercent.toFixed(1)}% · RAM ${formatBytes(container.stats.memoryUsed)} · ↓ ${formatBytes(container.stats.networkRx)} ↑ ${formatBytes(container.stats.networkTx)}` : container.state === "running" ? "Runtime metrics unavailable" : container.status;
-      const health = container.health && container.health !== "none" ? ` · ${container.health}` : "";
-      return `<div class="container-row"><span class="container-state ${runtimeHealthy ? "online" : ""}" title="${escapeHtml(`${container.state}${health}`)}"></span><div><strong>${escapeHtml(container.name)}</strong><span>${escapeHtml(container.image)} · ${publicPort}${escapeHtml(health)}</span><span class="container-runtime">${escapeHtml(stats)}</span><span class="container-networks">Networks: ${escapeHtml(networks)}</span></div><div class="container-actions"><button class="icon-button ${added ? "is-added" : ""}" data-container="${index}" title="${added ? "Card already added" : "Add card"}" ${added ? "disabled" : ""}>${added ? "✓" : "+"}</button>${container.labels["rogue.dashboard.protected"] === "true" ? `<span class="protected-chip">Protected</span>` : container.state === "running" ? `<button class="icon-button" data-container-action="restart" data-index="${index}" title="Restart">↻</button><button class="icon-button danger" data-container-action="stop" data-index="${index}" title="Stop">■</button>` : `<button class="icon-button" data-container-action="start" data-index="${index}" title="Start">▶</button>`}</div></div>`;
-    }).join("") || `<div class="notice info">No containers found.</div>`;
-    list.querySelectorAll("[data-container]").forEach(button => button.onclick = () => addContainer(result.containers[Number(button.dataset.container)]));
-    list.querySelectorAll("[data-container-action]").forEach(button => button.onclick = () => runContainerAction(result.containers[Number(button.dataset.index)], button.dataset.containerAction));
-  } catch (error) { list.innerHTML = `<div class="notice error">${escapeHtml(error.message)}</div>`; }
-}
-
-function isContainerAdded(container) {
-  const wanted = iconKey(container.name);
-  return state.draft.groups.some(group => group.items.some(item =>
-    item.containerName === container.name || (!item.containerName && iconKey(item.name) === wanted)
-  ));
-}
-
-async function runContainerAction(container, action) {
-  if (!confirm(`${action[0].toUpperCase() + action.slice(1)} ${container.name}?`)) return;
-  try {
-    await request("/api/disabled-container-action", { method: "POST", body: JSON.stringify({ containerId: container.id, action }) });
-    toast(`${container.name}: ${action} requested`);
-    setTimeout(discoverContainers, 1200);
-  } catch (error) { toast(error.message); }
-}
-
-function addContainer(container) {
-  if (isContainerAdded(container)) {
-    toast(`${container.name} already has a dashboard card`);
-    return;
-  }
-  const identity = iconKey(container.name);
-  const port = container.ports.find(entry => entry.publicPort) || container.ports[0];
-  const publicRogueRouteUrl = state.bootstrap?.serviceUrls?.rogueRoute || "";
-  const presets = {
-    rogueroutegpx: { name: "RogueRoute GPX", href: publicRogueRouteUrl || (port?.publicPort ? `${location.protocol}//${location.hostname}:${port.publicPort}` : ""), monitorUrl: "http://rogueroute-gpx-web:9080/api/health", description: "Route generator", icon: "/icons/rogueroute-gpx.svg" },
-    rogueroutegpxweb: { name: "RogueRoute GPX", href: publicRogueRouteUrl || (port?.publicPort ? `${location.protocol}//${location.hostname}:${port.publicPort}` : ""), monitorUrl: "http://rogueroute-gpx-web:9080/api/health", description: "Route generator", icon: "/icons/rogueroute-gpx.svg" },
-    roguerouteosrm: { name: "RogueRoute OSRM", href: "", monitorUrl: "http://rogueroute-gpx-web:9080/api/health/osrm", description: "Local route engine", icon: "/icons/rogueroute-osrm.svg" },
-    rogueroutegpxosrm: { name: "RogueRoute OSRM", href: "", monitorUrl: "http://rogueroute-gpx-web:9080/api/health/osrm", description: "Local route engine", icon: "/icons/rogueroute-osrm.svg" },
-    rogueroutemanager: { name: "RogueRoute Manager", href: "", monitorUrl: "http://rogueroute-gpx-manager:9090/health", description: "Private region manager", icon: "/icons/rogueroute-manager.svg" },
-    rogueroutegpxmanager: { name: "RogueRoute Manager", href: "", monitorUrl: "http://rogueroute-gpx-manager:9090/health", description: "Private region manager", icon: "/icons/rogueroute-manager.svg" },
-  };
-  const preset = presets[identity];
-  let group = preset ? state.draft.groups.find(entry => entry.pageId === state.activePage && entry.kind === "services" && /gpx|rogueroute/i.test(entry.name)) : state.draft.groups.find(entry => entry.pageId === state.activePage && entry.kind === "services");
-  if (!group) {
-    group = { id: uniqueId(preset ? "rogueroute-gpx" : "services"), name: preset ? "RogueRoute GPX" : "Services", kind: "services", columns: 3, collapsed: false, pageId: state.activePage, items: [] };
-    state.draft.groups.push(group);
-  }
-  const defaults = preset || { name: container.name, href: port?.publicPort ? `${location.protocol}//${location.hostname}:${port.publicPort}` : "", monitorUrl: port?.privatePort ? `http://${container.name}:${port.privatePort}` : "", description: container.image, icon: "" };
-  group.items.push({ id: uniqueId(defaults.name), ...defaults, containerName: container.name, type: "service", statusStyle: "dot" });
-  toast(`${container.name} added to ${group.name}`); renderGroupEditor(); renderGroups();
-}
-
 function exportJson() {
   const url = URL.createObjectURL(new Blob([JSON.stringify(state.draft, null, 2)], { type: "application/json" }));
   const link = document.createElement("a"); link.href = url; link.download = "rogue-dashboard-backup.json"; link.click(); URL.revokeObjectURL(url);
@@ -826,6 +876,9 @@ function integrationHint(type) {
   const config = INTEGRATION_DEFAULTS[type];
   if (type === "qbittorrent") return "qBittorrent 5.2+: use RGDASH_QBITTORRENT_API_KEY. Username and password are the automatic fallback.";
   if (type === "rogueforge") return "RogueForge uses its read-only public status APIs. No credentials are stored. Default private URL: http://rogueforge:7810.";
+  if (type === "customapi") return "Custom API reads up to four values from a JSON endpoint. Optional bearer or X-Api-Key authentication uses an RGDASH_* environment variable.";
+  if (type === "npm") return "Nginx Proxy Manager reads proxy-host and certificate summaries with RGDASH_NPM_TOKEN. Use the private NPM URL, normally http://nginx-proxy-manager:81.";
+  if (type === "uptimekuma") return "Uptime Kuma uses its published status-page JSON endpoints and does not need Docker/Podman access or an API credential.";
   return config ? `Add ${config.refs.join(" and ")} to .env.` : "Health-check monitoring only; no API credentials required.";
 }
 
@@ -840,21 +893,55 @@ function openItem(groupIndex, itemIndex) {
     <label class="field full"><span>Description</span><input id="item-description" value="${escapeHtml(item.description || "")}"></label>
     <label class="field"><span>Icon URL or local path</span><input id="item-icon" value="${escapeHtml(item.icon || "")}" placeholder="/custom/icons/my-service.svg"><small>Leave blank for local override → GitHub asset → bundled fallback.</small></label>
     <label class="field"><span>Status</span><select id="item-status"><option value="dot">Dot</option><option value="badge">Badge</option><option value="none">Hidden</option></select></label>
-    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
-    <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port"></label>
+    <label class="field"><span>Open behaviour</span><select id="item-launch"><option value="new-tab">New tab</option><option value="same-tab">Same tab</option><option value="copy">Copy URL</option></select></label>
+    <label class="field"><span>Favourite</span><select id="item-favorite"><option value="false">No</option><option value="true">Yes</option></select></label>
+    <label class="field"><span>Tags</span><input id="item-tags" value="${escapeHtml(normalizedTags(item).join(", "))}" placeholder="media, network, rogue"></label>
+    <label class="field"><span>Health method</span><select id="item-health-method"><option value="HEAD">HEAD</option><option value="GET">GET</option></select></label>
+    <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
+    <label class="field"><span>Accepted HTTP from</span><input id="item-health-min" type="number" min="100" max="599" value="${Number(item.healthStatusMin || 200)}"></label>
+    <label class="field"><span>Accepted HTTP to</span><input id="item-health-max" type="number" min="100" max="599" value="${Number(item.healthStatusMax || 499)}"></label>
+    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "customapi" ? "Custom API" : type === "npm" ? "Nginx Proxy Manager" : type === "uptimekuma" ? "Uptime Kuma" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
+    <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port/api/status"></label>
+    <div class="uptime-kuma-fields full" id="uptime-kuma-fields" ${item.widget?.type === "uptimekuma" ? "" : "hidden"}>
+      <div class="editor-card">
+        <div class="editor-card-heading"><div><strong>Uptime Kuma status page</strong><span>Uses Uptime Kuma's public status-page JSON endpoints.</span></div></div>
+        <label class="field"><span>Status page slug</span><input id="item-uptime-slug" value="${escapeHtml(item.widget?.statusPageSlug || "default")}" placeholder="default"></label>
+      </div>
+    </div>
+    <div class="custom-api-fields full" id="custom-api-fields" ${item.widget?.type === "customapi" ? "" : "hidden"}>
+      <div class="editor-card">
+        <div class="editor-card-heading"><div><strong>Custom API mapping</strong><span>One metric per line: Label=JSON.path. Maximum four.</span></div></div>
+        <label class="field"><span>Authentication</span><select id="item-custom-auth"><option value="none">None</option><option value="bearer">Bearer token</option><option value="x-api-key">X-Api-Key</option></select></label>
+        <label class="field"><span>Token environment variable</span><input id="item-custom-token" value="${escapeHtml(item.widget?.secretBindings?.token || "")}" placeholder="RGDASH_CUSTOM_API_TOKEN"><small>Leave blank when authentication is None.</small></label>
+        <label class="field"><span>Metrics</span><textarea id="item-custom-metrics" rows="4" placeholder="Status=status&#10;Users=data.users&#10;Version=build.version">${escapeHtml((item.widget?.metrics || []).map(metric => `${metric.label}=${metric.path}`).join("\n"))}</textarea></label>
+      </div>
+    </div>
     <div class="notice info full" id="integration-env">${escapeHtml(integrationHint(item.widget?.type || ""))}</div>
   </div><div class="button-row spread">${itemIndex === undefined ? "<span></span>" : `<button type="button" class="button ghost danger-text" id="item-delete">Delete</button>`}<button class="button primary">Save card</button></div></form></section></div>`;
   document.getElementById("item-type").value = item.type;
   document.getElementById("item-status").value = item.statusStyle;
+  document.getElementById("item-launch").value = item.launchMode || "new-tab";
+  document.getElementById("item-favorite").value = item.favorite ? "true" : "false";
+  document.getElementById("item-health-method").value = item.healthMethod || "HEAD";
+  document.getElementById("item-health-timeout").value = String(item.healthTimeout || 4);
   document.getElementById("item-integration").value = item.widget?.type || "";
+  document.getElementById("item-custom-auth").value = item.widget?.authMode || "none";
   document.getElementById("item-integration").onchange = event => {
     const selected = event.target.value;
     document.getElementById("integration-env").textContent = integrationHint(selected);
     const widgetUrl = document.getElementById("item-widget-url");
     const monitorUrl = document.getElementById("item-monitor");
+    document.getElementById("custom-api-fields").hidden = selected !== "customapi";
+    document.getElementById("uptime-kuma-fields").hidden = selected !== "uptimekuma";
     if (selected === "rogueforge") {
       if (!widgetUrl.value) widgetUrl.value = "http://rogueforge:7810";
       if (!monitorUrl.value) monitorUrl.value = "http://rogueforge:7810/health";
+    } else if (selected === "npm") {
+      if (!widgetUrl.value) widgetUrl.value = "http://nginx-proxy-manager:81";
+      if (!monitorUrl.value) monitorUrl.value = "http://nginx-proxy-manager:81";
+    } else if (selected === "uptimekuma") {
+      if (!widgetUrl.value) widgetUrl.value = "http://uptime-kuma:3001";
+      if (!monitorUrl.value) monitorUrl.value = "http://uptime-kuma:3001";
     } else if (selected && !widgetUrl.value) {
       widgetUrl.value = monitorUrl.value;
     }
@@ -868,7 +955,25 @@ function saveItem(event) {
   event.preventDefault();
   const { groupIndex, itemIndex } = state.editingItem;
   const previous = itemIndex === undefined ? null : state.draft.groups[groupIndex].items[itemIndex];
-  const item = { id: previous?.id || uniqueId(document.getElementById("item-name").value), name: document.getElementById("item-name").value, type: document.getElementById("item-type").value, href: document.getElementById("item-href").value, monitorUrl: document.getElementById("item-monitor").value, description: document.getElementById("item-description").value, icon: document.getElementById("item-icon").value, statusStyle: document.getElementById("item-status").value };
+  const statusMin = Math.max(100, Math.min(599, Number(document.getElementById("item-health-min").value) || 200));
+  const statusMax = Math.max(100, Math.min(599, Number(document.getElementById("item-health-max").value) || 499));
+  const item = {
+    id: previous?.id || uniqueId(document.getElementById("item-name").value),
+    name: document.getElementById("item-name").value,
+    type: document.getElementById("item-type").value,
+    href: document.getElementById("item-href").value,
+    monitorUrl: document.getElementById("item-monitor").value,
+    description: document.getElementById("item-description").value,
+    icon: document.getElementById("item-icon").value,
+    statusStyle: document.getElementById("item-status").value,
+    launchMode: document.getElementById("item-launch").value,
+    favorite: document.getElementById("item-favorite").value === "true",
+    tags: document.getElementById("item-tags").value.split(",").map(value => value.trim()).filter(Boolean).slice(0, 12),
+    healthMethod: document.getElementById("item-health-method").value,
+    healthTimeout: Number(document.getElementById("item-health-timeout").value),
+    healthStatusMin: Math.min(statusMin, statusMax),
+    healthStatusMax: Math.max(statusMin, statusMax),
+  };
   if (previous?.containerName) item.containerName = previous.containerName;
   const integration = document.getElementById("item-integration").value;
   if (integration) {
@@ -876,9 +981,37 @@ function saveItem(event) {
     const previousWidget = previous?.widget?.type === integration ? previous.widget : {};
     const integrationUrl = document.getElementById("item-widget-url").value || item.monitorUrl || (integration === "rogueforge" ? "http://rogueforge:7810" : "");
     item.widget = { ...previousWidget, type: integration, url: integrationUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
+    if (integration === "uptimekuma") {
+      item.widget.statusPageSlug = document.getElementById("item-uptime-slug").value.trim() || "default";
+    }
+    if (integration === "customapi") {
+      const authMode = document.getElementById("item-custom-auth").value;
+      const tokenRef = document.getElementById("item-custom-token").value.trim().toUpperCase();
+      const metrics = document.getElementById("item-custom-metrics").value.split(/\r?\n/).map(line => {
+        const split = line.indexOf("=");
+        if (split < 1) return null;
+        return { label: line.slice(0, split).trim(), path: line.slice(split + 1).trim() };
+      }).filter(metric => metric?.label && metric?.path).slice(0, 4);
+      item.widget.authMode = authMode;
+      item.widget.metrics = metrics;
+      if (authMode !== "none" && /^[A-Z][A-Z0-9_]*$/.test(tokenRef)) {
+        item.widget.secretRefs = [tokenRef];
+        item.widget.secretBindings = { token: tokenRef };
+      } else {
+        item.widget.secretRefs = [];
+        item.widget.secretBindings = {};
+      }
+    }
     if (integration === "rogueforge") {
       item.monitorUrl = item.monitorUrl || "http://rogueforge:7810/health";
       item.icon = item.icon || "rogueforge";
+    }
+    if (integration === "npm") {
+      item.monitorUrl = item.monitorUrl || "http://nginx-proxy-manager:81";
+    }
+    if (integration === "uptimekuma") {
+      item.monitorUrl = item.monitorUrl || "http://uptime-kuma:3001";
+      item.icon = item.icon || "uptimekuma";
     }
     if (integration === "pihole") item.widget.version = 6;
   }
@@ -895,7 +1028,7 @@ function openLogin() {
   overlay.innerHTML = `<div class="modal-backdrop auth-backdrop">
     <section class="modal auth-modal">
       <div class="auth-visual">
-        <img src="/icons/roguedashboard-approved-128.png?v=1.3.5" alt="RogueDashboard">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.4.0-r2" alt="RogueDashboard">
         <div><span class="eyebrow">ADMINISTRATION</span><h2>Welcome back</h2><p>Sign in locally to customise services, layouts and integrations.</p></div>
       </div>
       <div class="auth-content">
@@ -974,34 +1107,77 @@ function updateStats() {
   const memoryTotal = document.getElementById("memory-total");
   const loadCount = document.getElementById("load-count");
   const uptimeCount = document.getElementById("uptime-count");
+  const storageCount = document.getElementById("storage-count");
+  const storageTotal = document.getElementById("storage-total");
+  const availabilityCount = document.getElementById("availability-count");
+  const availabilityLabel = document.getElementById("availability-label");
   if (memoryCount) memoryCount.textContent = formatBytes(state.system.memoryUsed);
-  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
-  if (loadCount) loadCount.textContent = Number(state.system.load).toFixed(2);
+  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} ${state.system.memoryScope === "container" ? "container" : "runtime"} memory`;
+  if (loadCount) loadCount.textContent = `${Number(state.system.load).toFixed(2)} · ${Number(state.system.loadPercent || 0).toFixed(0)}%`;
   if (uptimeCount) uptimeCount.textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;
+  if (storageCount) storageCount.textContent = state.system.storageTotal ? formatBytes(state.system.storageUsed) : "—";
+  if (storageTotal) storageTotal.textContent = state.system.storageTotal ? `of ${formatBytes(state.system.storageTotal)} data storage` : "Storage unavailable";
+  const summaries = [...state.history.values()].filter(item => Number.isFinite(item.availability));
+  if (availabilityCount) availabilityCount.textContent = summaries.length ? `${(summaries.reduce((sum, item) => sum + item.availability, 0) / summaries.length).toFixed(1)}%` : "—";
+  if (availabilityLabel) availabilityLabel.textContent = summaries.length ? `${summaries.length} monitored · 1h window` : "1h availability";
 }
 
 async function refreshRuntime(force = false) {
+  if (document.hidden && !force) return;
+  if (state.refreshInFlight) {
+    if (force) state.refreshQueued = true;
+    return;
+  }
+  state.refreshInFlight = true;
   const refreshButton = document.getElementById("refresh-monitor");
-  if (force) {
-    if (refreshButton) { refreshButton.disabled = true; refreshButton.textContent = "Testing…"; }
-    try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
-    catch (error) { toast(error.message); }
+  try {
+    if (force) {
+      if (refreshButton) { refreshButton.disabled = true; refreshButton.textContent = "Testing…"; }
+      try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
+      catch (error) { toast(error.message); }
+    }
+    const [health, system, widgets, history] = await Promise.allSettled([
+      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"),
+    ]);
+    if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
+    if (system.status === "fulfilled") state.system = system.value;
+    if (history.status === "fulfilled") state.history = new Map(Object.entries(history.value.services || {}));
+    if (widgets.status === "fulfilled") {
+      state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
+      state.widgetSupport = widgets.value.supported;
+    }
+    updateStats();
+    renderGroups();
+    const diagnostics = document.getElementById("widget-diagnostics");
+    if (diagnostics) diagnostics.innerHTML = connectionDiagnosticsMarkup();
+  } finally {
+    state.refreshInFlight = false;
+    if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = "↻ Test now"; }
+    if (state.refreshQueued) {
+      state.refreshQueued = false;
+      queueMicrotask(() => refreshRuntime(true));
+    }
   }
-  const [health, system, widgets] = await Promise.allSettled([
-    request("/api/health"), request("/api/system"), request("/api/widgets"),
-  ]);
-  if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
-  if (system.status === "fulfilled") state.system = system.value;
-  if (widgets.status === "fulfilled") {
-    state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
-    state.widgetSupport = widgets.value.supported;
-  }
-  updateStats(); renderGroups();
-  const diagnostics = document.getElementById("widget-diagnostics");
-  if (diagnostics) diagnostics.innerHTML = connectionDiagnosticsMarkup();
-  if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = "↻ Test now"; }
 }
 
+document.addEventListener("keydown", event => {
+  const target = event.target;
+  const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    openCommandPalette();
+  } else if (!typing && event.key === "/") {
+    event.preventDefault();
+    openCommandPalette();
+  } else if (event.key === "Escape" && overlay.innerHTML) {
+    closeOverlay();
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshRuntime();
+});
+
 setInterval(updateClock, 1000);
-setInterval(refreshRuntime, 30000);
+setInterval(() => refreshRuntime(), 30000);
 load();
