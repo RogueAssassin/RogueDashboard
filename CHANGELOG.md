@@ -20,6 +20,12 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Bounded Custom API response size, metric count, label/path length and output length to protect dashboard performance.
 - Reused the existing cached widget refresh path; Custom API widgets add no separate timer or background polling loop.
 - Added regression tests for nested/list JSON paths, secret non-disclosure and configuration bounds.
+- Added native Nginx Proxy Manager metrics for proxy-host totals, enabled hosts, certificate totals and 30-day certificate expiry.
+- Added server-side NPM bearer-token support through `RGDASH_NPM_TOKEN`.
+- Added native Uptime Kuma status-page metrics for monitor totals, up/down state and average 24-hour uptime.
+- Uptime Kuma integration deliberately uses published status-page JSON endpoints instead of its unstable internal Socket.IO administration API.
+- Reused the existing widget cache/refresh path for both integrations; no new background timer or container-engine dependency was introduced.
+- Added import auto-detection and regression tests for NPM and Uptime Kuma.
 
 ## 1.3.5
 
