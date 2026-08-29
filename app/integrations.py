@@ -26,6 +26,7 @@ LARGE_LIBRARY_RESPONSE = 24_000_000
 TIMEOUT = 6
 SUPPORTED_WIDGETS = {
     "bazarr",
+    "customapi",
     "pihole",
     "prowlarr",
     "qbittorrent",
@@ -396,6 +397,71 @@ def _pihole(widget: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+
+def _json_path(value: Any, path: str) -> Any:
+    """Resolve a small dot-path such as data.status or items.0.name."""
+    current = value
+    for segment in path.split("."):
+        segment = segment.strip()
+        if not segment:
+            continue
+        if isinstance(current, dict):
+            if segment not in current:
+                raise ValueError(f"Custom API path '{path}' was not found.")
+            current = current[segment]
+        elif isinstance(current, list) and segment.isdigit():
+            index = int(segment)
+            if index >= len(current):
+                raise ValueError(f"Custom API path '{path}' is outside the returned list.")
+            current = current[index]
+        else:
+            raise ValueError(f"Custom API path '{path}' could not be resolved.")
+    return current
+
+
+def _customapi(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Read up to four lightweight values from a JSON endpoint."""
+    url = _base_url(widget.get("url"))
+    auth_mode = str(widget.get("authMode") or "none").lower()
+    token = _value(widget, "token")
+    headers: dict[str, str] = {}
+    if auth_mode != "none":
+        if not token:
+            raise MissingSecrets
+        if auth_mode == "bearer":
+            headers["Authorization"] = f"Bearer {token}"
+        elif auth_mode == "x-api-key":
+            headers["X-Api-Key"] = token
+        else:
+            raise ValueError("Custom API authentication mode is not supported.")
+
+    response = _json_request(url, headers=headers)
+    definitions = widget.get("metrics") if isinstance(widget.get("metrics"), list) else []
+    if not definitions:
+        raise ValueError("Add at least one Custom API metric.")
+    metrics: list[dict[str, str]] = []
+    for definition in definitions[:4]:
+        if not isinstance(definition, dict):
+            continue
+        label = str(definition.get("label") or "").strip()[:32]
+        path = str(definition.get("path") or "").strip()[:120]
+        if not label or not path:
+            continue
+        value = _json_path(response, path)
+        if isinstance(value, (dict, list)):
+            rendered = json.dumps(value, separators=(",", ":"))[:80]
+        elif value is None:
+            rendered = "—"
+        elif isinstance(value, bool):
+            rendered = "Yes" if value else "No"
+        else:
+            rendered = str(value)[:80]
+        metrics.append(_metric(label, rendered))
+    if not metrics:
+        raise ValueError("No valid Custom API metrics are configured.")
+    return metrics
+
+
 def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
     """Collect lightweight public RogueForge runtime, stack and container summaries."""
     base = _base_url(widget.get("url"))
@@ -429,6 +495,7 @@ class MissingSecrets(Exception):
 
 COLLECTORS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "bazarr": _bazarr,
+    "customapi": _customapi,
     "pihole": _pihole,
     "prowlarr": _prowlarr,
     "qbittorrent": _qbittorrent,
