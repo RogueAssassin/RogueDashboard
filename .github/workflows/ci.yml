@@ -21,6 +21,8 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Validate Python
         run: python -m compileall -q app
+      - name: Validate JavaScript syntax
+        run: node --check app/static/app.js
       - name: Validate unified Compose
         run: |
           cp .env.example .env
