@@ -1,11 +1,24 @@
 <div align="center">
 
-![RogueDashboard](docs/assets/hero.svg)
+<table>
+  <tr>
+    <td width="220" align="center">
+      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static/icons/roguedashboard-approved-128.png?v=1.3.5" width="128" height="128" alt="RogueDashboard logo">
+    </td>
+    <td align="left">
+      <h1>RogueDashboard</h1>
+      <p><strong>Fast, local-first visibility for Docker and Podman services.</strong></p>
+      <p>Health monitoring • API widgets • RogueForge integration • Local authentication • No engine socket required</p>
+    </td>
+  </tr>
+</table>
 
-![Version](https://img.shields.io/badge/version-1.3.0-b45332)
-![Runtime](https://img.shields.io/badge/runtime-Docker%20%7C%20Podman-2a69a6)
-![Platform](https://img.shields.io/badge/platform-Linux%20amd64%20%7C%20arm64-355f9c)
-![License](https://img.shields.io/badge/license-MIT-258b65)
+[![Release](https://img.shields.io/badge/RELEASE-1.3.5-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/main)
+[![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/pkgs/container/roguedashboard)
+[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Amain)
+![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.13-ff4fc8?style=for-the-badge&labelColor=45464d)
+![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
+![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
 
 </div>
 
@@ -56,14 +69,14 @@ For full Docker/Podman container and Compose-stack management, install RogueForg
 
 **[Download / view RogueForge on GitHub](https://github.com/RogueAssassin/RogueForge)**
 
-Both applications can share the same `media-net` network. RogueDashboard can then read RogueForge's lightweight status APIs without receiving Docker/Podman socket access or RogueForge administrator credentials.
+Both applications can share the same `media-net` network. RogueRoute GPX testing also joins this network using the aliases `rogueroute-gpx-web`, `rogueroute-gpx-manager` and `rogueroute-gpx-osrm`, so the dashboard can use its built-in private health URLs without publishing the manager or OSRM endpoints. RogueDashboard can then read RogueForge's lightweight status APIs without receiving Docker/Podman socket access or RogueForge administrator credentials.
 
 ## Container images
 
 Production:
 
 ```text
-ghcr.io/rogueassassin/roguedashboard:1.3.0
+ghcr.io/rogueassassin/roguedashboard:1.3.5
 ```
 
 Latest stable:
@@ -164,20 +177,17 @@ The card can display RogueForge version, container engine, running/total stacks 
 
 ## Branding and icons
 
-RogueDashboard has its own interlocked **RD** identity while staying visually aligned with the wider Rogue ecosystem.
+RogueDashboard uses the approved high-detail **RD** artwork from the RogueDashboard icon pack. The web UI uses the corrected approved 128px PNG as the single canonical RogueDashboard mark for the header, setup, administrator surfaces, service cards and browser icon.
 
 ```text
 app/static/branding/
-├── roguedashboard.svg
-├── roguedashboard-dark.svg
-├── roguedashboard-light.svg
 └── branding-switch.js
 
 app/static/icons/
-└── roguedashboard.svg
+└── roguedashboard-approved-128.png
 ```
 
-Core RogueDashboard branding is bundled and versioned with the application. Service-card artwork can still use GitHub-hosted assets or local overrides.
+The source icon pack remains the design authority; runtime copies are optimised so the dashboard does not decode multi-megabyte masters on every page load. Service-card artwork can still use GitHub-hosted assets or local overrides.
 
 Icon resolution:
 
@@ -205,11 +215,12 @@ This separation keeps RogueDashboard fast and avoids giving a homepage unnecessa
 
 ## Testing channel
 
+
 Development is validated through the `testing` branch. Successful CI publishes:
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:1.3.0-testing
+ghcr.io/rogueassassin/roguedashboard:testing
 ```
 
 The pipeline runs application tests, Python validation, Compose validation, an amd64 build and a multi-architecture amd64/arm64 publish.

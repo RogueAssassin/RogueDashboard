@@ -454,8 +454,8 @@ class RogueDashboardTests(unittest.TestCase):
                     self.assertEqual(response.status, 201)
                 with urlopen(f"{base}/custom/icons/example.svg") as response:
                     self.assertEqual(response.headers.get_content_type(), "image/svg+xml")
-                with urlopen(f"{base}/favicon.svg") as response:
-                    self.assertEqual(response.headers.get_content_type(), "image/svg+xml")
+                with urlopen(f"{base}/icons/roguedashboard-approved-128.png") as response:
+                    self.assertEqual(response.headers.get_content_type(), "image/png")
                 for name in ("rogueroute-gpx.svg", "rogueroute-osrm.svg", "rogueroute-manager.svg"):
                     with urlopen(f"{base}/icons/{name}") as response:
                         self.assertEqual(response.headers.get_content_type(), "image/svg+xml")
