@@ -4,10 +4,8 @@ RogueDashboard ships compact local artwork for recognised services so normal das
 
 - Service artwork is selected from the service name, widget type or configured icon filename.
 - User-provided artwork belongs in `custom/icons/` and overrides bundled assets.
-- RogueDashboard itself uses the approved icon-pack artwork:
-  - `/branding/roguedashboard-approved.webp`
-  - `/icons/roguedashboard-approved-128.png`
-  - `/favicon-32.png`
+- RogueDashboard itself uses one canonical approved asset: `/icons/roguedashboard-approved-128.png`.
+- That same corrected PNG is used for the README, dashboard header, setup/login/admin surfaces, service cards and browser/app icon.
 - RogueRoute GPX, OSRM and Manager retain separate route, engine and protected-manager glyphs.
 - Initials are used when no bundled, remote or custom match exists.
 
