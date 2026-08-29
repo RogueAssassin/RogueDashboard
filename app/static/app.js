@@ -476,7 +476,7 @@ function connectionDiagnosticsMarkup() {
     const endpoint = item.widget?.url || item.monitorUrl || "No private URL";
     const action = stateName === "ok" || stateName === "online" ? "Connected" : stateName === "configuration_required" ? "Configure" : stateName === "error" || stateName === "offline" ? "Check" : "Pending";
     return `<div class="widget-diagnostic"><span class="widget-state-dot ${escapeHtml(stateName)}"></span><div><strong>${escapeHtml(item.name)}</strong><small title="${escapeHtml(`${endpoint} · ${detail}`)}">${escapeHtml(item.widget?.type || "health probe")} · ${escapeHtml(endpoint)} · ${escapeHtml(detail)}</small></div><span>${Number.isFinite(latency) ? `${latency} ms · ` : ""}${action}</span></div>`;
-  }).join("")}</div><div class="notice info">Credentials use <strong>RGDASH_*</strong> names in <strong>.env</strong>. Changes take effect after <strong>docker compose restart dashboard</strong>.</div>`;
+  }).join("")}</div><div class="notice info">Credentials use <strong>RGDASH_*</strong> names in <strong>.env</strong>. Changes take effect after restarting the <strong>roguedashboard</strong> service.</div>`;
 }
 
 function proxyDiagnosticsMarkup() {
@@ -831,68 +831,6 @@ async function importInEditor(event) {
     if (!confirm(`Replace this preview with ${result.summary.services} services and ${result.summary.bookmarks} bookmarks?`)) return;
     state.draft = structuredClone(result.dashboard); toast("Import applied. Save when the preview looks right."); renderDashboard();
   } catch (error) { toast(error.message); }
-}
-
-async function discoverContainers() {
-  const list = document.getElementById("container-list");
-  list.innerHTML = `<div class="notice info">Scanning containers…</div>`;
-  try {
-    const result = await request("/api/removed-container-management");
-    list.innerHTML = result.containers.map((container, index) => {
-      const added = isContainerAdded(container);
-      const runtimeHealthy = container.state === "running" && !["unhealthy", "starting"].includes(container.health);
-      const publicPort = container.ports.find(port => port.publicPort)?.publicPort || "no public port";
-      const networks = container.networks?.length ? container.networks.join(", ") : "no network data";
-      const stats = container.stats?.available ? `CPU ${container.stats.cpuPercent.toFixed(1)}% · RAM ${formatBytes(container.stats.memoryUsed)} · ↓ ${formatBytes(container.stats.networkRx)} ↑ ${formatBytes(container.stats.networkTx)}` : container.state === "running" ? "Runtime metrics unavailable" : container.status;
-      const health = container.health && container.health !== "none" ? ` · ${container.health}` : "";
-      return `<div class="container-row"><span class="container-state ${runtimeHealthy ? "online" : ""}" title="${escapeHtml(`${container.state}${health}`)}"></span><div><strong>${escapeHtml(container.name)}</strong><span>${escapeHtml(container.image)} · ${publicPort}${escapeHtml(health)}</span><span class="container-runtime">${escapeHtml(stats)}</span><span class="container-networks">Networks: ${escapeHtml(networks)}</span></div><div class="container-actions"><button class="icon-button ${added ? "is-added" : ""}" data-container="${index}" title="${added ? "Card already added" : "Add card"}" ${added ? "disabled" : ""}>${added ? "✓" : "+"}</button>${container.labels["rogue.dashboard.protected"] === "true" ? `<span class="protected-chip">Protected</span>` : container.state === "running" ? `<button class="icon-button" data-container-action="restart" data-index="${index}" title="Restart">↻</button><button class="icon-button danger" data-container-action="stop" data-index="${index}" title="Stop">■</button>` : `<button class="icon-button" data-container-action="start" data-index="${index}" title="Start">▶</button>`}</div></div>`;
-    }).join("") || `<div class="notice info">No containers found.</div>`;
-    list.querySelectorAll("[data-container]").forEach(button => button.onclick = () => addContainer(result.containers[Number(button.dataset.container)]));
-    list.querySelectorAll("[data-container-action]").forEach(button => button.onclick = () => runContainerAction(result.containers[Number(button.dataset.index)], button.dataset.containerAction));
-  } catch (error) { list.innerHTML = `<div class="notice error">${escapeHtml(error.message)}</div>`; }
-}
-
-function isContainerAdded(container) {
-  const wanted = iconKey(container.name);
-  return state.draft.groups.some(group => group.items.some(item =>
-    item.containerName === container.name || (!item.containerName && iconKey(item.name) === wanted)
-  ));
-}
-
-async function runContainerAction(container, action) {
-  if (!confirm(`${action[0].toUpperCase() + action.slice(1)} ${container.name}?`)) return;
-  try {
-    await request("/api/disabled-container-action", { method: "POST", body: JSON.stringify({ containerId: container.id, action }) });
-    toast(`${container.name}: ${action} requested`);
-    setTimeout(discoverContainers, 1200);
-  } catch (error) { toast(error.message); }
-}
-
-function addContainer(container) {
-  if (isContainerAdded(container)) {
-    toast(`${container.name} already has a dashboard card`);
-    return;
-  }
-  const identity = iconKey(container.name);
-  const port = container.ports.find(entry => entry.publicPort) || container.ports[0];
-  const publicRogueRouteUrl = state.bootstrap?.serviceUrls?.rogueRoute || "";
-  const presets = {
-    rogueroutegpx: { name: "RogueRoute GPX", href: publicRogueRouteUrl || (port?.publicPort ? `${location.protocol}//${location.hostname}:${port.publicPort}` : ""), monitorUrl: "http://rogueroute-gpx-web:9080/api/health", description: "Route generator", icon: "/icons/rogueroute-gpx.svg" },
-    rogueroutegpxweb: { name: "RogueRoute GPX", href: publicRogueRouteUrl || (port?.publicPort ? `${location.protocol}//${location.hostname}:${port.publicPort}` : ""), monitorUrl: "http://rogueroute-gpx-web:9080/api/health", description: "Route generator", icon: "/icons/rogueroute-gpx.svg" },
-    roguerouteosrm: { name: "RogueRoute OSRM", href: "", monitorUrl: "http://rogueroute-gpx-web:9080/api/health/osrm", description: "Local route engine", icon: "/icons/rogueroute-osrm.svg" },
-    rogueroutegpxosrm: { name: "RogueRoute OSRM", href: "", monitorUrl: "http://rogueroute-gpx-web:9080/api/health/osrm", description: "Local route engine", icon: "/icons/rogueroute-osrm.svg" },
-    rogueroutemanager: { name: "RogueRoute Manager", href: "", monitorUrl: "http://rogueroute-gpx-manager:9090/health", description: "Private region manager", icon: "/icons/rogueroute-manager.svg" },
-    rogueroutegpxmanager: { name: "RogueRoute Manager", href: "", monitorUrl: "http://rogueroute-gpx-manager:9090/health", description: "Private region manager", icon: "/icons/rogueroute-manager.svg" },
-  };
-  const preset = presets[identity];
-  let group = preset ? state.draft.groups.find(entry => entry.pageId === state.activePage && entry.kind === "services" && /gpx|rogueroute/i.test(entry.name)) : state.draft.groups.find(entry => entry.pageId === state.activePage && entry.kind === "services");
-  if (!group) {
-    group = { id: uniqueId(preset ? "rogueroute-gpx" : "services"), name: preset ? "RogueRoute GPX" : "Services", kind: "services", columns: 3, collapsed: false, pageId: state.activePage, items: [] };
-    state.draft.groups.push(group);
-  }
-  const defaults = preset || { name: container.name, href: port?.publicPort ? `${location.protocol}//${location.hostname}:${port.publicPort}` : "", monitorUrl: port?.privatePort ? `http://${container.name}:${port.privatePort}` : "", description: container.image, icon: "" };
-  group.items.push({ id: uniqueId(defaults.name), ...defaults, containerName: container.name, type: "service", statusStyle: "dot" });
-  toast(`${container.name} added to ${group.name}`); renderGroupEditor(); renderGroups();
 }
 
 function exportJson() {
