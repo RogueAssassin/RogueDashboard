@@ -32,6 +32,13 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 - Added compact dashboard-wide availability and data-storage summary tiles plus per-card one-hour availability context.
 - Added Admin runtime storage/network details without introducing Docker/Podman socket access.
 - Added regression tests for runtime information fields, socket-free behavior and bounded health-history summaries.
+- Added explicit degraded/offline card styling and last-failure/last-recovery health context.
+- Improved responsive behavior for the expanded runtime information strip across desktop, tablet and mobile widths.
+- Added refresh de-duplication so a slow monitoring cycle cannot overlap with the next scheduled cycle.
+- Paused normal monitoring requests while the dashboard tab is hidden and resume-refreshes when visible again.
+- Added a 10-second shared runtime-stat cache to avoid repeated filesystem, storage and network reads across multiple browser clients.
+- Kept widget, health, system and history request failures isolated so one unavailable service cannot block the rest of the dashboard.
+- Added regression coverage for runtime snapshot caching and recovery timestamps.
 
 ## 1.3.5
 
