@@ -292,7 +292,7 @@ class RogueDashboardTests(unittest.TestCase):
         widget["secretRefs"] = ["HOMEPAGE_VAR_QBITTORRENT_USERNAME", "HOMEPAGE_VAR_QBITTORRENT_PASSWORD"]
         widget["secretBindings"] = {"username": "HOMEPAGE_VAR_QBITTORRENT_USERNAME", "password": "HOMEPAGE_VAR_QBITTORRENT_PASSWORD"}
         migrated = dashboard_app.validate_dashboard(legacy)
-        self.assertEqual(migrated["version"], 7)
+        self.assertEqual(migrated["version"], 8)
         self.assertEqual(migrated["meta"]["theme"], "neon")
         self.assertEqual(migrated["meta"]["density"], "compact")
         migrated_widget = migrated["groups"][0]["items"][0]["widget"]
@@ -359,6 +359,74 @@ class RogueDashboardTests(unittest.TestCase):
         multi_page["version"] = 5
         legacy = dashboard_app.validate_dashboard(multi_page)
         self.assertEqual([group["pageId"] for group in legacy["groups"]], ["home", "home"])
+
+    def test_v08_card_controls_are_validated_and_preserved(self):
+        current = {
+            "version": 8,
+            "meta": {"title": "Cards"},
+            "groups": [{
+                "id": "services", "name": "Services", "kind": "services", "columns": 3,
+                "items": [{
+                    "id": "radarr", "name": "Radarr", "href": "https://radarr.example.com",
+                    "favorite": True, "tags": ["media", "movies", "", "x" * 60],
+                    "launchMode": "same-tab", "healthMethod": "GET", "healthTimeout": 8,
+                    "healthStatusMin": 200, "healthStatusMax": 399,
+                }],
+            }],
+        }
+        validated = dashboard_app.validate_dashboard(current)
+        item = validated["groups"][0]["items"][0]
+        self.assertEqual(validated["version"], 8)
+        self.assertTrue(item["favorite"])
+        self.assertEqual(item["tags"][:2], ["media", "movies"])
+        self.assertEqual(len(item["tags"][2]), 40)
+        self.assertEqual(item["launchMode"], "same-tab")
+        self.assertEqual(item["healthMethod"], "GET")
+        self.assertEqual(item["healthTimeout"], 8)
+        self.assertEqual((item["healthStatusMin"], item["healthStatusMax"]), (200, 399))
+
+    def test_configurable_health_probe_method_and_status_range(self):
+        class ProbeHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_GET(self):
+                self.send_response(401)
+                self.end_headers()
+
+            def do_HEAD(self):
+                self.send_response(405)
+                self.end_headers()
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ProbeHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = dashboard_app.health_check({
+                "id": "custom-health",
+                "monitorUrl": f"http://127.0.0.1:{server.server_port}/health",
+                "healthMethod": "GET",
+                "healthTimeout": 2,
+                "healthStatusMin": 400,
+                "healthStatusMax": 499,
+            })
+            self.assertEqual(result["state"], "online")
+            self.assertEqual(result["status"], 401)
+            self.assertEqual(result["method"], "GET")
+            self.assertEqual(result["timeoutSeconds"], 2)
+
+            rejected = dashboard_app.health_check({
+                "id": "custom-health",
+                "monitorUrl": f"http://127.0.0.1:{server.server_port}/health",
+                "healthMethod": "GET",
+                "healthStatusMin": 200,
+                "healthStatusMax": 399,
+            })
+            self.assertEqual(rejected["state"], "offline")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
     def test_reads_homepage_zip_without_extracting_paths(self):
         archive = BytesIO()
