@@ -3,7 +3,7 @@
 <table>
   <tr>
     <td width="220" align="center">
-      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/app/static/icons/roguedashboard-approved-128.png?v=1.4.0" width="128" height="128" alt="RogueDashboard logo">
+      <img src="https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static/icons/roguedashboard-approved-128.png?v=1.4.0" width="128" height="128" alt="RogueDashboard logo">
     </td>
     <td align="left">
       <h1>RogueDashboard</h1>
@@ -13,9 +13,9 @@
   </tr>
 </table>
 
-[![Release](https://img.shields.io/badge/RELEASE-1.4.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-1.4.0-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/releases/tag/v1.4.0)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/pkgs/container/roguedashboard)
-[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
+[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Amain)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.13-ff4fc8?style=for-the-badge&labelColor=45464d)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -61,7 +61,7 @@ Other services can still be added as normal health-checked cards.
 
 ### Native Nginx Proxy Manager
 
-The 1.4.0 testing branch includes first-class Nginx Proxy Manager metrics over its HTTP API:
+RogueDashboard 1.4.0 includes first-class Nginx Proxy Manager metrics over its HTTP API:
 
 ```text
 Proxy hosts
@@ -103,7 +103,7 @@ This mode requires the selected Uptime Kuma status page to be published. It requ
 
 ### Custom API widget
 
-RogueDashboard 1.4.0 testing can map up to four values from any JSON endpoint without adding a dedicated integration.
+RogueDashboard 1.4.0 can map up to four values from any JSON endpoint without adding a dedicated integration.
 
 Example:
 
@@ -143,7 +143,7 @@ Both applications can share the same `media-net` network. RogueRoute GPX testing
 Production:
 
 ```text
-ghcr.io/rogueassassin/roguedashboard:1.3.5
+ghcr.io/rogueassassin/roguedashboard:1.4.0
 ```
 
 Latest stable:
@@ -280,13 +280,13 @@ RogueForge
 
 This separation keeps RogueDashboard fast and avoids giving a homepage unnecessary control over the container engine.
 
-## 1.4.0 testing
+## 1.4.0
 
-The testing branch is now the development line for the next RogueDashboard feature set. Stable production remains 1.3.5 on `main` and `:latest`.
+RogueDashboard 1.4.0 is the current stable release on `main`, published as both `:1.4.0` and `:latest`.
 
 ### Stage 1 — navigation and card intelligence
 
-The first 1.4.0 testing stage adds:
+RogueDashboard 1.4.0 adds:
 
 - a lightweight `Ctrl+K` / `/` command palette for services, pages and administrator actions,
 - per-card favourites and tags, including `tag:<name>` and `fav:` filtering,
@@ -299,7 +299,7 @@ The command palette and tag/favourite filtering are browser-only operations and 
 
 ### Stage 4 — release-candidate resilience
 
-The final 1.4.0 testing stage focuses on stability and presentation rather than adding more integrations:
+The final 1.4.0 release-candidate stage focused on stability and presentation rather than adding more integrations:
 
 - clearer offline and degraded service-card states,
 - last-failure and last-recovery context from the bounded 1-hour history,
