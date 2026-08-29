@@ -2,10 +2,12 @@
 
 ![RogueDashboard](docs/assets/hero.svg)
 
-![Version](https://img.shields.io/badge/version-1.3.0-b45332)
-![Runtime](https://img.shields.io/badge/runtime-Docker%20%7C%20Podman-2a69a6)
-![Platform](https://img.shields.io/badge/platform-Linux%20amd64%20%7C%20arm64-355f9c)
-![License](https://img.shields.io/badge/license-MIT-258b65)
+[![Release](https://img.shields.io/badge/RELEASE-1.3.1%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
+[![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/pkgs/container/roguedashboard)
+[![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
+![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.13-ff4fc8?style=for-the-badge&labelColor=45464d)
+![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
+![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
 
 </div>
 
@@ -206,7 +208,7 @@ This separation keeps RogueDashboard fast and avoids giving a homepage unnecessa
 
 ## 1.3.1 testing preview
 
-The current testing branch includes a visual polish pass focused on alignment and administration UX:
+The current testing branch includes a visual polish pass focused on alignment and administration UX. The BUILD badge above is driven directly by the `testing` CI workflow, so it changes with each push. The RELEASE badge is tied to the active testing version and is updated whenever the testing version advances:
 
 - approved RogueDashboard icon-pack artwork throughout the live UI,
 - tighter title/group/stat alignment,
