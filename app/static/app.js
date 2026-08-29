@@ -9,6 +9,7 @@ const state = {
   editor: false,
   setupImport: null,
   health: new Map(),
+  history: new Map(),
   widgets: new Map(),
   widgetSupport: [],
   system: null,
@@ -325,7 +326,7 @@ async function completeSetup(event) {
     return;
   }
   const dashboard = structuredClone(state.draft);
-  dashboard.meta.title = document.getElementById("setup-title").value.trim() || "My Container Dashboard";
+  dashboard.meta.title = document.getElementById("setup-title").value.trim() || "My RogueDashboard";
   const button = document.getElementById("setup-submit");
   button.disabled = true;
   button.textContent = "Finishing setup…";
@@ -378,6 +379,8 @@ function renderDashboard() {
           <div class="mini-stat"><span>●</span><div><strong id="online-count">—</strong><span>Services online</span></div></div>
           <div class="mini-stat"><span>▤</span><div><strong id="memory-count">—</strong><span id="memory-total">Memory</span></div></div>
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
+          <div class="mini-stat"><span>◫</span><div><strong id="storage-count">—</strong><span id="storage-total">Dashboard storage</span></div></div>
+          <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
         <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.4.0")}</strong></span><span>Service monitoring · local-first</span></footer>
@@ -451,7 +454,9 @@ function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const tags = normalizedTags(item);
   const tagMarkup = tags.length ? `<div class="card-tags">${tags.slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";
   const launchHint = item.launchMode === "same-tab" ? "→" : item.launchMode === "copy" ? "⧉" : "↗";
-  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
+  const history = state.history.get(item.id);
+  const historyMarkup = history && history.samples > 1 ? `<div class="card-history"><span>${Number(history.availability).toFixed(1)}% 1h</span>${Number.isFinite(history.averageLatencyMs) ? `<span>${history.averageLatencyMs} ms avg</span>` : ""}</div>` : "";
+  return `<article class="service-card ${groupKind === "bookmarks" || item.type === "bookmark" ? "bookmark-card" : ""} ${state.editor ? "editable" : ""} ${widget?.state === "ok" ? "has-widget" : ""} ${item.favorite ? "is-favorite" : ""}" data-group="${groupIndex}" data-item="${itemIndex}" draggable="${state.editor}">${item.favorite ? `<span class="favorite-mark" title="Favourite">★</span>` : ""}${state.editor ? `<span class="drag-handle">⋮⋮</span>` : ""}${latencyMarkup}<a ${launchAttributes(item, href)}><div class="service-main"><div class="service-icon">${iconMarkup}</div><div class="service-copy"><div class="service-name"><strong>${escapeHtml(item.name)}</strong><span>${href ? launchHint : ""}</span></div><p>${escapeHtml(item.description || (item.type === "bookmark" ? "Bookmark" : "Open service"))}</p>${tagMarkup}${historyMarkup}</div>${statusMarkup}</div>${widgetCardMarkup(item, widget)}</a>${state.editor ? `<button class="card-edit" data-group="${groupIndex}" data-item="${itemIndex}" aria-label="Edit ${escapeHtml(item.name)}">✎</button>` : ""}</article>`;
 }
 
 function widgetCardMarkup(item, widget) {
@@ -616,6 +621,8 @@ function editorMarkup() {
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
             <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.4.0")}</strong></div>
+            <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
+            <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
         </div>
         <div class="editor-card">
@@ -1080,10 +1087,19 @@ function updateStats() {
   const memoryTotal = document.getElementById("memory-total");
   const loadCount = document.getElementById("load-count");
   const uptimeCount = document.getElementById("uptime-count");
+  const storageCount = document.getElementById("storage-count");
+  const storageTotal = document.getElementById("storage-total");
+  const availabilityCount = document.getElementById("availability-count");
+  const availabilityLabel = document.getElementById("availability-label");
   if (memoryCount) memoryCount.textContent = formatBytes(state.system.memoryUsed);
-  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} memory`;
-  if (loadCount) loadCount.textContent = Number(state.system.load).toFixed(2);
+  if (memoryTotal) memoryTotal.textContent = `of ${formatBytes(state.system.memoryTotal)} ${state.system.memoryScope === "container" ? "container" : "runtime"} memory`;
+  if (loadCount) loadCount.textContent = `${Number(state.system.load).toFixed(2)} · ${Number(state.system.loadPercent || 0).toFixed(0)}%`;
   if (uptimeCount) uptimeCount.textContent = `${state.system.cpuCount} CPU · ${formatUptime(state.system.uptimeSeconds)} up`;
+  if (storageCount) storageCount.textContent = state.system.storageTotal ? formatBytes(state.system.storageUsed) : "—";
+  if (storageTotal) storageTotal.textContent = state.system.storageTotal ? `of ${formatBytes(state.system.storageTotal)} data storage` : "Storage unavailable";
+  const summaries = [...state.history.values()].filter(item => Number.isFinite(item.availability));
+  if (availabilityCount) availabilityCount.textContent = summaries.length ? `${(summaries.reduce((sum, item) => sum + item.availability, 0) / summaries.length).toFixed(1)}%` : "—";
+  if (availabilityLabel) availabilityLabel.textContent = summaries.length ? `${summaries.length} monitored · 1h window` : "1h availability";
 }
 
 async function refreshRuntime(force = false) {
@@ -1093,11 +1109,12 @@ async function refreshRuntime(force = false) {
     try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
     catch (error) { toast(error.message); }
   }
-  const [health, system, widgets] = await Promise.allSettled([
-    request("/api/health"), request("/api/system"), request("/api/widgets"),
+  const [health, system, widgets, history] = await Promise.allSettled([
+    request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"),
   ]);
   if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
   if (system.status === "fulfilled") state.system = system.value;
+  if (history.status === "fulfilled") state.history = new Map(Object.entries(history.value.services || {}));
   if (widgets.status === "fulfilled") {
     state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
     state.widgetSupport = widgets.value.supported;
