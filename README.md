@@ -57,6 +57,29 @@ RogueForge
 
 Other services can still be added as normal health-checked cards.
 
+### Custom API widget
+
+RogueDashboard 1.4.0 testing can map up to four values from any JSON endpoint without adding a dedicated integration.
+
+Example:
+
+```text
+Live integration: Custom API
+Private API URL: http://example:8080/api/status
+Authentication: Bearer token
+Token environment variable: RGDASH_EXAMPLE_TOKEN
+
+Metrics:
+Status=status
+Users=data.users
+Version=build.version
+First node=data.nodes.0.name
+```
+
+Supported authentication is intentionally limited to **None**, **Bearer token**, or **X-Api-Key**. Tokens are resolved from `RGDASH_*` environment variables on the server and are never returned to the browser or stored as literal secret values in the dashboard database.
+
+Custom API widgets share RogueDashboard's existing widget cache and refresh cycle, so adding them does not create a new polling loop.
+
 ## Rogue ecosystem
 
 ### RogueDashboard
@@ -229,6 +252,10 @@ The first 1.4.0 testing stage adds:
 - removal of obsolete container-management JavaScript left over from the pre-socket-free architecture.
 
 The command palette and tag/favourite filtering are browser-only operations and add no background polling. Health checks keep the existing shared cache and bounded worker pool so this stage does not increase the normal refresh frequency.
+
+### Stage 2A — Custom API widgets
+
+The next testing stage adds a safe, dependency-free Custom API collector. It reads up to four dot-path values from one JSON response, supports optional server-side Bearer/X-Api-Key authentication, limits response size, and reuses the normal widget cache rather than starting another polling timer.
 
 ## Testing channel
 
