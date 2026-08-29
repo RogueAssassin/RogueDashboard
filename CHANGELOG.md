@@ -2,11 +2,11 @@
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
-## 1.4.0 (testing)
+## 1.4.0
 
-- Started the next RogueDashboard testing cycle from the stable 1.3.5 main release.
-- Production remains on 1.3.5 / latest while new feature work is validated through the testing channel.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `1.4.0-testing`.
+- Promoted the fully validated 1.4.0 testing cycle to stable.
+- Stable images publish as `ghcr.io/rogueassassin/roguedashboard:1.4.0` and `:latest`.
+- Preserves existing `.env`, data-volume configuration and local custom assets during container upgrades.
 - Added a lightweight keyboard command palette with `Ctrl+K` / `/` shortcuts.
 - Added per-card favourites and tags with `fav:` and `tag:<name>` search filters.
 - Added per-card launch modes for new tab, same tab and copy-URL workflows.
