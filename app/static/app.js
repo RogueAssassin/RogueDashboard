@@ -57,6 +57,7 @@ const INTEGRATION_DEFAULTS = {
   tautulli: { refs: ["RGDASH_TAUTULLI_KEY"], bindings: { key: "RGDASH_TAUTULLI_KEY" } },
   pihole: { refs: ["RGDASH_PIHOLE_KEY"], bindings: { key: "RGDASH_PIHOLE_KEY" } },
   rogueforge: { refs: [], bindings: {} },
+  customapi: { refs: [], bindings: {} },
 };
 
 function escapeHtml(value) {
@@ -846,6 +847,7 @@ function integrationHint(type) {
   const config = INTEGRATION_DEFAULTS[type];
   if (type === "qbittorrent") return "qBittorrent 5.2+: use RGDASH_QBITTORRENT_API_KEY. Username and password are the automatic fallback.";
   if (type === "rogueforge") return "RogueForge uses its read-only public status APIs. No credentials are stored. Default private URL: http://rogueforge:7810.";
+  if (type === "customapi") return "Custom API reads up to four values from a JSON endpoint. Optional bearer or X-Api-Key authentication uses an RGDASH_* environment variable.";
   return config ? `Add ${config.refs.join(" and ")} to .env.` : "Health-check monitoring only; no API credentials required.";
 }
 
@@ -867,8 +869,16 @@ function openItem(groupIndex, itemIndex) {
     <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
     <label class="field"><span>Accepted HTTP from</span><input id="item-health-min" type="number" min="100" max="599" value="${Number(item.healthStatusMin || 200)}"></label>
     <label class="field"><span>Accepted HTTP to</span><input id="item-health-max" type="number" min="100" max="599" value="${Number(item.healthStatusMax || 499)}"></label>
-    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
-    <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port"></label>
+    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "customapi" ? "Custom API" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
+    <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port/api/status"></label>
+    <div class="custom-api-fields full" id="custom-api-fields" ${item.widget?.type === "customapi" ? "" : "hidden"}>
+      <div class="editor-card">
+        <div class="editor-card-heading"><div><strong>Custom API mapping</strong><span>One metric per line: Label=JSON.path. Maximum four.</span></div></div>
+        <label class="field"><span>Authentication</span><select id="item-custom-auth"><option value="none">None</option><option value="bearer">Bearer token</option><option value="x-api-key">X-Api-Key</option></select></label>
+        <label class="field"><span>Token environment variable</span><input id="item-custom-token" value="${escapeHtml(item.widget?.secretBindings?.token || "")}" placeholder="RGDASH_CUSTOM_API_TOKEN"><small>Leave blank when authentication is None.</small></label>
+        <label class="field"><span>Metrics</span><textarea id="item-custom-metrics" rows="4" placeholder="Status=status&#10;Users=data.users&#10;Version=build.version">${escapeHtml((item.widget?.metrics || []).map(metric => `${metric.label}=${metric.path}`).join("\n"))}</textarea></label>
+      </div>
+    </div>
     <div class="notice info full" id="integration-env">${escapeHtml(integrationHint(item.widget?.type || ""))}</div>
   </div><div class="button-row spread">${itemIndex === undefined ? "<span></span>" : `<button type="button" class="button ghost danger-text" id="item-delete">Delete</button>`}<button class="button primary">Save card</button></div></form></section></div>`;
   document.getElementById("item-type").value = item.type;
@@ -878,11 +888,13 @@ function openItem(groupIndex, itemIndex) {
   document.getElementById("item-health-method").value = item.healthMethod || "HEAD";
   document.getElementById("item-health-timeout").value = String(item.healthTimeout || 4);
   document.getElementById("item-integration").value = item.widget?.type || "";
+  document.getElementById("item-custom-auth").value = item.widget?.authMode || "none";
   document.getElementById("item-integration").onchange = event => {
     const selected = event.target.value;
     document.getElementById("integration-env").textContent = integrationHint(selected);
     const widgetUrl = document.getElementById("item-widget-url");
     const monitorUrl = document.getElementById("item-monitor");
+    document.getElementById("custom-api-fields").hidden = selected !== "customapi";
     if (selected === "rogueforge") {
       if (!widgetUrl.value) widgetUrl.value = "http://rogueforge:7810";
       if (!monitorUrl.value) monitorUrl.value = "http://rogueforge:7810/health";
@@ -925,6 +937,24 @@ function saveItem(event) {
     const previousWidget = previous?.widget?.type === integration ? previous.widget : {};
     const integrationUrl = document.getElementById("item-widget-url").value || item.monitorUrl || (integration === "rogueforge" ? "http://rogueforge:7810" : "");
     item.widget = { ...previousWidget, type: integration, url: integrationUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
+    if (integration === "customapi") {
+      const authMode = document.getElementById("item-custom-auth").value;
+      const tokenRef = document.getElementById("item-custom-token").value.trim().toUpperCase();
+      const metrics = document.getElementById("item-custom-metrics").value.split(/\r?\n/).map(line => {
+        const split = line.indexOf("=");
+        if (split < 1) return null;
+        return { label: line.slice(0, split).trim(), path: line.slice(split + 1).trim() };
+      }).filter(metric => metric?.label && metric?.path).slice(0, 4);
+      item.widget.authMode = authMode;
+      item.widget.metrics = metrics;
+      if (authMode !== "none" && /^[A-Z][A-Z0-9_]*$/.test(tokenRef)) {
+        item.widget.secretRefs = [tokenRef];
+        item.widget.secretBindings = { token: tokenRef };
+      } else {
+        item.widget.secretRefs = [];
+        item.widget.secretBindings = {};
+      }
+    }
     if (integration === "rogueforge") {
       item.monitorUrl = item.monitorUrl || "http://rogueforge:7810/health";
       item.icon = item.icon || "rogueforge";
