@@ -38,7 +38,7 @@ jobs:
           context: .
           push: false
           tags: roguedashboard:ci
-          build-args: RGDASH_VERSION=1.4.0
+          build-args: RGDASH_VERSION=1.4.1
 
   publish-testing:
     if: github.event_name == 'push' && github.ref == 'refs/heads/testing'
@@ -66,7 +66,7 @@ jobs:
             ghcr.io/rogueassassin/rogue-dashboard
           tags: |
             type=raw,value=testing
-            type=raw,value=1.4.0-testing
+            type=raw,value=1.4.1-testing
             type=sha
       - name: Build and publish testing
         uses: docker/build-push-action@v7
@@ -76,6 +76,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: RGDASH_VERSION=1.4.0
+          build-args: RGDASH_VERSION=1.4.1
           provenance: mode=max
           sbom: true
