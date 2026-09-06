@@ -1146,3 +1146,30 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
     grid-column: 3;
   }
 }
+
+
+/* RogueDashboard 1.5.0 layout customisation */
+.card-grid .service-card {
+  grid-column: span min(var(--card-span, 1), var(--group-columns, 1));
+}
+.service-card.is-hidden-config {
+  opacity: .48;
+  outline: 1px dashed rgba(255,255,255,.16);
+  outline-offset: -3px;
+}
+.compact-heading { margin-top: 4px; }
+.section-editor-row {
+  grid-template-columns: auto minmax(150px,1.4fr) minmax(90px,.55fr) minmax(120px,.8fr) minmax(80px,.5fr) auto auto;
+}
+.section-page-field { min-width: 120px; }
+.compact-select { min-width: 78px; }
+@media (max-width: 760px) {
+  .section-editor-row {
+    grid-template-columns: auto minmax(0,1fr) auto;
+  }
+  .section-title-field { grid-column: 2 / 4; }
+  .cards-per-row-field,
+  .section-page-field,
+  .compact-select { grid-column: 2 / 4; }
+  .group-order { grid-column: 2; }
+}
