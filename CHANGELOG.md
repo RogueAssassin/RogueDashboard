@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.1 (testing)
+
+- Added a notification delivery-history panel in Customise → Connect.
+- Shows recent sent, failed, suppressed and deduplicated Discord events.
+- Added manual notification-history refresh.
+- Reworked the Sections editor into a two-row responsive layout.
+- Moved Cards per row, Page, Visible and reorder/delete controls underneath the section title.
+- Prevented the Sections editor from forcing horizontal scrolling or widening the Customise panel.
+- Preserved all 1.7.0 Discord delivery, retry, cooldown and incident features.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.7.1-testing`.
+
 ## 1.7.0 (testing)
 
 - Added Discord notification-centre delivery controls.
