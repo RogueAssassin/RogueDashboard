@@ -72,6 +72,7 @@ const INTEGRATION_DEFAULTS = {
   npm: { refs: ["RGDASH_NPM_TOKEN"], bindings: { token: "RGDASH_NPM_TOKEN" } },
   uptimekuma: { refs: [], bindings: {} },
   rogueforge: { refs: [], bindings: {} },
+  roguemediavalidator: { refs: [], bindings: {} },
   customapi: { refs: [], bindings: {} },
 };
 
@@ -408,7 +409,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.7.1")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
+        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.8.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -712,7 +713,7 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.7.1")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.8.0")}</strong></div>
             <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
             <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
@@ -1011,6 +1012,7 @@ function integrationHint(type) {
   const config = INTEGRATION_DEFAULTS[type];
   if (type === "qbittorrent") return "qBittorrent 5.2+: use RGDASH_QBITTORRENT_API_KEY. Username and password are the automatic fallback.";
   if (type === "rogueforge") return "RogueForge uses its read-only public status APIs. No credentials are stored. Default private URL: http://rogueforge:7810.";
+  if (type === "roguemediavalidator") return "RogueMediaValidator uses safe read-only diagnostics. No credentials are stored. Default private URL: http://roguemediavalidator:7811.";
   if (type === "customapi") return "Custom API reads up to four values from a JSON endpoint. Optional bearer or X-Api-Key authentication uses an RGDASH_* environment variable.";
   if (type === "npm") return "Nginx Proxy Manager reads proxy-host and certificate summaries with RGDASH_NPM_TOKEN. Use the private NPM URL, normally http://nginx-proxy-manager:81.";
   if (type === "uptimekuma") return "Uptime Kuma uses its published status-page JSON endpoints and does not need Docker/Podman access or an API credential.";
@@ -1039,7 +1041,7 @@ function openItem(groupIndex, itemIndex) {
     <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
     <label class="field"><span>Accepted HTTP from</span><input id="item-health-min" type="number" min="100" max="599" value="${Number(item.healthStatusMin || 200)}"></label>
     <label class="field"><span>Accepted HTTP to</span><input id="item-health-max" type="number" min="100" max="599" value="${Number(item.healthStatusMax || 499)}"></label>
-    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "customapi" ? "Custom API" : type === "npm" ? "Nginx Proxy Manager" : type === "uptimekuma" ? "Uptime Kuma" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
+    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "roguemediavalidator" ? "RogueMediaValidator" : type === "customapi" ? "Custom API" : type === "npm" ? "Nginx Proxy Manager" : type === "uptimekuma" ? "Uptime Kuma" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
     <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port/api/status"></label>
     <div class="uptime-kuma-fields full" id="uptime-kuma-fields" ${item.widget?.type === "uptimekuma" ? "" : "hidden"}>
       <div class="editor-card">
@@ -1078,6 +1080,9 @@ function openItem(groupIndex, itemIndex) {
     if (selected === "rogueforge") {
       if (!widgetUrl.value) widgetUrl.value = "http://rogueforge:7810";
       if (!monitorUrl.value) monitorUrl.value = "http://rogueforge:7810/health";
+    } else if (selected === "roguemediavalidator") {
+      if (!widgetUrl.value) widgetUrl.value = "http://roguemediavalidator:7811";
+      if (!monitorUrl.value) monitorUrl.value = "http://roguemediavalidator:7811/health";
     } else if (selected === "npm") {
       if (!widgetUrl.value) widgetUrl.value = "http://nginx-proxy-manager:81";
       if (!monitorUrl.value) monitorUrl.value = "http://nginx-proxy-manager:81";
@@ -1124,7 +1129,7 @@ function saveItem(event) {
   if (integration) {
     const defaults = INTEGRATION_DEFAULTS[integration];
     const previousWidget = previous?.widget?.type === integration ? previous.widget : {};
-    const integrationUrl = document.getElementById("item-widget-url").value || item.monitorUrl || (integration === "rogueforge" ? "http://rogueforge:7810" : "");
+    const integrationUrl = document.getElementById("item-widget-url").value || item.monitorUrl || (integration === "rogueforge" ? "http://rogueforge:7810" : integration === "roguemediavalidator" ? "http://roguemediavalidator:7811" : "");
     item.widget = { ...previousWidget, type: integration, url: integrationUrl, secretRefs: defaults.refs, secretBindings: defaults.bindings };
     if (integration === "uptimekuma") {
       item.widget.statusPageSlug = document.getElementById("item-uptime-slug").value.trim() || "default";
@@ -1150,6 +1155,10 @@ function saveItem(event) {
     if (integration === "rogueforge") {
       item.monitorUrl = item.monitorUrl || "http://rogueforge:7810/health";
       item.icon = item.icon || "rogueforge";
+    }
+    if (integration === "roguemediavalidator") {
+      item.monitorUrl = item.monitorUrl || "http://roguemediavalidator:7811/health";
+      item.icon = item.icon || "roguemediavalidator";
     }
     if (integration === "npm") {
       item.monitorUrl = item.monitorUrl || "http://nginx-proxy-manager:81";
