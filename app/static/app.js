@@ -431,7 +431,14 @@ function renderDashboard() {
   });
   const customiseTab = document.getElementById("customise-tab");
   if (customiseTab) customiseTab.onclick = () => openEditor();
-  if (state.editor) bindEditor();
+  if (state.editor) {
+    try {
+      bindEditor();
+    } catch (error) {
+      console.error("RogueDashboard customiser binding failed", error);
+      toast(`Customiser opened with a control error: ${error.message || error}`);
+    }
+  }
   renderGroups();
   updateClock();
   updateStats();
@@ -698,7 +705,15 @@ function openEditor() {
   state.editorTab = "appearance";
   state.draft = structuredClone(state.dashboard);
   state.editorBaseline = JSON.stringify(state.dashboard);
-  renderDashboard();
+  try {
+    renderDashboard();
+    requestAnimationFrame(() => document.querySelector(".editor-panel")?.querySelector("input, select, button")?.focus({ preventScroll: true }));
+  } catch (error) {
+    state.editor = false;
+    console.error("RogueDashboard customiser failed to open", error);
+    toast(`Unable to open Customise: ${error.message || error}`);
+    renderDashboard();
+  }
 }
 
 function bindEditor() {
@@ -719,8 +734,8 @@ function bindEditor() {
   };
   Object.entries(fields).forEach(([id, key]) => document.getElementById(id).oninput = event => {
     state.draft.meta[key] = event.target.value;
-    if (key === "title") document.querySelector(".brand-block h1").textContent = event.target.value || "My Container Dashboard";
-    if (key === "subtitle") document.querySelector(".brand-block p").textContent = event.target.value;
+    if (key === "title") { const title = document.querySelector(".brand-block h1"); if (title) title.textContent = event.target.value || "My RogueDashboard"; }
+    if (key === "subtitle") { const subtitle = document.querySelector(".brand-block p"); if (subtitle) subtitle.textContent = event.target.value; }
     if (key === "accent" && /^#[0-9a-fA-F]{6}$/.test(event.target.value)) {
       document.getElementById("shell").style.setProperty("--accent", event.target.value);
       document.getElementById(id === "edit-accent" ? "edit-accent-text" : "edit-accent").value = event.target.value;
