@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.6.0 (testing)
+
+- Advanced the testing channel to RogueDashboard 1.6.0.
+- Added persistent SQLite incident tracking with open and resolved outage lifecycle.
+- Added DEGRADED state before the configured failure threshold is reached.
+- Added 1h, 24h, 7d and 30d availability summaries.
+- Increased default monitor retention to 30 days.
+- Added global maintenance suppression and per-service 30-minute alert silencing.
+- Added incident history and open-incident counts to Customise → Connect.
+- Prevented false Discord recovery notifications after brief degraded probes.
+- Preserved the complete 1.5.0 Customise system and browser-closed monitoring.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.6.0-testing`.
+
 ## 1.5.0 (testing)
 
 - Advanced the testing channel to RogueDashboard 1.5.0.
