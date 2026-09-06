@@ -1,58 +1,41 @@
 # Architecture
 
-Rogue Dashboard 1.1 is an engine-neutral, standard-library Python application with a browser-native frontend. The same application image can run against Docker Engine or Podman through a restricted internal agent.
+RogueDashboard is a lightweight, engine-neutral Python service with a dependency-free browser frontend. It monitors configured HTTP endpoints and service APIs without mounting the Docker or Podman socket.
 
-## Runtime services
+## Runtime
 
-| Service | Exposure | Responsibility |
-| --- | --- | --- |
-| `dashboard` | Host `${RGDASH_PORT:-7805}` → container `8080` | UI, authentication, imports, persistence, monitoring and integration clients |
-| `engine-agent` | Internal `8081` only | Allow-listed container metadata and lifecycle operations against Docker or Podman |
+| Component | Responsibility |
+| --- | --- |
+| `roguedashboard` | UI, local authentication, SQLite persistence, service health probes, API widgets, imports and administration |
+| `RogueForge` | Optional companion for Docker/Podman stack and container management |
 
-The browser talks only to `dashboard`. The dashboard calls the agent over its private network with a generated bearer token. Only the agent mounts the selected engine API socket.
+RogueDashboard deliberately does not manage the container engine. Container lifecycle, logs, Compose stacks and privileged engine access belong in RogueForge.
 
-## Request and data flow
+## Data flow
 
 ```mermaid
 flowchart TD
-    Browser["Browser"] --> App["Rogue Dashboard"]
-    App --> SQLite["SQLite in ./data"]
-    App --> Integrations["Service APIs on shared network"]
-    App --> Agent["Restricted engine agent"]
-    Agent --> Detect["Engine detection / capability probe"]
-    Detect --> Docker["Docker API socket"]
-    Detect --> Podman["Podman API socket"]
+    Browser["Browser"] --> Dashboard["RogueDashboard"]
+    Dashboard --> SQLite["SQLite in ./data"]
+    Dashboard --> Services["Health/API endpoints on media-net"]
+    Dashboard --> RogueForge["Optional RogueForge read-only status API"]
 ```
-
-## Engine layer
-
-`app/container_engine.py` detects and describes the connected runtime. New deployment configuration uses `CONTAINER_ENGINE`, `CONTAINER_SOCKET`, and `CONTAINER_AGENT_*`. Legacy `DOCKER_*` variables remain compatibility aliases during the 1.1 transition.
-
-The initial cross-engine implementation deliberately keeps some historical internal `docker_*` function/route names so existing application behaviour and tests remain stable. Those names are implementation details, not a requirement for Docker Engine.
 
 ## Source layout
 
-- `app/dashboard.py` — HTTP API, SQLite storage, sessions, validation, monitoring and restricted-agent mode.
-- `app/container_engine.py` — Docker/Podman socket discovery, version probing and engine requests.
-- `app/engine_entrypoint.py` — compatibility entrypoint that selects the engine before loading the dashboard runtime.
-- `app/importer.py` / `app/homepage_yaml.py` — safe dashboard imports.
+- `app/dashboard.py` — HTTP API, SQLite storage, sessions, validation and endpoint health monitoring.
 - `app/integrations.py` — server-side service API collectors.
-- `app/static/` — dependency-free HTML/CSS/JavaScript and bundled icons.
-- `custom/` — persistent user artwork, served read-only.
-- `docker-compose.yaml` — Docker deployment.
-- `compose.podman.yaml` — native Podman deployment.
-- `docker-compose.build.yaml` — explicit development build override.
+- `app/importer.py` / `app/homepage_yaml.py` — safe dashboard imports.
+- `app/static/` — dependency-free HTML, CSS, JavaScript and built-in icons.
+- `custom/` — persistent user icons and backgrounds.
+- `compose.yaml` — unified Docker/Podman deployment.
 
 ## Persistence and secrets
 
-SQLite runs in write-ahead logging mode inside bind-mounted `data/`. Administrator passwords use `scrypt` with unique salts. Session tokens are random, stored as hashes and expire according to the application policy.
+SQLite uses WAL mode in the bind-mounted `data/` directory. Administrator passwords use scrypt with unique salts. Sessions are stored as hashes and expire according to application policy.
 
-Integration credentials remain environment variables. Widget responses expose display metrics and safe diagnostics, never secret values.
+Integration credentials are read from `RGDASH_*` environment variables. Secret values are never returned to the browser or written into dashboard configuration exports.
 
-## Restricted engine boundary
+## Monitoring boundary
 
-The engine agent exposes only the application-approved endpoints required for container discovery and confirmed lifecycle controls. There is no general Engine API passthrough, arbitrary command execution, image deletion API or browser-visible socket.
-
-Container discovery returns a bounded metadata summary: identifier, name, image, state/health, ports, selected labels and attached networks. It does not expose container environment variables or secret values.
-
-Docker and Podman both support the Docker-compatible API operations used by the 1.1 dashboard. Podman-specific features should be introduced behind capability checks rather than by branching the whole application.
+Health checks target explicitly configured HTTP/HTTPS URLs. RogueDashboard does not mount Docker or Podman sockets and does not require privileged container-engine access. This keeps monitoring independent of the runtime while RogueForge handles privileged management as a separate trust boundary.
