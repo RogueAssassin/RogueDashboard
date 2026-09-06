@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.1 (testing)
+
+- Hardened RogueDashboard 1.8.x for the final pre-1.9 integration cycle.
+- Added a Docker/Podman-compatible container healthcheck.
+- Polished the Customise Sections action area and aligned it with the field labels.
+- Rewrote installation, configuration, upgrading, reverse-proxy, support and testing documentation for the current socket-free architecture.
+- Rewrote the README around the current 1.8.x feature set and Docker/Podman quick-start paths.
+- Removed obsolete historical release notes, stale deployment/branding documents and unused documentation artwork.
+- Removed the unused Dockge icon.
+- Kept one unified `compose.yaml` and one current installation path for both Docker and Podman.
+- Preserved Uptime Kuma compatibility only for migration until the 1.9.0 removal gate.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.8.1-testing`.
+
 ## 1.8.0 (testing)
 
 - Advanced RogueDashboard to the Rogue ecosystem integration milestone.
