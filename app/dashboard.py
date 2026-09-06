@@ -35,7 +35,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.8.1"
+VERSION = "1.9.0"
 PORT = int(os.environ.get("PORT", "8080"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
@@ -732,6 +732,69 @@ class Database:
         ]
 
 
+    def migration_readiness(self) -> dict[str, Any]:
+        now = int(time.time())
+        seven_days = 7 * 24 * 3600
+        with self.lock:
+            health = self.db.execute(
+                "SELECT MIN(checked_at),MAX(checked_at),COUNT(*),COUNT(DISTINCT item_id) FROM health_samples"
+            ).fetchone()
+            resolved_incidents = int(self.db.execute(
+                "SELECT COUNT(*) FROM incidents WHERE resolved_at IS NOT NULL"
+            ).fetchone()[0])
+            sent_events = {
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT event FROM notification_log WHERE outcome='sent' AND event IN ('down','recovery')"
+                ).fetchall()
+            }
+            audit_actions = {
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT action FROM action_audit WHERE outcome='success' AND action IN ('monitor.maintenance','monitor.silence','monitor.suppression.clear')"
+                ).fetchall()
+            }
+        oldest = int(health[0]) if health and health[0] is not None else 0
+        newest = int(health[1]) if health and health[1] is not None else 0
+        samples = int(health[2]) if health else 0
+        services = int(health[3]) if health else 0
+        coverage_seconds = max(0, newest - oldest) if oldest and newest else 0
+        monitor_fresh = bool(MONITOR_LAST_RUN and now - MONITOR_LAST_RUN <= max(120, MONITOR_INTERVAL * 3) and not MONITOR_LAST_ERROR)
+        checks = [
+            {"id": "monitor", "label": "Background monitor active", "passed": monitor_fresh},
+            {"id": "retention", "label": "At least 7 days retention configured", "passed": MONITOR_RETENTION_HOURS >= 168},
+            {"id": "history", "label": "7+ days persistent history observed", "passed": coverage_seconds >= seven_days},
+            {"id": "incident", "label": "Real outage and recovery recorded", "passed": resolved_incidents > 0},
+            {"id": "discord", "label": "Discord webhook connected", "passed": discord_configured()},
+            {"id": "discord-flow", "label": "DOWN and RECOVERED notifications delivered", "passed": {"down", "recovery"}.issubset(sent_events)},
+            {"id": "maintenance", "label": "Maintenance suppression tested", "passed": "monitor.maintenance" in audit_actions},
+            {"id": "silence", "label": "Per-service alert silence tested", "passed": "monitor.silence" in audit_actions},
+        ]
+        return {
+            "automatedReady": all(check["passed"] for check in checks),
+            "checks": checks,
+            "history": {
+                "samples": samples,
+                "services": services,
+                "coverageSeconds": coverage_seconds,
+                "coverageDays": round(coverage_seconds / 86400, 2),
+                "oldestAt": datetime.fromtimestamp(oldest, timezone.utc).isoformat().replace("+00:00", "Z") if oldest else None,
+                "newestAt": datetime.fromtimestamp(newest, timezone.utc).isoformat().replace("+00:00", "Z") if newest else None,
+            },
+            "manualChecks": [
+                {"id": "restart", "label": "Restart/reboot persistence verified on the live host"},
+                {"id": "rogueforge-logs", "label": "RogueForge logging validated before removing Dozzle"},
+            ],
+            "uptimeKuma": {
+                "recommendation": "remove" if all(check["passed"] for check in checks) else "keep",
+                "compatibilityMode": True,
+            },
+            "dozzle": {
+                "recommendation": "manual-validation-required",
+            },
+        }
+
+
 def make_session() -> tuple[str, str, int]:
     token = secrets.token_urlsafe(32)
     return token, hashlib.sha256(token.encode()).hexdigest(), int(time.time()) + 14 * 24 * 3600
@@ -1096,6 +1159,7 @@ def monitor_status() -> dict[str, Any]:
         "services": DB.monitor_states() if DB else [],
         "suppressions": DB.suppression_entries() if DB else [],
         "openIncidents": len([entry for entry in (DB.incidents(250) if DB else []) if entry["state"] == "open"]),
+        "migrationReadiness": DB.migration_readiness() if DB else None,
     }
 
 
