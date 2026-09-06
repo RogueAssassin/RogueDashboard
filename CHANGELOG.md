@@ -5,6 +5,16 @@
 - Started the next testing cycle from the validated RogueDashboard 1.4.0 release.
 - Stable production remains 1.4.0 / latest while 1.4.1 changes are validated on the testing channel.
 - Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.4.1-testing`.
+- Added server-side health monitoring that continues when all browser sessions are closed.
+- Persisted rolling health samples and confirmed monitor state in SQLite.
+- Added configurable health interval, failure threshold and retention settings.
+- Added Discord webhook notifications for confirmed outages and recoveries without adding another container.
+- Added per-service Discord alert enable/disable controls and a Connect-page Discord test action.
+- Added monitor status APIs and notification history storage.
+- Added first-class RogueMediaValidator artwork aliases using its approved repository logo.
+- Restored a dedicated Customise tab so Appearance, Layout, Connect and Admin remain easy to reach while inline card editing is active.
+- Removed obsolete duplicate Compose files and retained one unified Docker/Podman `compose.yaml`.
+- Corrected stale architecture/security documentation for the current socket-free RogueDashboard design.
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
