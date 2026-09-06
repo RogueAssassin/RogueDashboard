@@ -878,6 +878,17 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
+    def test_v181_release_hardening_assets_and_compose(self):
+        root = Path(__file__).parents[1]
+        compose = (root / "compose.yaml").read_text(encoding="utf-8")
+        source = (root / "app" / "static" / "app.js").read_text(encoding="utf-8")
+        styles = (root / "app" / "static" / "styles.css").read_text(encoding="utf-8")
+        self.assertIn("healthcheck:", compose)
+        self.assertIn("section-actions-label", source)
+        self.assertIn(".section-editor-actions-wrap", styles)
+        self.assertFalse((root / "docs" / "DEPLOYMENT_GUIDE.md").exists())
+        self.assertFalse((root / "THIRD_PARTY_INSPIRATION.md").exists())
+
     def test_v180_rogue_media_validator_native_integration(self):
         root = Path(__file__).parents[1]
         integrations = (root / "app" / "integrations.py").read_text(encoding="utf-8")
