@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.0 (testing)
+
+- Added Discord notification-centre delivery controls.
+- Added optional DEGRADED notifications.
+- Added per-event deduplication/cooldown to reduce alert floods.
+- Added retry/backoff for temporary Discord webhook failures.
+- Added configurable minimum outage duration.
+- Preserved server-side webhook secrecy and notification delivery history.
+- Retained 1.6.0 persistent incidents, maintenance and service silencing.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.7.0-testing`.
+
 ## 1.6.0 (testing)
 
 - Advanced the testing channel to RogueDashboard 1.6.0.
