@@ -1,16 +1,29 @@
 # Reverse proxy
 
-Run the reverse proxy on an application network shared with the Rogue Dashboard **dashboard service**. The upstream remains plain HTTP on container port `8080` regardless of whether the host uses Docker or Podman.
+RogueDashboard listens on container port `8080`. Keep the reverse proxy and RogueDashboard on the same external application network, then use:
 
 | Setting | Value |
 | --- | --- |
 | Scheme | `http` |
-| Host | `rogue-dashboard` |
-| Port | `8080` |
-| WebSockets | enabled/recommended |
+| Forward host | `roguedashboard` |
+| Forward port | `8080` |
+| WebSockets | optional; safe to enable |
 
-Do not proxy to the private engine agent. Do not point a proxy container at `localhost`; inside a container, `localhost` refers to that container.
+Do not proxy to `localhost` from another container; inside a container, `localhost` refers to that container.
 
-For Nginx Proxy Manager, attach NPM and Rogue Dashboard to the same external network such as `media-net`, then use `rogue-dashboard:8080` as the forward host and port.
+## Nginx Proxy Manager
 
-When using Cloudflare Tunnel, keep Cloudflared on a network that can reach the chosen local origin and route through NPM or directly to the dashboard according to your security design.
+Attach NPM and RogueDashboard to the same external network such as `media-net`, then create a Proxy Host pointing to `roguedashboard:8080`.
+
+When the public endpoint is HTTPS, set:
+
+```env
+SECURE_COOKIES=true
+RGDASH_TRUST_PROXY_HEADERS=true
+```
+
+## Cloudflare Tunnel
+
+Cloudflared can route directly to `http://roguedashboard:8080` when it shares the same network, or it can route through Nginx Proxy Manager if NPM remains your central reverse proxy.
+
+RogueDashboard does not require a Docker or Podman socket for either design.
