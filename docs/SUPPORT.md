@@ -1,19 +1,24 @@
 # Support matrix
 
-Rogue Dashboard 1.1 targets current Linux container hosts and uses capability probing where possible instead of hard-coding one exact engine patch release.
+RogueDashboard is engine-neutral and does not use the container-engine API.
 
 | Component | Supported baseline |
 | --- | --- |
-| Docker Engine | 24+ |
+| Docker Engine | maintained releases |
 | Docker Compose | Compose v2 |
-| Podman | Current maintained releases with Docker-compatible API support |
-| Podman Compose | Current `podman-compose` |
-| Python image | Version defined by the repository Dockerfile |
-| Architectures | amd64, arm64 where the published image is available |
+| Podman | maintained releases |
+| Podman Compose | current `podman compose` / compatible provider |
+| Python runtime | version defined by the Dockerfile |
+| Architecture | amd64 and arm64 published by CI |
 | Host | Linux; WSL 2 supported |
 
-## Engine modes
+## Deployment model
 
-`CONTAINER_ENGINE=auto` probes the mounted socket. Explicit `docker` and `podman` modes fail instead of silently switching to the other engine.
+- one RogueDashboard container
+- external shared network
+- bind-mounted `data/` and optional `custom/`
+- no Docker/Podman socket
+- no privileged mode
+- read-only root filesystem with dropped capabilities
 
-Podman-specific capabilities outside the cross-engine container API are not yet exposed in Rogue Dashboard 1.1; those belong either behind future capability checks or in the companion RogueForge stack manager.
+Container management, updates and log streaming belong to RogueForge.
