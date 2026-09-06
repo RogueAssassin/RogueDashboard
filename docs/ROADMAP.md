@@ -182,7 +182,7 @@ RogueRoute GPX:
 
 ## v1.8.1 — release hardening
 
-Status: active testing.
+Status: completed.
 
 - Clean and simplify repository documentation.
 - Keep one current Docker/Podman installation path.
@@ -193,6 +193,8 @@ Status: active testing.
 - Prepare the repository for the final 1.9.0 migration/removal gate and v2.0.0 release work.
 
 ## v1.9.0 — migration and container removal release candidate
+
+Status: active testing.
 
 Goal: prove the Rogue stack can operate without duplicate utility containers.
 
