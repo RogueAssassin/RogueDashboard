@@ -64,6 +64,15 @@ CUSTOM_ASSET_SUFFIXES = {".avif", ".gif", ".ico", ".jpeg", ".jpg", ".png", ".svg
 ROGUEROUTE_WEB_HEALTH_URL = "http://rogueroute-gpx-web:9080/api/health"
 ROGUEROUTE_OSRM_HEALTH_URL = "http://rogueroute-gpx-web:9080/api/health/osrm"
 ROGUEROUTE_MANAGER_HEALTH_URL = "http://rogueroute-gpx-manager:9090/health"
+MONITOR_INTERVAL = max(15, min(300, int(os.environ.get("RGDASH_MONITOR_INTERVAL", "30"))))
+MONITOR_FAILURE_THRESHOLD = max(1, min(10, int(os.environ.get("RGDASH_MONITOR_FAILURE_THRESHOLD", "3"))))
+MONITOR_RETENTION_HOURS = max(1, min(720, int(os.environ.get("RGDASH_MONITOR_RETENTION_HOURS", "168"))))
+DISCORD_ENABLED = os.environ.get("RGDASH_DISCORD_ENABLED", "false").lower() == "true"
+DISCORD_WEBHOOK_URL = os.environ.get("RGDASH_DISCORD_WEBHOOK_URL", "").strip()
+DISCORD_NOTIFY_DOWN = os.environ.get("RGDASH_DISCORD_NOTIFY_DOWN", "true").lower() == "true"
+DISCORD_NOTIFY_RECOVERY = os.environ.get("RGDASH_DISCORD_NOTIFY_RECOVERY", "true").lower() == "true"
+if DISCORD_WEBHOOK_URL and urlparse(DISCORD_WEBHOOK_URL).scheme != "https":
+    DISCORD_WEBHOOK_URL = ""
 
 
 class SetupCompleted(Exception):
@@ -183,6 +192,7 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
                 if isinstance(raw_item.get(key), str):
                     item[key] = text(raw_item[key], limit)
             item["favorite"] = raw_item.get("favorite", False) is True
+            item["alertsEnabled"] = raw_item.get("alertsEnabled", True) is True
             raw_tags = raw_item.get("tags") if isinstance(raw_item.get("tags"), list) else []
             item["tags"] = [
                 text(tag, 40).strip()
@@ -318,6 +328,21 @@ class Database:
               action TEXT NOT NULL, target TEXT NOT NULL, outcome TEXT NOT NULL, detail TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS action_audit_time_idx ON action_audit(occurred_at DESC);
+            CREATE TABLE IF NOT EXISTS health_samples (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, item_name TEXT NOT NULL,
+              checked_at INTEGER NOT NULL, state TEXT NOT NULL, latency_ms INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS health_samples_item_time_idx ON health_samples(item_id, checked_at DESC);
+            CREATE INDEX IF NOT EXISTS health_samples_time_idx ON health_samples(checked_at);
+            CREATE TABLE IF NOT EXISTS monitor_state (
+              item_id TEXT PRIMARY KEY, item_name TEXT NOT NULL, state TEXT NOT NULL, failures INTEGER NOT NULL,
+              changed_at INTEGER NOT NULL, last_checked_at INTEGER NOT NULL, last_latency_ms INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS notification_log (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, occurred_at TEXT NOT NULL, item_id TEXT NOT NULL,
+              item_name TEXT NOT NULL, event TEXT NOT NULL, outcome TEXT NOT NULL, detail TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS notification_log_time_idx ON notification_log(id DESC);
             """
         )
         session_columns = {row[1] for row in self.db.execute("PRAGMA table_info(sessions)")}
@@ -473,6 +498,125 @@ class Database:
                 (json.dumps(dashboard, separators=(",", ":")), utc_now()),
             )
             self.db.commit()
+
+
+    def record_health_results(self, items: list[dict[str, Any]], results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        now = int(time.time())
+        by_id = {str(item.get("id") or ""): item for item in items}
+        transitions: list[dict[str, Any]] = []
+        with self.lock:
+            for result in results:
+                item_id = str(result.get("itemId") or "")
+                if not item_id:
+                    continue
+                item = by_id.get(item_id, {})
+                item_name = text(item.get("name"), 100, item_id) or item_id
+                raw_state = "online" if result.get("state") == "online" else "offline"
+                latency = result.get("latencyMs") if isinstance(result.get("latencyMs"), int) else None
+                self.db.execute(
+                    "INSERT INTO health_samples(item_id,item_name,checked_at,state,latency_ms) VALUES(?,?,?,?,?)",
+                    (item_id, item_name, now, raw_state, latency),
+                )
+                previous = self.db.execute(
+                    "SELECT state,failures,changed_at FROM monitor_state WHERE item_id=?",
+                    (item_id,),
+                ).fetchone()
+                previous_state = previous[0] if previous else "unknown"
+                previous_failures = int(previous[1]) if previous else 0
+                previous_changed = int(previous[2]) if previous else now
+                failures = 0 if raw_state == "online" else previous_failures + 1
+                confirmed_state = "online" if raw_state == "online" else (
+                    "offline" if failures >= MONITOR_FAILURE_THRESHOLD else previous_state
+                )
+                if confirmed_state not in ("online", "offline"):
+                    confirmed_state = "unknown"
+                changed_at = now if confirmed_state != previous_state and confirmed_state in ("online", "offline") else previous_changed
+                self.db.execute(
+                    """INSERT INTO monitor_state(item_id,item_name,state,failures,changed_at,last_checked_at,last_latency_ms)
+                       VALUES(?,?,?,?,?,?,?)
+                       ON CONFLICT(item_id) DO UPDATE SET
+                         item_name=excluded.item_name,state=excluded.state,failures=excluded.failures,
+                         changed_at=excluded.changed_at,last_checked_at=excluded.last_checked_at,last_latency_ms=excluded.last_latency_ms""",
+                    (item_id, item_name, confirmed_state, failures, changed_at, now, latency),
+                )
+                if previous and previous_state in ("online", "offline") and confirmed_state in ("online", "offline") and confirmed_state != previous_state:
+                    transitions.append({
+                        "itemId": item_id,
+                        "name": item_name,
+                        "state": confirmed_state,
+                        "previousState": previous_state,
+                        "changedAt": now,
+                        "previousChangedAt": previous_changed,
+                        "latencyMs": latency,
+                        "alertsEnabled": item.get("alertsEnabled", True) is True,
+                    })
+            cutoff = now - MONITOR_RETENTION_HOURS * 3600
+            self.db.execute("DELETE FROM health_samples WHERE checked_at<?", (cutoff,))
+            self.db.commit()
+        return transitions
+
+    def health_history(self, window_seconds: int = 3600) -> dict[str, dict[str, Any]]:
+        cutoff = int(time.time()) - window_seconds
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT item_id,checked_at,state,latency_ms FROM health_samples WHERE checked_at>=? ORDER BY item_id,checked_at",
+                (cutoff,),
+            ).fetchall()
+        grouped: dict[str, list[tuple[int, str, int | None]]] = {}
+        for item_id, checked_at, state, latency in rows:
+            grouped.setdefault(item_id, []).append((checked_at, state, latency))
+        summary: dict[str, dict[str, Any]] = {}
+        for item_id, samples in grouped.items():
+            online = sum(1 for _, state, _ in samples if state == "online")
+            latencies = [latency for _, _, latency in samples if isinstance(latency, int)]
+            failures = [checked_at for checked_at, state, _ in samples if state == "offline"]
+            last_recovery = None
+            for index in range(1, len(samples)):
+                if samples[index - 1][1] == "offline" and samples[index][1] == "online":
+                    last_recovery = samples[index][0]
+            summary[item_id] = {
+                "samples": len(samples),
+                "availability": round((online / len(samples)) * 100, 1) if samples else 0,
+                "averageLatencyMs": round(sum(latencies) / len(latencies)) if latencies else None,
+                "lastFailureAt": datetime.fromtimestamp(failures[-1], timezone.utc).isoformat().replace("+00:00", "Z") if failures else None,
+                "lastRecoveryAt": datetime.fromtimestamp(last_recovery, timezone.utc).isoformat().replace("+00:00", "Z") if last_recovery else None,
+            }
+        return summary
+
+    def monitor_states(self) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT item_id,item_name,state,failures,changed_at,last_checked_at,last_latency_ms FROM monitor_state ORDER BY item_name COLLATE NOCASE"
+            ).fetchall()
+        return [
+            {
+                "itemId": row[0], "name": row[1], "state": row[2], "failures": row[3],
+                "changedAt": row[4], "lastCheckedAt": row[5], "latencyMs": row[6],
+            }
+            for row in rows
+        ]
+
+    def log_notification(self, item_id: str, item_name: str, event: str, outcome: str, detail: str = "") -> None:
+        with self.lock:
+            self.db.execute(
+                "INSERT INTO notification_log(occurred_at,item_id,item_name,event,outcome,detail) VALUES(?,?,?,?,?,?)",
+                (utc_now(), text(item_id, 100), text(item_name, 100), text(event, 40), text(outcome, 40), text(detail, 500)),
+            )
+            self.db.execute(
+                "DELETE FROM notification_log WHERE id NOT IN (SELECT id FROM notification_log ORDER BY id DESC LIMIT 500)"
+            )
+            self.db.commit()
+
+    def notification_entries(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT occurred_at,item_id,item_name,event,outcome,detail FROM notification_log ORDER BY id DESC LIMIT ?",
+                (clamp(limit, 1, 200, 50),),
+            ).fetchall()
+        return [
+            {"occurredAt": row[0], "itemId": row[1], "name": row[2], "event": row[3], "outcome": row[4], "detail": row[5]}
+            for row in rows
+        ]
 
 
 def make_session() -> tuple[str, str, int]:
@@ -671,57 +815,126 @@ HEALTH_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 HEALTH_LOCK = threading.Lock()
 WIDGET_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 WIDGET_LOCK = threading.Lock()
-HEALTH_HISTORY: dict[str, deque[dict[str, Any]]] = {}
-HEALTH_HISTORY_LOCK = threading.Lock()
-HEALTH_HISTORY_LIMIT = 120
-DB: Database | None = None
+MONITOR_STOP = threading.Event()
+MONITOR_WAKE = threading.Event()
+MONITOR_LAST_RUN = 0
+MONITOR_LAST_ERROR = ""
 
 
-def record_health_history(results: list[dict[str, Any]]) -> None:
-    """Keep a bounded in-memory availability window without database writes."""
-    now = time.time()
-    with HEALTH_HISTORY_LOCK:
-        active_ids = set()
-        for result in results:
-            item_id = str(result.get("itemId") or "")
-            if not item_id:
-                continue
-            active_ids.add(item_id)
-            samples = HEALTH_HISTORY.setdefault(item_id, deque(maxlen=HEALTH_HISTORY_LIMIT))
-            samples.append({
-                "time": now,
-                "online": result.get("state") == "online",
-                "latencyMs": result.get("latencyMs") if isinstance(result.get("latencyMs"), int) else None,
-            })
-        for item_id in list(HEALTH_HISTORY):
-            if item_id not in active_ids and not HEALTH_HISTORY[item_id]:
-                HEALTH_HISTORY.pop(item_id, None)
+def discord_configured() -> bool:
+    return DISCORD_ENABLED and bool(DISCORD_WEBHOOK_URL)
+
+
+def send_discord_notification(title: str, description: str) -> None:
+    if not discord_configured():
+        raise RuntimeError("Discord notifications are not configured")
+    payload = json.dumps({
+        "username": "RogueDashboard",
+        "embeds": [{
+            "title": title[:256],
+            "description": description[:4000],
+            "timestamp": utc_now(),
+        }],
+        "allowed_mentions": {"parse": []},
+    }).encode()
+    request = Request(
+        DISCORD_WEBHOOK_URL,
+        data=payload,
+        method="POST",
+        headers={"Content-Type": "application/json", "User-Agent": f"RogueDashboard/{VERSION}"},
+    )
+    with urlopen(request, timeout=8) as response:
+        if response.status not in (200, 204):
+            raise RuntimeError(f"Discord returned HTTP {response.status}")
+
+
+def notify_transition(transition: dict[str, Any]) -> None:
+    if not transition.get("alertsEnabled", True):
+        return
+    state = transition.get("state")
+    if state == "offline" and not DISCORD_NOTIFY_DOWN:
+        return
+    if state == "online" and not DISCORD_NOTIFY_RECOVERY:
+        return
+    if not discord_configured():
+        return
+    item_id = str(transition.get("itemId") or "")
+    name = str(transition.get("name") or item_id)
+    try:
+        if state == "offline":
+            send_discord_notification(
+                f"🔴 {name} offline",
+                f"RogueDashboard confirmed {MONITOR_FAILURE_THRESHOLD} consecutive failed health checks.\n"
+                f"Monitoring continues every {MONITOR_INTERVAL} seconds.",
+            )
+            event = "down"
+        else:
+            duration = max(0, int(transition.get("changedAt", 0)) - int(transition.get("previousChangedAt", 0)))
+            latency = transition.get("latencyMs")
+            detail = f"Service recovered after {duration // 60}m {duration % 60}s."
+            if isinstance(latency, int):
+                detail += f" Latest response: {latency} ms."
+            send_discord_notification(f"🟢 {name} recovered", detail)
+            event = "recovery"
+        DB.log_notification(item_id, name, event, "sent")
+    except Exception as error:
+        DB.log_notification(item_id, name, "down" if state == "offline" else "recovery", "failed", str(error))
+        print(f"Discord notification failed for {name}: {error}")
+
+
+def run_health_monitor_once() -> list[dict[str, Any]]:
+    global HEALTH_CACHE, MONITOR_LAST_RUN, MONITOR_LAST_ERROR
+    if DB is None or DB.setup_required():
+        return []
+    items = [item for group in DB.dashboard()["groups"] for item in group["items"] if item.get("monitorUrl")]
+    if not items:
+        MONITOR_LAST_RUN = int(time.time())
+        MONITOR_LAST_ERROR = ""
+        return []
+    try:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(health_check, items))
+        with HEALTH_LOCK:
+            HEALTH_CACHE = (time.time() + MONITOR_INTERVAL, results)
+        transitions = DB.record_health_results(items, results)
+        MONITOR_LAST_RUN = int(time.time())
+        MONITOR_LAST_ERROR = ""
+        for transition in transitions:
+            notify_transition(transition)
+        return results
+    except Exception as error:
+        MONITOR_LAST_ERROR = str(error)
+        print(f"Background monitor failed: {error}")
+        return []
+
+
+def monitor_loop() -> None:
+    while not MONITOR_STOP.is_set():
+        run_health_monitor_once()
+        MONITOR_WAKE.wait(MONITOR_INTERVAL)
+        MONITOR_WAKE.clear()
+
+
+def monitor_status() -> dict[str, Any]:
+    return {
+        "enabled": True,
+        "intervalSeconds": MONITOR_INTERVAL,
+        "failureThreshold": MONITOR_FAILURE_THRESHOLD,
+        "retentionHours": MONITOR_RETENTION_HOURS,
+        "lastRunAt": datetime.fromtimestamp(MONITOR_LAST_RUN, timezone.utc).isoformat().replace("+00:00", "Z") if MONITOR_LAST_RUN else None,
+        "lastError": MONITOR_LAST_ERROR,
+        "discord": {
+            "enabled": DISCORD_ENABLED,
+            "configured": discord_configured(),
+            "notifyDown": DISCORD_NOTIFY_DOWN,
+            "notifyRecovery": DISCORD_NOTIFY_RECOVERY,
+        },
+        "services": DB.monitor_states() if DB else [],
+    }
 
 
 def health_history_summary() -> dict[str, dict[str, Any]]:
-    cutoff = time.time() - 3600
-    summary: dict[str, dict[str, Any]] = {}
-    with HEALTH_HISTORY_LOCK:
-        for item_id, samples in HEALTH_HISTORY.items():
-            recent = [sample for sample in samples if sample["time"] >= cutoff]
-            if not recent:
-                continue
-            online = sum(1 for sample in recent if sample["online"])
-            latencies = [sample["latencyMs"] for sample in recent if isinstance(sample.get("latencyMs"), int)]
-            failures = [sample["time"] for sample in recent if not sample["online"]]
-            last_recovery = None
-            for index in range(1, len(recent)):
-                if not recent[index - 1]["online"] and recent[index]["online"]:
-                    last_recovery = recent[index]["time"]
-            summary[item_id] = {
-                "samples": len(recent),
-                "availability": round((online / len(recent)) * 100, 1),
-                "averageLatencyMs": round(sum(latencies) / len(latencies)) if latencies else None,
-                "lastFailureAt": datetime.fromtimestamp(failures[-1], timezone.utc).isoformat().replace("+00:00", "Z") if failures else None,
-                "lastRecoveryAt": datetime.fromtimestamp(last_recovery, timezone.utc).isoformat().replace("+00:00", "Z") if last_recovery else None,
-            }
-    return summary
-
+    return DB.health_history(3600) if DB else {}
 
 def clear_monitor_caches() -> None:
     global HEALTH_CACHE, WIDGET_CACHE
@@ -729,6 +942,7 @@ def clear_monitor_caches() -> None:
         HEALTH_CACHE = (0, [])
     with WIDGET_LOCK:
         WIDGET_CACHE = (0, [])
+    MONITOR_WAKE.set()
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -844,19 +1058,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif path == "/api/system":
             self.json_response(system_stats())
         elif path == "/api/health":
-            global HEALTH_CACHE
             with HEALTH_LOCK:
-                if HEALTH_CACHE[0] > time.time():
-                    results = HEALTH_CACHE[1]
-                else:
-                    items = [item for group in DB.dashboard()["groups"] for item in group["items"] if item.get("monitorUrl")]
-                    with ThreadPoolExecutor(max_workers=8) as pool:
-                        results = list(pool.map(health_check, items))
-                    HEALTH_CACHE = (time.time() + 15, results)
-                    record_health_history(results)
+                results = HEALTH_CACHE[1]
+            if not results:
+                results = run_health_monitor_once()
             self.json_response(results)
         elif path == "/api/history":
             self.json_response({"windowSeconds": 3600, "services": health_history_summary()})
+        elif path == "/api/monitor/status":
+            self.json_response(monitor_status())
+        elif path == "/api/notifications":
+            if not self.require_admin():
+                return
+            self.json_response({"entries": DB.notification_entries()})
         elif path == "/api/widgets":
             global WIDGET_CACHE
             with WIDGET_LOCK:
@@ -952,6 +1166,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if not self.require_admin():
                     return
                 clear_monitor_caches()
+                MONITOR_WAKE.set()
+                self.json_response({"ok": True})
+            elif path == "/api/notifications/test":
+                if not self.require_admin():
+                    return
+                if not discord_configured():
+                    raise ValueError("Discord notifications are not configured. Set RGDASH_DISCORD_ENABLED=true and RGDASH_DISCORD_WEBHOOK_URL.")
+                send_discord_notification("🟣 RogueDashboard test", "Background monitoring and Discord notifications are connected.")
+                DB.log_notification("roguedashboard", "RogueDashboard", "test", "sent")
                 self.json_response({"ok": True})
             elif path == "/api/admin/sessions/revoke":
                 if not self.require_admin():
@@ -1145,13 +1368,19 @@ def main() -> int:
         return healthcheck()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DB = Database(resolve_database_path())
+    MONITOR_STOP.clear()
+    monitor_thread = threading.Thread(target=monitor_loop, name="rogue-health-monitor", daemon=True)
+    monitor_thread.start()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), DashboardHandler)
-    print(f"RogueDashboard {VERSION} listening on {PORT}")
+    print(f"RogueDashboard {VERSION} listening on {PORT}; background monitoring every {MONITOR_INTERVAL}s")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        MONITOR_STOP.set()
+        MONITOR_WAKE.set()
+        monitor_thread.join(timeout=5)
         server.server_close()
     return 0
 
