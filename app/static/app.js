@@ -408,7 +408,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.6.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
+        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.7.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -668,7 +668,7 @@ function editorMarkup() {
             <div><span>Failure threshold</span><strong>${state.monitor?.failureThreshold || "—"} checks</strong></div>
             <div><span>Retention</span><strong>${state.monitor?.retentionHours || "—"}h</strong></div>
             <div><span>Open incidents</span><strong>${state.monitor?.openIncidents ?? "—"}</strong></div>
-            <div><span>Discord</span><strong>${state.monitor?.discord?.configured ? "Connected" : "Not configured"}</strong></div>
+            <div><span>Discord</span><strong>${state.monitor?.discord?.configured ? "Connected" : "Not configured"}</strong></div><div><span>Discord retries</span><strong>${state.monitor?.discord?.retryAttempts ?? "—"} · ${state.monitor?.discord?.cooldownSeconds ?? "—"}s cooldown</strong></div>
             <div><span>Suppression</span><strong>${state.monitor?.suppressions?.length ? state.monitor.suppressions.length + " active" : "None"}</strong></div>
           </div>
           <div class="button-row"><button class="button secondary" id="test-discord" ${state.monitor?.discord?.configured ? "" : "disabled"}>Send Discord test</button><button class="button secondary" id="refresh-monitor-status">Refresh status</button></div>
@@ -698,7 +698,7 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.6.0")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.7.0")}</strong></div>
             <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
             <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
