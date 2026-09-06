@@ -35,7 +35,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 PORT = int(os.environ.get("PORT", "8080"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
@@ -71,6 +71,10 @@ DISCORD_ENABLED = os.environ.get("RGDASH_DISCORD_ENABLED", "false").lower() == "
 DISCORD_WEBHOOK_URL = os.environ.get("RGDASH_DISCORD_WEBHOOK_URL", "").strip()
 DISCORD_NOTIFY_DOWN = os.environ.get("RGDASH_DISCORD_NOTIFY_DOWN", "true").lower() == "true"
 DISCORD_NOTIFY_RECOVERY = os.environ.get("RGDASH_DISCORD_NOTIFY_RECOVERY", "true").lower() == "true"
+DISCORD_NOTIFY_DEGRADED = os.environ.get("RGDASH_DISCORD_NOTIFY_DEGRADED", "false").lower() == "true"
+DISCORD_MIN_OUTAGE_SECONDS = max(0, min(3600, int(os.environ.get("RGDASH_DISCORD_MIN_OUTAGE_SECONDS", "0"))))
+DISCORD_COOLDOWN_SECONDS = max(0, min(86400, int(os.environ.get("RGDASH_DISCORD_COOLDOWN_SECONDS", "300"))))
+DISCORD_RETRY_ATTEMPTS = max(1, min(5, int(os.environ.get("RGDASH_DISCORD_RETRY_ATTEMPTS", "3"))))
 if DISCORD_WEBHOOK_URL and urlparse(DISCORD_WEBHOOK_URL).scheme != "https":
     DISCORD_WEBHOOK_URL = ""
 
@@ -958,45 +962,85 @@ def send_discord_notification(title: str, description: str) -> None:
             raise RuntimeError(f"Discord returned HTTP {response.status}")
 
 
+def discord_event_recent(item_id: str, event: str) -> bool:
+    if not DB or DISCORD_COOLDOWN_SECONDS <= 0:
+        return False
+    cutoff = datetime.now(timezone.utc).timestamp() - DISCORD_COOLDOWN_SECONDS
+    for entry in DB.notification_entries(200):
+        if entry["itemId"] != item_id or entry["event"] != event or entry["outcome"] != "sent":
+            continue
+        try:
+            if datetime.fromisoformat(entry["occurredAt"].replace("Z", "+00:00")).timestamp() >= cutoff:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def send_discord_with_retry(title: str, description: str) -> None:
+    error: Exception | None = None
+    for attempt in range(DISCORD_RETRY_ATTEMPTS):
+        try:
+            send_discord_notification(title, description)
+            return
+        except Exception as exc:
+            error = exc
+            if attempt + 1 < DISCORD_RETRY_ATTEMPTS:
+                time.sleep(min(4, 2 ** attempt))
+    raise RuntimeError(str(error or "Discord delivery failed"))
+
+
 def notify_transition(transition: dict[str, Any]) -> None:
     if not transition.get("alertsEnabled", True):
         return
-    if DB and DB.active_suppression(str(transition.get("itemId") or "")):
+    item_id = str(transition.get("itemId") or "")
+    if DB and DB.active_suppression(item_id):
         return
     state = transition.get("state")
-    if state == "degraded":
+    previous_state = transition.get("previousState")
+    if state == "degraded" and not DISCORD_NOTIFY_DEGRADED:
         return
     if state == "offline" and not DISCORD_NOTIFY_DOWN:
         return
-    if state == "online" and transition.get("previousState") != "offline":
+    if state == "online" and previous_state != "offline":
         return
     if state == "online" and not DISCORD_NOTIFY_RECOVERY:
         return
     if not discord_configured():
         return
-    item_id = str(transition.get("itemId") or "")
     name = str(transition.get("name") or item_id)
+    event = "degraded" if state == "degraded" else ("down" if state == "offline" else "recovery")
+    if discord_event_recent(item_id, event):
+        DB.log_notification(item_id, name, event, "deduplicated", f"Suppressed inside {DISCORD_COOLDOWN_SECONDS}s cooldown")
+        return
     try:
-        if state == "offline":
-            send_discord_notification(
-                f"🔴 {name} offline",
+        if state == "degraded":
+            send_discord_with_retry(
+                f"🟠 {name} degraded",
+                f"RogueDashboard detected a failed health check. The service has not crossed the DOWN threshold yet.\n"
+                f"Failure threshold: {MONITOR_FAILURE_THRESHOLD} checks · probe interval: {MONITOR_INTERVAL}s.",
+            )
+        elif state == "offline":
+            duration = max(0, int(transition.get("changedAt", 0)) - int(transition.get("previousChangedAt", 0)))
+            if duration < DISCORD_MIN_OUTAGE_SECONDS:
+                DB.log_notification(item_id, name, event, "suppressed", f"Below minimum outage duration of {DISCORD_MIN_OUTAGE_SECONDS}s")
+                return
+            send_discord_with_retry(
+                f"🔴 {name} DOWN",
                 f"RogueDashboard confirmed {MONITOR_FAILURE_THRESHOLD} consecutive failed health checks.\n"
                 f"Monitoring continues every {MONITOR_INTERVAL} seconds.",
             )
-            event = "down"
         else:
             duration = max(0, int(transition.get("changedAt", 0)) - int(transition.get("previousChangedAt", 0)))
             latency = transition.get("latencyMs")
             detail = f"Service recovered after {duration // 60}m {duration % 60}s."
             if isinstance(latency, int):
                 detail += f" Latest response: {latency} ms."
-            send_discord_notification(f"🟢 {name} recovered", detail)
-            event = "recovery"
+            send_discord_with_retry(f"🟢 {name} RECOVERED", detail)
         DB.log_notification(item_id, name, event, "sent")
     except Exception as error:
-        DB.log_notification(item_id, name, "down" if state == "offline" else "recovery", "failed", str(error))
+        DB.log_notification(item_id, name, event, "failed", str(error))
         print(f"Discord notification failed for {name}: {error}")
-
 
 def run_health_monitor_once() -> list[dict[str, Any]]:
     global HEALTH_CACHE, MONITOR_LAST_RUN, MONITOR_LAST_ERROR
@@ -1044,6 +1088,10 @@ def monitor_status() -> dict[str, Any]:
             "configured": discord_configured(),
             "notifyDown": DISCORD_NOTIFY_DOWN,
             "notifyRecovery": DISCORD_NOTIFY_RECOVERY,
+            "notifyDegraded": DISCORD_NOTIFY_DEGRADED,
+            "cooldownSeconds": DISCORD_COOLDOWN_SECONDS,
+            "minOutageSeconds": DISCORD_MIN_OUTAGE_SECONDS,
+            "retryAttempts": DISCORD_RETRY_ATTEMPTS,
         },
         "services": DB.monitor_states() if DB else [],
         "suppressions": DB.suppression_entries() if DB else [],
