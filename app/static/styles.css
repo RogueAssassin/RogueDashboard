@@ -1173,3 +1173,22 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
   .compact-select { grid-column: 2 / 4; }
   .group-order { grid-column: 2; }
 }
+
+
+/* RogueDashboard 1.6.0 incident engine */
+.incident-list { display: flex; flex-direction: column; gap: 7px; }
+.incident-row {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.incident-row > div strong,
+.incident-row > div small { display: block; }
+.incident-row > div strong { font-size: .72rem; }
+.incident-row > div small { margin-top: 3px; color: var(--muted); font-size: .59rem; }
+.widget-diagnostic .service-silence { margin-left: 6px; }
