@@ -13,6 +13,8 @@ const state = {
   widgets: new Map(),
   widgetSupport: [],
   system: null,
+  monitor: null,
+  notifications: [],
   search: "",
   collapsed: new Set(),
   editingItem: null,
@@ -629,6 +631,17 @@ function editorMarkup() {
           ${proxyDiagnosticsMarkup()}
         </div>
         <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Background monitoring</strong><span>Runs inside RogueDashboard even when every browser is closed.</span></div><span class="health-pill ${state.monitor?.lastError ? "offline" : "online"}">${state.monitor?.lastError ? "Attention" : "Active"}</span></div>
+          <div class="admin-summary-grid">
+            <div><span>Probe interval</span><strong>${state.monitor?.intervalSeconds || "—"}s</strong></div>
+            <div><span>Failure threshold</span><strong>${state.monitor?.failureThreshold || "—"} checks</strong></div>
+            <div><span>Retention</span><strong>${state.monitor?.retentionHours || "—"}h</strong></div>
+            <div><span>Discord</span><strong>${state.monitor?.discord?.configured ? "Connected" : "Not configured"}</strong></div>
+          </div>
+          <div class="button-row"><button class="button secondary" id="test-discord" ${state.monitor?.discord?.configured ? "" : "disabled"}>Send Discord test</button><button class="button secondary" id="refresh-monitor-status">Refresh status</button></div>
+          ${state.monitor?.lastError ? `<div class="notice error">${escapeHtml(state.monitor.lastError)}</div>` : ""}
+        </div>
+        <div class="editor-card">
           <div class="editor-card-heading"><div><strong>Live integrations</strong><span>Shows which configured API widgets are communicating successfully.</span></div></div>
           <div id="widget-diagnostics">${connectionDiagnosticsMarkup()}</div>
         </div>
@@ -751,6 +764,20 @@ function bindEditor() {
   document.getElementById("editor-import").onchange = importInEditor;
   document.getElementById("export-json").onclick = exportJson;
   document.getElementById("refresh-monitor").onclick = () => refreshRuntime(true);
+  const refreshMonitorStatus = document.getElementById("refresh-monitor-status");
+  if (refreshMonitorStatus) refreshMonitorStatus.onclick = () => refreshRuntime(true);
+  const testDiscord = document.getElementById("test-discord");
+  if (testDiscord) testDiscord.onclick = async () => {
+    testDiscord.disabled = true;
+    try {
+      await request("/api/notifications/test", { method: "POST", body: "{}" });
+      toast("Discord test notification sent");
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      testDiscord.disabled = !state.monitor?.discord?.configured;
+    }
+  };
   document.getElementById("refresh-admin").onclick = loadAdministration;
   renderGroupEditor();
   renderPageEditor();
@@ -891,7 +918,7 @@ function integrationHint(type) {
 
 function openItem(groupIndex, itemIndex) {
   state.editingItem = { groupIndex, itemIndex };
-  const item = itemIndex === undefined ? { name: "", href: "", monitorUrl: "", description: "", icon: "", type: "service", statusStyle: "dot" } : state.draft.groups[groupIndex].items[itemIndex];
+  const item = itemIndex === undefined ? { name: "", href: "", monitorUrl: "", description: "", icon: "", type: "service", statusStyle: "dot", alertsEnabled: true } : state.draft.groups[groupIndex].items[itemIndex];
   overlay.innerHTML = `<div class="modal-backdrop"><section class="modal modal-wide"><header class="modal-header"><h2>${itemIndex === undefined ? "Add a card" : `Edit ${escapeHtml(item.name)}`}</h2><button class="icon-button" id="item-close">×</button></header><form class="modal-body" id="item-form"><div class="form-grid">
     <label class="field"><span>Name</span><input id="item-name" value="${escapeHtml(item.name)}" required autofocus></label>
     <label class="field"><span>Card type</span><select id="item-type"><option value="service">Service</option><option value="bookmark">Bookmark</option></select></label>
@@ -902,6 +929,7 @@ function openItem(groupIndex, itemIndex) {
     <label class="field"><span>Status</span><select id="item-status"><option value="dot">Dot</option><option value="badge">Badge</option><option value="none">Hidden</option></select></label>
     <label class="field"><span>Open behaviour</span><select id="item-launch"><option value="new-tab">New tab</option><option value="same-tab">Same tab</option><option value="copy">Copy URL</option></select></label>
     <label class="field"><span>Favourite</span><select id="item-favorite"><option value="false">No</option><option value="true">Yes</option></select></label>
+    <label class="field"><span>Discord outage alerts</span><select id="item-alerts"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
     <label class="field"><span>Tags</span><input id="item-tags" value="${escapeHtml(normalizedTags(item).join(", "))}" placeholder="media, network, rogue"></label>
     <label class="field"><span>Health method</span><select id="item-health-method"><option value="HEAD">HEAD</option><option value="GET">GET</option></select></label>
     <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
@@ -929,6 +957,7 @@ function openItem(groupIndex, itemIndex) {
   document.getElementById("item-status").value = item.statusStyle;
   document.getElementById("item-launch").value = item.launchMode || "new-tab";
   document.getElementById("item-favorite").value = item.favorite ? "true" : "false";
+  document.getElementById("item-alerts").value = item.alertsEnabled === false ? "false" : "true";
   document.getElementById("item-health-method").value = item.healthMethod || "HEAD";
   document.getElementById("item-health-timeout").value = String(item.healthTimeout || 4);
   document.getElementById("item-integration").value = item.widget?.type || "";
@@ -975,6 +1004,7 @@ function saveItem(event) {
     statusStyle: document.getElementById("item-status").value,
     launchMode: document.getElementById("item-launch").value,
     favorite: document.getElementById("item-favorite").value === "true",
+    alertsEnabled: document.getElementById("item-alerts").value === "true",
     tags: document.getElementById("item-tags").value.split(",").map(value => value.trim()).filter(Boolean).slice(0, 12),
     healthMethod: document.getElementById("item-health-method").value,
     healthTimeout: Number(document.getElementById("item-health-timeout").value),
@@ -1143,12 +1173,13 @@ async function refreshRuntime(force = false) {
       try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
       catch (error) { toast(error.message); }
     }
-    const [health, system, widgets, history] = await Promise.allSettled([
-      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"),
+    const [health, system, widgets, history, monitor] = await Promise.allSettled([
+      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"), request("/api/monitor/status"),
     ]);
     if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
     if (system.status === "fulfilled") state.system = system.value;
     if (history.status === "fulfilled") state.history = new Map(Object.entries(history.value.services || {}));
+    if (monitor.status === "fulfilled") state.monitor = monitor.value;
     if (widgets.status === "fulfilled") {
       state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
       state.widgetSupport = widgets.value.supported;
