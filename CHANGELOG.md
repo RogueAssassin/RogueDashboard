@@ -15,6 +15,8 @@
 - Restored a dedicated Customise tab so Appearance, Layout, Connect and Admin remain easy to reach while inline card editing is active.
 - Removed obsolete duplicate Compose files and retained one unified Docker/Podman `compose.yaml`.
 - Corrected stale architecture/security documentation for the current socket-free RogueDashboard design.
+- Made Customise layout controls explicit with Page title, Section title, Maximum cards per row and per-section Cards per row fields.
+- Replaced the obsolete 1.1-era roadmap with a staged v1.4.1 → v2.0.0 production roadmap covering complete customisation, incident monitoring, Discord alerts, Rogue ecosystem integration and Uptime Kuma/Dozzle removal gates.
 
 RogueDashboard follows semantic versioning for published GHCR releases.
 
