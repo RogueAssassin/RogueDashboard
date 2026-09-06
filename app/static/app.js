@@ -14,6 +14,8 @@ const state = {
   widgetSupport: [],
   system: null,
   monitor: null,
+  incidents: [],
+  availabilityWindows: {},
   notifications: [],
   search: "",
   collapsed: new Set(),
@@ -46,7 +48,7 @@ const ICON_FILES = {
 
 const ICON_REMOTE_OVERRIDES = {
   rogueforge: "https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg",
-  roguedashboard: "/icons/roguedashboard-approved-128.png?v=1.5.0-r1",
+  roguedashboard: "/icons/roguedashboard-approved-128.png?v=1.6.0-r1",
   roguemediavalidator: "https://raw.githubusercontent.com/RogueAssassin/RogueMediaValidator/main/app/static/icons/roguemediavalidator-approved-128.png",
   mediavalidator: "https://raw.githubusercontent.com/RogueAssassin/RogueMediaValidator/main/app/static/icons/roguemediavalidator-approved-128.png",
   roguevalidator: "https://raw.githubusercontent.com/RogueAssassin/RogueMediaValidator/main/app/static/icons/roguemediavalidator-approved-128.png",
@@ -241,7 +243,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.5.0-r1" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.6.0-r1" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -251,7 +253,7 @@ function renderSetup() {
     <main class="setup-shell">
       <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.5.0-r1" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.6.0-r1" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -392,7 +394,7 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.5.0-r1" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
+          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.6.0-r1" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
           <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         ${dashboard.meta.showPageTabs !== false || state.editor ? `<nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">⚙ Customise</button>` : ""}</nav>` : ""}
@@ -406,7 +408,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.5.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
+        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.6.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -479,7 +481,8 @@ function renderGroups() {
 function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const status = state.health.get(item.id);
   const widget = state.widgets.get(item.id);
-  const statusState = status?.state || "unknown";
+  const monitorState = state.monitor?.services?.find?.(entry => entry.itemId === item.id)?.state;
+  const statusState = monitorState || status?.state || "unknown";
   const href = safeUrl(item.href);
   const iconMarkup = iconMarkupFor(item);
   const statusTitle = status?.message || (statusState === "unknown" ? "Waiting for health status" : statusState);
@@ -513,6 +516,15 @@ function widgetCardMarkup(item, widget) {
   return `<span class="widget-chip widget-${escapeHtml(widget?.state || "loading")}" title="${escapeHtml(detail)}">${escapeHtml(labels[widget?.state] || item.widget.type)}</span>`;
 }
 
+function incidentHistoryMarkup() {
+  if (!state.incidents.length) return `<div class="notice info">No incidents recorded yet.</div>`;
+  return state.incidents.slice(0, 20).map(incident => {
+    const open = incident.state === "open";
+    const duration = formatUptime(incident.durationSeconds || 0);
+    return `<div class="incident-row"><span class="widget-state-dot ${open ? "offline" : "ok"}"></span><div><strong>${escapeHtml(incident.name)}</strong><small>${open ? "Open outage" : "Recovered"} · ${escapeHtml(duration)} · ${escapeHtml(new Date(incident.openedAt * 1000).toLocaleString())}</small></div><span class="protected-chip">${open ? "DOWN" : "RECOVERED"}</span></div>`;
+  }).join("");
+}
+
 function connectionDiagnosticsMarkup() {
   const items = state.draft.groups.flatMap(group => group.items).filter(item => item.widget || item.monitorUrl);
   if (!items.length) return `<div class="notice info">No service connections are configured.</div>`;
@@ -528,7 +540,8 @@ function connectionDiagnosticsMarkup() {
     const historyDetail = history?.lastFailureAt ? ` · last failure ${relativeTime(history.lastFailureAt)}` : "";
     const detail = live?.missingRefs?.length ? `Missing ${live.missingRefs.join(", ")}` : `${live?.message || (live?.state === "ok" ? `${live.metrics.length} API metrics responding` : probe?.message || (probe?.state === "online" ? "Service endpoint responding" : "Waiting for connection test"))}${environmentDetail}${historyDetail}`;
     const action = stateName === "ok" || stateName === "online" ? "Connected" : stateName === "degraded" ? "Degraded" : stateName === "configuration_required" ? "Configure" : stateName === "error" || stateName === "offline" ? "Check" : "Pending";
-    return `<div class="widget-diagnostic"><span class="widget-state-dot ${escapeHtml(stateName)}"></span><div><strong>${escapeHtml(item.name)}</strong><small title="${escapeHtml(`${endpoint} · ${detail}`)}">${escapeHtml(item.widget?.type || "health probe")} · ${escapeHtml(endpoint)} · ${escapeHtml(detail)}</small></div><span>${Number.isFinite(latency) ? `${latency} ms · ` : ""}${action}</span></div>`;
+    const suppression = state.monitor?.services?.find?.(entry => entry.itemId === item.id)?.suppression;
+    return `<div class="widget-diagnostic"><span class="widget-state-dot ${escapeHtml(stateName)}"></span><div><strong>${escapeHtml(item.name)}</strong><small title="${escapeHtml(`${endpoint} · ${detail}`)}">${escapeHtml(item.widget?.type || "health probe")} · ${escapeHtml(endpoint)} · ${escapeHtml(detail)}${suppression ? ` · ${escapeHtml(suppression.mode)} active` : ""}</small></div><span>${Number.isFinite(latency) ? `${latency} ms · ` : ""}${action}</span>${state.authenticated ? `<button class="button tiny service-silence" data-silence="${escapeHtml(item.id)}">${suppression ? "Clear" : "Silence 30m"}</button>` : ""}</div>`;
   }).join("")}</div><div class="notice info">Credentials use <strong>RGDASH_*</strong> names in <strong>.env</strong>. Changes take effect after restarting the <strong>roguedashboard</strong> service.</div>`;
 }
 
@@ -576,7 +589,7 @@ function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header">
       <div class="editor-brand">
-        <img src="/icons/roguedashboard-approved-128.png?v=1.5.0-r1" alt="">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.6.0-r1" alt="">
         <div><span class="eyebrow">LIVE CUSTOMISER</span><h2>Customise RogueDashboard</h2><p>Preview changes instantly, then save when everything looks right.</p></div>
       </div>
       <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
@@ -654,10 +667,17 @@ function editorMarkup() {
             <div><span>Probe interval</span><strong>${state.monitor?.intervalSeconds || "—"}s</strong></div>
             <div><span>Failure threshold</span><strong>${state.monitor?.failureThreshold || "—"} checks</strong></div>
             <div><span>Retention</span><strong>${state.monitor?.retentionHours || "—"}h</strong></div>
+            <div><span>Open incidents</span><strong>${state.monitor?.openIncidents ?? "—"}</strong></div>
             <div><span>Discord</span><strong>${state.monitor?.discord?.configured ? "Connected" : "Not configured"}</strong></div>
+            <div><span>Suppression</span><strong>${state.monitor?.suppressions?.length ? state.monitor.suppressions.length + " active" : "None"}</strong></div>
           </div>
           <div class="button-row"><button class="button secondary" id="test-discord" ${state.monitor?.discord?.configured ? "" : "disabled"}>Send Discord test</button><button class="button secondary" id="refresh-monitor-status">Refresh status</button></div>
+          <div class="button-row"><button class="button secondary" id="maintenance-30">Maintenance 30m</button><button class="button ghost" id="clear-maintenance">Clear maintenance</button></div>
           ${state.monitor?.lastError ? `<div class="notice error">${escapeHtml(state.monitor.lastError)}</div>` : ""}
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Incident history</strong><span>Persistent outage records continue across browser and container restarts.</span></div></div>
+          <div class="incident-list">${incidentHistoryMarkup()}</div>
         </div>
         <div class="editor-card">
           <div class="editor-card-heading"><div><strong>Live integrations</strong><span>Shows which configured API widgets are communicating successfully.</span></div></div>
@@ -678,7 +698,7 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.5.0")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.6.0")}</strong></div>
             <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
             <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
@@ -798,6 +818,22 @@ function bindEditor() {
   document.getElementById("refresh-monitor").onclick = () => refreshRuntime(true);
   const refreshMonitorStatus = document.getElementById("refresh-monitor-status");
   if (refreshMonitorStatus) refreshMonitorStatus.onclick = () => refreshRuntime(true);
+  const maintenance30 = document.getElementById("maintenance-30");
+  if (maintenance30) maintenance30.onclick = async () => {
+    try {
+      await request("/api/monitor/suppress", { method: "POST", body: JSON.stringify({ mode: "maintenance", minutes: 30, note: "Dashboard maintenance" }) });
+      toast("Maintenance mode enabled for 30 minutes");
+      await refreshRuntime(false);
+    } catch (error) { toast(error.message); }
+  };
+  const clearMaintenance = document.getElementById("clear-maintenance");
+  if (clearMaintenance) clearMaintenance.onclick = async () => {
+    try {
+      await request("/api/monitor/suppress/clear", { method: "POST", body: "{}" });
+      toast("Maintenance mode cleared");
+      await refreshRuntime(false);
+    } catch (error) { toast(error.message); }
+  };
   const testDiscord = document.getElementById("test-discord");
   if (testDiscord) testDiscord.onclick = async () => {
     testDiscord.disabled = true;
@@ -1118,7 +1154,7 @@ function openLogin() {
   overlay.innerHTML = `<div class="modal-backdrop auth-backdrop">
     <section class="modal auth-modal">
       <div class="auth-visual">
-        <img src="/icons/roguedashboard-approved-128.png?v=1.5.0-r1" alt="RogueDashboard">
+        <img src="/icons/roguedashboard-approved-128.png?v=1.6.0-r1" alt="RogueDashboard">
         <div><span class="eyebrow">ADMINISTRATION</span><h2>Welcome back</h2><p>Sign in locally to customise services, layouts and integrations.</p></div>
       </div>
       <div class="auth-content">
@@ -1226,13 +1262,14 @@ async function refreshRuntime(force = false) {
       try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
       catch (error) { toast(error.message); }
     }
-    const [health, system, widgets, history, monitor] = await Promise.allSettled([
-      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"), request("/api/monitor/status"),
+    const [health, system, widgets, history, monitor, incidents] = await Promise.allSettled([
+      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"), request("/api/monitor/status"), request("/api/incidents"),
     ]);
     if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
     if (system.status === "fulfilled") state.system = system.value;
-    if (history.status === "fulfilled") state.history = new Map(Object.entries(history.value.services || {}));
+    if (history.status === "fulfilled") { state.history = new Map(Object.entries(history.value.services || {})); state.availabilityWindows = history.value.windows || {}; }
     if (monitor.status === "fulfilled") state.monitor = monitor.value;
+    if (incidents.status === "fulfilled") state.incidents = incidents.value.incidents || [];
     if (widgets.status === "fulfilled") {
       state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
       state.widgetSupport = widgets.value.supported;
@@ -1240,7 +1277,22 @@ async function refreshRuntime(force = false) {
     updateStats();
     renderGroups();
     const diagnostics = document.getElementById("widget-diagnostics");
-    if (diagnostics) diagnostics.innerHTML = connectionDiagnosticsMarkup();
+    if (diagnostics) {
+      diagnostics.innerHTML = connectionDiagnosticsMarkup();
+      diagnostics.querySelectorAll("[data-silence]").forEach(button => button.onclick = async () => {
+        const service = state.monitor?.services?.find?.(entry => entry.itemId === button.dataset.silence);
+        try {
+          if (service?.suppression) {
+            await request("/api/monitor/suppress/clear", { method: "POST", body: JSON.stringify({ itemId: button.dataset.silence }) });
+            toast("Service alerts resumed");
+          } else {
+            await request("/api/monitor/suppress", { method: "POST", body: JSON.stringify({ itemId: button.dataset.silence, mode: "silence", minutes: 30 }) });
+            toast("Service alerts silenced for 30 minutes");
+          }
+          await refreshRuntime(false);
+        } catch (error) { toast(error.message); }
+      });
+    }
   } finally {
     state.refreshInFlight = false;
     if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = "↻ Test now"; }
