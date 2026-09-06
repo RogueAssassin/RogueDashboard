@@ -1,25 +1,41 @@
-# RogueDashboard testing channel
+# Testing channel
 
-The `testing` branch is the integration branch for features that need live validation before they are promoted to a release branch or `main`.
+The `testing` branch is the integration channel used before promotion to `main`.
 
-Every push to `testing` runs the full application test suite, Python validation, Compose validation and a local amd64 container build. If validation passes, GitHub Actions publishes multi-architecture testing images:
+Every push runs:
 
-- `ghcr.io/rogueassassin/roguedashboard:testing`
-- `ghcr.io/rogueassassin/roguedashboard:1.4.0-testing`
-- immutable SHA tag
-- equivalent legacy-package testing tags under `ghcr.io/rogueassassin/rogue-dashboard`
+- Python unit tests
+- Python syntax validation
+- JavaScript syntax validation
+- unified Compose validation
+- container image build
+- multi-architecture image publication after validation
 
-For a live Podman test, keep the existing `.env`, `data/` and `custom/` directories and temporarily set:
+Testing images:
+
+```text
+ghcr.io/rogueassassin/roguedashboard:testing
+ghcr.io/rogueassassin/roguedashboard:1.8.1-testing
+```
+
+## Live Podman validation
+
+Keep your existing `.env`, `data/` and `custom/`:
 
 ```env
 RGDASH_IMAGE=ghcr.io/rogueassassin/roguedashboard:testing
 ```
-
-Then use the normal unified Compose file:
 
 ```bash
 podman compose --env-file .env -f compose.yaml pull
 podman compose --env-file .env -f compose.yaml up -d
 ```
 
-Do not replace the existing `.env` with `.env.example` during testing. Promote tested changes from `testing` back to the release branch, then merge the release branch to `main` when live validation is complete.
+## Live Docker validation
+
+```bash
+docker compose --env-file .env -f compose.yaml pull
+docker compose --env-file .env -f compose.yaml up -d
+```
+
+Validate Customise, background monitoring, incident persistence, Discord DOWN/RECOVERED delivery, notification history and native Rogue integrations before promotion.
