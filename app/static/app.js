@@ -392,11 +392,11 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          <div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.5.0-r1" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>
-          <div class="topbar-actions"><div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div><button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
+          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=1.5.0-r1" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
+          <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
-        <nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">⚙ Customise</button>` : ""}</nav>
-        <section class="stat-strip" id="stats">
+        ${dashboard.meta.showPageTabs !== false || state.editor ? `<nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">⚙ Customise</button>` : ""}</nav>` : ""}
+        ${dashboard.meta.showStats !== false ? `<section class="stat-strip" id="stats">
           <div class="hero-time"><span>◷</span><div><strong id="clock">--:--</strong><span id="date">Loading…</span></div></div>
           <div class="mini-stat"><span>◆</span><div><strong id="container-count">—</strong><span id="container-label">Live widgets</span></div></div>
           <div class="mini-stat"><span>●</span><div><strong id="online-count">—</strong><span>Services online</span></div></div>
@@ -404,9 +404,9 @@ function renderDashboard() {
           <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
           <div class="mini-stat"><span>◫</span><div><strong id="storage-count">—</strong><span id="storage-total">Dashboard storage</span></div></div>
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
-        </section>
+        </section>` : ""}
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        <footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.5.0")}</strong></span><span>Service monitoring · local-first</span></footer>
+        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.5.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
