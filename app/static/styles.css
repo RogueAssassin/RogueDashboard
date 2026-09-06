@@ -1254,7 +1254,7 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
 }
 
 
-/* RogueDashboard 1.7.2 section alignment override */
+/* RogueDashboard 1.7.1 final section alignment override */
 .section-editor-row {
   display:flex !important;
   flex-direction:column !important;
