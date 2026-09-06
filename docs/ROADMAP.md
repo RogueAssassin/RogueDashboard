@@ -157,6 +157,8 @@ Privileged container actions such as restart/log access must remain delegated to
 
 ## v1.8.0 — Rogue ecosystem integration
 
+Status: active testing.
+
 RogueForge:
 
 - Read-only RogueForge status integration remains the management bridge.
