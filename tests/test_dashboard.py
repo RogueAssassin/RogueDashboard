@@ -831,28 +831,26 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
-    def test_health_history_is_bounded_and_returns_compact_hour_summary(self):
-        with dashboard_app.HEALTH_HISTORY_LOCK:
-            dashboard_app.HEALTH_HISTORY.clear()
-        try:
-            for index in range(dashboard_app.HEALTH_HISTORY_LIMIT + 10):
-                dashboard_app.record_health_history([{
+    def test_health_history_persists_in_sqlite_and_returns_compact_hour_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = dashboard_app.Database(Path(directory) / "monitor.sqlite")
+            items = [{"id": "service-one", "name": "Service One", "alertsEnabled": True}]
+            for index in range(30):
+                database.record_health_results(items, [{
                     "itemId": "service-one",
                     "state": "offline" if index % 10 == 0 else "online",
                     "latencyMs": 20 + (index % 5),
                 }])
-            summary = dashboard_app.health_history_summary()["service-one"]
-            self.assertEqual(summary["samples"], dashboard_app.HEALTH_HISTORY_LIMIT)
+            summary = database.health_history()["service-one"]
+            self.assertEqual(summary["samples"], 30)
             self.assertGreater(summary["availability"], 80)
             self.assertLess(summary["availability"], 100)
             self.assertIsInstance(summary["averageLatencyMs"], int)
             self.assertTrue(summary["lastFailureAt"].endswith("Z"))
             self.assertTrue(summary["lastRecoveryAt"].endswith("Z"))
-            with dashboard_app.HEALTH_HISTORY_LOCK:
-                self.assertEqual(len(dashboard_app.HEALTH_HISTORY["service-one"]), dashboard_app.HEALTH_HISTORY_LIMIT)
-        finally:
-            with dashboard_app.HEALTH_HISTORY_LOCK:
-                dashboard_app.HEALTH_HISTORY.clear()
+            states = database.monitor_states()
+            self.assertEqual(states[0]["state"], "online")
+            self.assertEqual(states[0]["failures"], 0)
 
     def test_rogueforge_widget_uses_public_read_only_endpoints(self):
         class RogueForgeFixtureHandler(BaseHTTPRequestHandler):
