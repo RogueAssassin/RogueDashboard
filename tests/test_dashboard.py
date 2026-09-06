@@ -878,6 +878,18 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
+    def test_v190_migration_readiness_structure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = dashboard_app.Database(Path(directory) / "migration.sqlite")
+            readiness = database.migration_readiness()
+            self.assertIn("automatedReady", readiness)
+            self.assertIn("checks", readiness)
+            self.assertIn("history", readiness)
+            self.assertIn("manualChecks", readiness)
+            self.assertIn("uptimeKuma", readiness)
+            check_ids = {entry["id"] for entry in readiness["checks"]}
+            self.assertTrue({"monitor", "retention", "history", "incident", "discord", "discord-flow", "maintenance", "silence"}.issubset(check_ids))
+
     def test_v181_release_hardening_assets_and_compose(self):
         root = Path(__file__).parents[1]
         compose = (root / "compose.yaml").read_text(encoding="utf-8")
