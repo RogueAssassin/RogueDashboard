@@ -13,7 +13,7 @@
   </tr>
 </table>
 
-[![Release](https://img.shields.io/badge/RELEASE-1.4.1%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-1.5.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/pkgs/container/roguedashboard)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.13-ff4fc8?style=for-the-badge&labelColor=45464d)
@@ -39,6 +39,23 @@ RogueDashboard is designed to complement **[RogueForge](https://github.com/Rogue
 - Supports remote-first service artwork with local `/custom/icons` overrides.
 - Includes native RogueForge monitoring for version, engine, stack and container summaries.
 - Uses a responsive, low-overhead interface designed to stay lightweight on media and home servers.
+
+## 1.5.0 Customise
+
+The 1.5.0 testing release expands the live Customise panel so the dashboard can be managed without editing JSON:
+
+- dashboard title and subtitle
+- page titles
+- section titles
+- cards per row per section
+- maximum cards per row globally
+- move sections between pages
+- hide/show sections
+- hide/show individual cards
+- card width spanning 1–3 columns
+- move cards between sections
+- show/hide dashboard title, search, page tabs, statistics and footer
+- discard protection for unsaved editor changes
 
 ## Supported live integrations
 
@@ -81,7 +98,7 @@ RogueDashboard never receives the Docker or Podman socket from NPM.
 
 ### Always-on monitoring and Discord
 
-RogueDashboard 1.4.1 testing includes its own server-side monitoring loop. Health checks continue while every browser is closed and rolling results are persisted in SQLite.
+RogueDashboard 1.5.0 testing includes its own server-side monitoring loop. Health checks continue while every browser is closed and rolling results are persisted in SQLite.
 
 Configure the monitor in `.env`:
 
@@ -123,11 +140,11 @@ Down
 24h average uptime
 ```
 
-This integration remains available during migration, but RogueDashboard 1.4.1 testing no longer requires Uptime Kuma for its own uptime history or Discord outage/recovery notifications. Remove Uptime Kuma only after validating RogueDashboard background monitoring against your production services.
+This integration remains available during migration, but RogueDashboard 1.5.0 testing no longer requires Uptime Kuma for its own uptime history or Discord outage/recovery notifications. Remove Uptime Kuma only after validating RogueDashboard background monitoring against your production services.
 
 ### Custom API widget
 
-RogueDashboard 1.4.1 testing can map up to four values from any JSON endpoint without adding a dedicated integration.
+RogueDashboard 1.5.0 testing can map up to four values from any JSON endpoint without adding a dedicated integration.
 
 Example:
 
@@ -317,7 +334,7 @@ RogueForge
 
 This separation keeps RogueDashboard fast and avoids giving a homepage unnecessary control over the container engine.
 
-## 1.4.1 testing
+## 1.5.0 testing
 
 The testing branch is now the 1.4.1 development line. Stable production is 1.4.0 on `main`, `:1.4.0` and `:latest`.
 
@@ -381,7 +398,7 @@ Development is validated through the `testing` branch. Successful CI publishes:
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:1.4.1-testing
+ghcr.io/rogueassassin/roguedashboard:1.5.0-testing
 ```
 
 The pipeline runs application tests, Python validation, Compose validation, an amd64 build and a multi-architecture amd64/arm64 publish.
