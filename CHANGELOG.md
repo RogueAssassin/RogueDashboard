@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.0 (testing)
+
+- Advanced the testing channel to RogueDashboard 1.5.0.
+- Expanded Customise with explicit dashboard, page, section and card layout controls.
+- Added section page assignment and visibility controls.
+- Added per-card visibility and 1–3 column width/span controls.
+- Added moving cards between sections directly from the card editor.
+- Added dashboard title/search/page-tab/statistics/footer visibility controls.
+- Added unsaved-change protection when closing or leaving the customiser.
+- Preserved the 1.4.1 always-on SQLite monitoring and Discord notification foundation.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.5.0-testing`.
+
 ## 1.4.1 (testing)
 
 - Started the next testing cycle from the validated RogueDashboard 1.4.0 release.
