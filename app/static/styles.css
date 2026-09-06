@@ -1342,3 +1342,58 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
     justify-self:end;
   }
 }
+
+
+/* RogueDashboard 1.9.0 migration readiness */
+.migration-summary {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:10px;
+}
+.migration-summary > div {
+  min-width:0;
+  padding:9px 10px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface-soft);
+}
+.migration-summary span,
+.migration-summary strong { display:block; }
+.migration-summary span {
+  color:var(--muted);
+  font-size:.58rem;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  font-weight:800;
+}
+.migration-summary strong {
+  margin-top:4px;
+  font-size:.7rem;
+  overflow-wrap:anywhere;
+}
+.migration-checks {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.migration-check {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  padding:8px 9px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:var(--surface-soft);
+}
+.migration-check span:nth-child(2) { font-size:.66rem; }
+.migration-check strong {
+  color:var(--muted);
+  font-size:.58rem;
+  text-transform:uppercase;
+}
+.migration-check.manual { opacity:.82; }
+@media (max-width:620px) {
+  .migration-summary { grid-template-columns:1fr; }
+}
