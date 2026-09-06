@@ -13,7 +13,7 @@
   </tr>
 </table>
 
-[![Release](https://img.shields.io/badge/RELEASE-1.6.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-1.8.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
 [![GHCR](https://img.shields.io/badge/GHCR-PACKAGE-5c6ac4?style=for-the-badge&logo=github&logoColor=white&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/pkgs/container/roguedashboard)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
 ![Runtime](https://img.shields.io/badge/RUNTIME-PYTHON%203.13-ff4fc8?style=for-the-badge&labelColor=45464d)
@@ -40,9 +40,9 @@ RogueDashboard is designed to complement **[RogueForge](https://github.com/Rogue
 - Includes native RogueForge monitoring for version, engine, stack and container summaries.
 - Uses a responsive, low-overhead interface designed to stay lightweight on media and home servers.
 
-## 1.5.0 Customise
+## Customise
 
-The 1.6.0 testing release expands the live Customise panel so the dashboard can be managed without editing JSON:
+The current testing release expands the live Customise panel so the dashboard can be managed without editing JSON:
 
 - dashboard title and subtitle
 - page titles
@@ -57,9 +57,9 @@ The 1.6.0 testing release expands the live Customise panel so the dashboard can 
 - show/hide dashboard title, search, page tabs, statistics and footer
 - discard protection for unsaved editor changes
 
-## 1.6.0 Incident engine
+## Incident engine
 
-The 1.6.0 testing release builds a persistent incident layer on top of RogueDashboard's always-on monitor:
+The current testing release builds a persistent incident layer on top of RogueDashboard's always-on monitor:
 
 - confirmed `DEGRADED`, `DOWN` and `RECOVERED` state handling
 - persistent outage records in SQLite
@@ -71,6 +71,15 @@ The 1.6.0 testing release builds a persistent incident layer on top of RogueDash
 - persistent suppression state across browser sessions
 - open incident count and incident history in Customise → Connect
 - Discord recovery alerts only after a confirmed outage
+
+## 1.8.0 Rogue ecosystem
+
+RogueDashboard 1.8.0 strengthens the separation between the Rogue services:
+
+- **RogueDashboard** owns visibility, health, uptime, incidents and notifications.
+- **RogueForge** owns container/stack management and logs; Dashboard remains read-only and socket-free.
+- **RogueMediaValidator** has a native read-only diagnostics widget and approved icon aliases.
+- **RogueRoute GPX** keeps independent web, OSRM and manager health while presenting as one Rogue application.
 
 ## Supported live integrations
 
@@ -88,6 +97,7 @@ Pi-hole
 Nginx Proxy Manager
 Uptime Kuma
 RogueForge
+RogueMediaValidator
 ```
 
 Other services can still be added as normal health-checked cards.
