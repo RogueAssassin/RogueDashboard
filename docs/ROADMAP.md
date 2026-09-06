@@ -117,7 +117,7 @@ Goal: replace the monitoring functions currently provided by Uptime Kuma.
 
 ## v1.7.0 — notification centre
 
-Status: active testing.
+Status: completed in 1.7.1 testing.
 
 Goal: make RogueDashboard self-sufficient for outbound operational alerts.
 
