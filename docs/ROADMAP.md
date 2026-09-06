@@ -40,6 +40,8 @@ Exit criteria:
 
 ## v1.5.0 — complete Customise system
 
+Status: active testing.
+
 Goal: every visible dashboard structure must be editable without touching JSON or SQLite.
 
 Appearance:
