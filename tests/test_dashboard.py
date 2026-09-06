@@ -878,6 +878,16 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
+    def test_v171_notification_history_and_section_layout_present(self):
+        root = Path(__file__).parents[1]
+        source = (root / "app" / "static" / "app.js").read_text(encoding="utf-8")
+        styles = (root / "app" / "static" / "styles.css").read_text(encoding="utf-8")
+        self.assertIn("function notificationHistoryMarkup()", source)
+        self.assertIn('id="notification-history"', source)
+        self.assertIn("section-editor-controls", source)
+        self.assertIn(".section-editor-controls", styles)
+        self.assertIn("overflow-x:hidden", styles.replace(" ", ""))
+
     def test_v17_discord_delivery_controls_are_exposed(self):
         status = dashboard_app.monitor_status()
         self.assertIn("notifyDegraded", status["discord"])
