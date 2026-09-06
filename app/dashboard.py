@@ -634,6 +634,15 @@ class Database:
                          changed_at=excluded.changed_at,last_checked_at=excluded.last_checked_at,last_latency_ms=excluded.last_latency_ms""",
                     (item_id, item_name, confirmed_state, failures, changed_at, now, latency),
                 )
+                if confirmed_state == "offline":
+                    open_incident = self.db.execute(
+                        "SELECT id FROM incidents WHERE item_id=? AND resolved_at IS NULL ORDER BY id DESC LIMIT 1", (item_id,)
+                    ).fetchone()
+                    if not open_incident:
+                        self._record_incident_transition(
+                            item_id, item_name, previous_state if previous_state != "offline" else "degraded",
+                            confirmed_state, now, str(result.get("message") or ""),
+                        )
                 if previous and confirmed_state != previous_state:
                     self._record_incident_transition(
                         item_id, item_name, previous_state, confirmed_state, now,
@@ -958,6 +967,8 @@ def notify_transition(transition: dict[str, Any]) -> None:
     if state == "degraded":
         return
     if state == "offline" and not DISCORD_NOTIFY_DOWN:
+        return
+    if state == "online" and transition.get("previousState") != "offline":
         return
     if state == "online" and not DISCORD_NOTIFY_RECOVERY:
         return
