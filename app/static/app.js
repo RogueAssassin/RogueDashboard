@@ -579,7 +579,7 @@ function editorMarkup() {
       <section class="editor-section editor-tab-panel ${state.editorTab === "appearance" ? "active" : ""}" data-editor-panel="appearance">
         <div class="editor-section-intro"><span class="eyebrow">IDENTITY</span><h3>Appearance</h3><p>Keep the dashboard visually consistent with the Rogue ecosystem while retaining your own title, colours and background.</p></div>
         <div class="editor-card">
-          <div class="editor-card-heading"><div><strong>Dashboard identity</strong><span>Shown in the browser header and main dashboard title.</span></div></div>
+          <div class="editor-card-heading"><div><strong>Dashboard identity</strong><span>Edit the main dashboard title and subtitle shown at the top of every page.</span></div></div>
           <label class="field"><span>Dashboard title</span><input id="edit-title" value="${escapeHtml(state.draft.meta.title)}"></label>
           <label class="field"><span>Subtitle</span><input id="edit-subtitle" value="${escapeHtml(state.draft.meta.subtitle)}"></label>
         </div>
@@ -608,18 +608,18 @@ function editorMarkup() {
       <section class="editor-section editor-tab-panel ${state.editorTab === "layout" ? "active" : ""}" data-editor-panel="layout">
         <div class="editor-section-intro"><span class="eyebrow">STRUCTURE</span><h3>Layout</h3><p>Organise pages, groups and cards with consistent spacing and predictable alignment.</p></div>
         <div class="editor-card">
-          <div class="section-heading"><div><h3>Pages</h3><p>Create focused views without duplicating services.</p></div><button class="button small" id="add-page">+ Page</button></div>
+          <div class="section-heading"><div><h3>Pages</h3><p>Edit page titles and create focused dashboard views.</p></div><button class="button small" id="add-page">+ Page</button></div>
           <div class="page-editor-list" id="page-editor-list"></div>
         </div>
         <div class="editor-card">
           <div class="editor-card-heading"><div><strong>Dashboard grid</strong><span>Controls the maximum width and card behaviour.</span></div></div>
-          <label class="field"><span>Maximum columns</span><select id="edit-max-columns">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${state.draft.meta.maxColumns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+          <label class="field"><span>Maximum cards per row</span><select id="edit-max-columns">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${state.draft.meta.maxColumns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
           <label class="toggle-row"><input id="edit-full" type="checkbox" ${state.draft.meta.fullWidth ? "checked" : ""}><span><strong>Full-width layout</strong><small>Use the available browser width while retaining dashboard gutters.</small></span></label>
           <label class="toggle-row"><input id="edit-equal" type="checkbox" ${state.draft.meta.equalHeights ? "checked" : ""}><span><strong>Equal-height cards</strong><small>Align rows even when widgets have different metric counts.</small></span></label>
           <label class="toggle-row"><input id="edit-latency" type="checkbox" ${state.draft.meta.showLatency ? "checked" : ""}><span><strong>Response-time badges</strong><small>Show the latest health/API latency on service cards.</small></span></label>
         </div>
         <div class="editor-card">
-          <div class="section-heading"><div><h3>Groups</h3><p>Rename, reorder, assign pages and control columns.</p></div><button class="button small" id="add-group">+ Group</button></div>
+          <div class="section-heading"><div><h3>Sections</h3><p>Edit each section title, choose exactly how many cards appear per row, reorder sections, or remove them.</p></div><button class="button small" id="add-group">+ Section</button></div>
           <div class="group-editor-list" id="group-editor-list"></div>
         </div>
       </section>
@@ -810,7 +810,7 @@ async function revokeSession(sessionId) {
 function renderPageEditor() {
   const list = document.getElementById("page-editor-list");
   if (!list) return;
-  list.innerHTML = state.draft.pages.map((page, index) => `<div class="page-editor-row"><input data-page-name="${index}" value="${escapeHtml(page.name)}" aria-label="Page name"><button class="icon-button danger" data-page-delete="${index}" title="Delete page" ${state.draft.pages.length === 1 ? "disabled" : ""}>×</button></div>`).join("");
+  list.innerHTML = state.draft.pages.map((page, index) => `<div class="page-editor-row"><label class="inline-editor-field"><span>Page title</span><input data-page-name="${index}" value="${escapeHtml(page.name)}" aria-label="Page title"></label><button class="icon-button danger" data-page-delete="${index}" title="Delete page" ${state.draft.pages.length === 1 ? "disabled" : ""}>×</button></div>`).join("");
   list.querySelectorAll("[data-page-name]").forEach(input => input.oninput = () => {
     state.draft.pages[Number(input.dataset.pageName)].name = input.value || "Page";
     const tab = [...document.querySelectorAll("[data-page]")][Number(input.dataset.pageName)];
@@ -846,7 +846,7 @@ function renderGroupEditor() {
   const list = document.getElementById("group-editor-list");
   if (!list) return;
   const visible = state.draft.groups.map((group, index) => ({ group, index })).filter(({ group }) => (group.pageId || state.draft.pages[0].id) === state.activePage);
-  list.innerHTML = visible.map(({ group, index }, position) => `<div class="group-editor-row"><span>▦</span><div><input data-name="${index}" value="${escapeHtml(group.name)}"><span>${group.items.length} cards</span></div><select data-columns="${index}">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${group.columns === value ? "selected" : ""}>${value} cols</option>`).join("")}</select><div class="group-order"><button class="icon-button" data-move-up="${index}" title="Move up" ${position === 0 ? "disabled" : ""}>↑</button><button class="icon-button" data-move-down="${index}" title="Move down" ${position === visible.length - 1 ? "disabled" : ""}>↓</button></div><button class="icon-button danger" data-delete="${index}">×</button></div>`).join("");
+  list.innerHTML = visible.map(({ group, index }, position) => `<div class="group-editor-row section-editor-row"><span class="section-editor-icon">▦</span><label class="inline-editor-field section-title-field"><span>Section title</span><input data-name="${index}" value="${escapeHtml(group.name)}" aria-label="Section title"><small>${group.items.length} cards</small></label><label class="inline-editor-field cards-per-row-field"><span>Cards per row</span><select data-columns="${index}" aria-label="Cards per row">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${group.columns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label><div class="group-order"><button class="icon-button" data-move-up="${index}" title="Move section up" ${position === 0 ? "disabled" : ""}>↑</button><button class="icon-button" data-move-down="${index}" title="Move section down" ${position === visible.length - 1 ? "disabled" : ""}>↓</button></div><button class="icon-button danger" data-delete="${index}" title="Delete section">×</button></div>`).join("");
   list.querySelectorAll("[data-name]").forEach(input => input.oninput = () => { state.draft.groups[Number(input.dataset.name)].name = input.value; renderGroups(); });
   list.querySelectorAll("[data-columns]").forEach(select => select.onchange = () => { state.draft.groups[Number(select.dataset.columns)].columns = Number(select.value); renderGroups(); });
   list.querySelectorAll("[data-move-up]").forEach(button => button.onclick = () => moveGroup(Number(button.dataset.moveUp), -1));
