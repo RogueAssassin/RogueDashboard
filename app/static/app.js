@@ -952,6 +952,9 @@ function openItem(groupIndex, itemIndex) {
     <label class="field"><span>Open behaviour</span><select id="item-launch"><option value="new-tab">New tab</option><option value="same-tab">Same tab</option><option value="copy">Copy URL</option></select></label>
     <label class="field"><span>Favourite</span><select id="item-favorite"><option value="false">No</option><option value="true">Yes</option></select></label>
     <label class="field"><span>Discord outage alerts</span><select id="item-alerts"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
+    <label class="field"><span>Card visible</span><select id="item-visible"><option value="true">Yes</option><option value="false">No</option></select></label>
+    <label class="field"><span>Card width</span><select id="item-span"><option value="1">1 column</option><option value="2">2 columns</option><option value="3">3 columns</option></select></label>
+    <label class="field full"><span>Section</span><select id="item-target-group">${state.draft.groups.map((group, index) => `<option value="${index}" ${index === groupIndex ? "selected" : ""}>${escapeHtml((state.draft.pages.find(page => page.id === group.pageId)?.name || "Page") + " / " + group.name)}</option>`).join("")}</select></label>
     <label class="field"><span>Tags</span><input id="item-tags" value="${escapeHtml(normalizedTags(item).join(", "))}" placeholder="media, network, rogue"></label>
     <label class="field"><span>Health method</span><select id="item-health-method"><option value="HEAD">HEAD</option><option value="GET">GET</option></select></label>
     <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
@@ -980,6 +983,8 @@ function openItem(groupIndex, itemIndex) {
   document.getElementById("item-launch").value = item.launchMode || "new-tab";
   document.getElementById("item-favorite").value = item.favorite ? "true" : "false";
   document.getElementById("item-alerts").value = item.alertsEnabled === false ? "false" : "true";
+  document.getElementById("item-visible").value = item.visible === false ? "false" : "true";
+  document.getElementById("item-span").value = String(item.span || 1);
   document.getElementById("item-health-method").value = item.healthMethod || "HEAD";
   document.getElementById("item-health-timeout").value = String(item.healthTimeout || 4);
   document.getElementById("item-integration").value = item.widget?.type || "";
@@ -1027,6 +1032,8 @@ function saveItem(event) {
     launchMode: document.getElementById("item-launch").value,
     favorite: document.getElementById("item-favorite").value === "true",
     alertsEnabled: document.getElementById("item-alerts").value === "true",
+    visible: document.getElementById("item-visible").value === "true",
+    span: Number(document.getElementById("item-span").value),
     tags: document.getElementById("item-tags").value.split(",").map(value => value.trim()).filter(Boolean).slice(0, 12),
     healthMethod: document.getElementById("item-health-method").value,
     healthTimeout: Number(document.getElementById("item-health-timeout").value),
@@ -1074,7 +1081,15 @@ function saveItem(event) {
     }
     if (integration === "pihole") item.widget.version = 6;
   }
-  if (itemIndex === undefined) state.draft.groups[groupIndex].items.push(item); else state.draft.groups[groupIndex].items[itemIndex] = item;
+  const targetGroupIndex = Number(document.getElementById("item-target-group").value);
+  if (itemIndex === undefined) {
+    state.draft.groups[targetGroupIndex].items.push(item);
+  } else if (targetGroupIndex === groupIndex) {
+    state.draft.groups[groupIndex].items[itemIndex] = item;
+  } else {
+    state.draft.groups[groupIndex].items.splice(itemIndex, 1);
+    state.draft.groups[targetGroupIndex].items.push(item);
+  }
   closeOverlay(); renderGroupEditor(); renderGroups();
 }
 
