@@ -95,6 +95,8 @@ Customiser UX:
 
 ## v1.6.0 — uptime and incident engine
 
+Status: active testing.
+
 Goal: replace the monitoring functions currently provided by Uptime Kuma.
 
 - Persistent incidents table separate from raw health samples.
