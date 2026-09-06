@@ -29,10 +29,11 @@ RogueDashboard is designed to complement **[RogueForge](https://github.com/Rogue
 ## What RogueDashboard does
 
 - Displays your self-hosted services in configurable pages and groups.
-- Checks private HTTP/HTTPS health endpoints and shows live latency.
+- Checks private HTTP/HTTPS health endpoints continuously, even when no browser is open, and shows live latency.
 - Collects lightweight application metrics from supported services.
 - Keeps API keys and secrets server-side through `RGDASH_*` environment variables.
-- Stores dashboard configuration, accounts and sessions in SQLite.
+- Stores dashboard configuration, accounts, sessions and rolling health history in SQLite.
+- Supports optional Discord webhook alerts for confirmed outages and recoveries.
 - Supports Docker and Podman from one engine-neutral `compose.yaml`.
 - Runs without a Docker/Podman socket or privileged container-engine access.
 - Supports remote-first service artwork with local `/custom/icons` overrides.
@@ -78,6 +79,29 @@ RGDASH_NPM_TOKEN=...
 
 RogueDashboard never receives the Docker or Podman socket from NPM.
 
+### Always-on monitoring and Discord
+
+RogueDashboard 1.4.1 testing includes its own server-side monitoring loop. Health checks continue while every browser is closed and rolling results are persisted in SQLite.
+
+Configure the monitor in `.env`:
+
+```env
+RGDASH_MONITOR_INTERVAL=30
+RGDASH_MONITOR_FAILURE_THRESHOLD=3
+RGDASH_MONITOR_RETENTION_HOURS=168
+```
+
+Optional Discord alerts use a standard Discord channel webhook:
+
+```env
+RGDASH_DISCORD_ENABLED=true
+RGDASH_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+RGDASH_DISCORD_NOTIFY_DOWN=true
+RGDASH_DISCORD_NOTIFY_RECOVERY=true
+```
+
+The webhook URL remains server-side. Individual service cards can disable outage alerts while remaining monitored. The Connect customiser shows monitor status and includes a Discord test action.
+
 ### Native Uptime Kuma
 
 Uptime Kuma support reads its published status-page JSON endpoints rather than depending on the internal Socket.IO administration API.
@@ -99,11 +123,11 @@ Down
 24h average uptime
 ```
 
-This mode requires the selected Uptime Kuma status page to be published. It requires no container-engine socket and no dashboard administrator credentials.
+This integration remains available during migration, but RogueDashboard 1.4.1 testing no longer requires Uptime Kuma for its own uptime history or Discord outage/recovery notifications. Remove Uptime Kuma only after validating RogueDashboard background monitoring against your production services.
 
 ### Custom API widget
 
-RogueDashboard 1.4.0 testing can map up to four values from any JSON endpoint without adding a dedicated integration.
+RogueDashboard 1.4.1 testing can map up to four values from any JSON endpoint without adding a dedicated integration.
 
 Example:
 
@@ -143,7 +167,7 @@ Both applications can share the same `media-net` network. RogueRoute GPX testing
 Production:
 
 ```text
-ghcr.io/rogueassassin/roguedashboard:1.3.5
+ghcr.io/rogueassassin/roguedashboard:1.4.0
 ```
 
 Latest stable:
