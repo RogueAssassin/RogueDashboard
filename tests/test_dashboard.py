@@ -514,6 +514,37 @@ class RogueDashboardTests(unittest.TestCase):
         legacy = dashboard_app.validate_dashboard(multi_page)
         self.assertEqual([group["pageId"] for group in legacy["groups"]], ["home", "home"])
 
+    def test_v09_customiser_visibility_and_span_fields(self):
+        current = {
+            "version": 9,
+            "meta": {
+                "title": "Customise",
+                "showHeader": False,
+                "showSearch": False,
+                "showPageTabs": False,
+                "showStats": False,
+                "showFooter": False,
+            },
+            "pages": [{"id": "home", "name": "Home"}],
+            "groups": [{
+                "id": "services", "name": "Services", "kind": "services", "columns": 4,
+                "pageId": "home", "visible": False,
+                "items": [{
+                    "id": "one", "name": "One", "visible": False, "span": 3,
+                    "alertsEnabled": True,
+                }],
+            }],
+        }
+        validated = dashboard_app.validate_dashboard(current)
+        self.assertFalse(validated["meta"]["showHeader"])
+        self.assertFalse(validated["meta"]["showSearch"])
+        self.assertFalse(validated["meta"]["showPageTabs"])
+        self.assertFalse(validated["meta"]["showStats"])
+        self.assertFalse(validated["meta"]["showFooter"])
+        self.assertFalse(validated["groups"][0]["visible"])
+        self.assertFalse(validated["groups"][0]["items"][0]["visible"])
+        self.assertEqual(validated["groups"][0]["items"][0]["span"], 3)
+
     def test_v08_card_controls_are_validated_and_preserved(self):
         current = {
             "version": 8,
