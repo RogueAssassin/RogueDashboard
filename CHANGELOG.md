@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.9.0 (testing)
+
+- Advanced RogueDashboard to the migration and container-removal release candidate.
+- Added evidence-based Migration Readiness in Customise → Connect.
+- Added automated checks for live background monitoring, 7-day retention/history coverage, resolved incidents, Discord connectivity, real DOWN/RECOVERED delivery, maintenance testing and per-service silence testing.
+- Added observed history coverage and Uptime Kuma keep/remove recommendation.
+- Kept restart/reboot persistence and RogueForge log validation as explicit manual gates.
+- Marked Uptime Kuma as migration-only in the integration selector.
+- Removed the stale Dockge icon alias left after repository cleanup.
+- Preserved Uptime Kuma compatibility until all removal gates are satisfied.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.9.0-testing`.
+
 ## 1.8.1 (testing)
 
 - Hardened RogueDashboard 1.8.x for the final pre-1.9 integration cycle.
