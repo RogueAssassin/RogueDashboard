@@ -6,7 +6,7 @@
 
 **Local-first service monitoring, uptime, incidents and notifications for Docker and Podman environments.**
 
-[![Release](https://img.shields.io/badge/RELEASE-1.8.1%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-1.9.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -30,6 +30,22 @@ RogueDashboard deliberately stays separate from **RogueForge**, which owns conta
 - one unified `compose.yaml` for Docker and Podman
 - read-only root filesystem, dropped capabilities and no engine socket
 - amd64 and arm64 testing images
+
+## 1.9.0 migration readiness
+
+Customise → Connect now includes a **Migration readiness** panel. RogueDashboard checks its own persisted evidence before recommending Uptime Kuma removal:
+
+- background monitor freshness
+- 7+ days of retained/observed health history
+- at least one real resolved outage
+- Discord webhook connectivity
+- successful DOWN and RECOVERED deliveries
+- maintenance suppression test
+- per-service silence test
+
+Restart/reboot persistence and RogueForge logging remain manual validation gates because RogueDashboard cannot safely prove those from inside its own container.
+
+Uptime Kuma remains available as a migration-only integration until these gates pass.
 
 ## Rogue ecosystem
 
@@ -207,7 +223,7 @@ Container lifecycle and log access remain in RogueForge.
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:1.8.1-testing
+ghcr.io/rogueassassin/roguedashboard:1.9.0-testing
 ```
 
 The testing branch is promoted only after CI and live-host validation pass.
