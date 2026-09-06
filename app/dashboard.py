@@ -815,6 +815,7 @@ HEALTH_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 HEALTH_LOCK = threading.Lock()
 WIDGET_CACHE: tuple[float, list[dict[str, Any]]] = (0, [])
 WIDGET_LOCK = threading.Lock()
+DB: Database | None = None
 MONITOR_STOP = threading.Event()
 MONITOR_WAKE = threading.Event()
 MONITOR_LAST_RUN = 0
