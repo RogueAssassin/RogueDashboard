@@ -1318,3 +1318,27 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
     justify-self:end;
   }
 }
+
+
+/* RogueDashboard 1.8.1 Customise polish */
+.section-editor-actions-wrap {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:5px;
+  min-width:96px;
+}
+.section-actions-label {
+  color:var(--muted);
+  font-size:.58rem;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+@media (max-width:620px) {
+  .section-editor-actions-wrap {
+    grid-column:1 / -1;
+    width:auto;
+    justify-self:end;
+  }
+}
