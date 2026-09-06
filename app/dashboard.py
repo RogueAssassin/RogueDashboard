@@ -35,7 +35,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 PORT = int(os.environ.get("PORT", "8080"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
@@ -66,7 +66,7 @@ ROGUEROUTE_OSRM_HEALTH_URL = "http://rogueroute-gpx-web:9080/api/health/osrm"
 ROGUEROUTE_MANAGER_HEALTH_URL = "http://rogueroute-gpx-manager:9090/health"
 MONITOR_INTERVAL = max(15, min(300, int(os.environ.get("RGDASH_MONITOR_INTERVAL", "30"))))
 MONITOR_FAILURE_THRESHOLD = max(1, min(10, int(os.environ.get("RGDASH_MONITOR_FAILURE_THRESHOLD", "3"))))
-MONITOR_RETENTION_HOURS = max(1, min(720, int(os.environ.get("RGDASH_MONITOR_RETENTION_HOURS", "168"))))
+MONITOR_RETENTION_HOURS = max(24, min(2160, int(os.environ.get("RGDASH_MONITOR_RETENTION_HOURS", "720"))))
 DISCORD_ENABLED = os.environ.get("RGDASH_DISCORD_ENABLED", "false").lower() == "true"
 DISCORD_WEBHOOK_URL = os.environ.get("RGDASH_DISCORD_WEBHOOK_URL", "").strip()
 DISCORD_NOTIFY_DOWN = os.environ.get("RGDASH_DISCORD_NOTIFY_DOWN", "true").lower() == "true"
@@ -351,6 +351,16 @@ class Database:
               item_name TEXT NOT NULL, event TEXT NOT NULL, outcome TEXT NOT NULL, detail TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS notification_log_time_idx ON notification_log(id DESC);
+            CREATE TABLE IF NOT EXISTS incidents (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, item_name TEXT NOT NULL,
+              opened_at INTEGER NOT NULL, resolved_at INTEGER, state TEXT NOT NULL,
+              opening_detail TEXT NOT NULL DEFAULT '', resolution_detail TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS incidents_item_time_idx ON incidents(item_id, opened_at DESC);
+            CREATE INDEX IF NOT EXISTS incidents_open_idx ON incidents(resolved_at, opened_at DESC);
+            CREATE TABLE IF NOT EXISTS monitor_suppressions (
+              scope TEXT PRIMARY KEY, mode TEXT NOT NULL, until_at INTEGER NOT NULL, note TEXT NOT NULL DEFAULT ''
+            );
             """
         )
         session_columns = {row[1] for row in self.db.execute("PRAGMA table_info(sessions)")}
@@ -508,6 +518,82 @@ class Database:
             self.db.commit()
 
 
+    def active_suppression(self, item_id: str = "") -> dict[str, Any] | None:
+        now = int(time.time())
+        with self.lock:
+            self.db.execute("DELETE FROM monitor_suppressions WHERE until_at<=?", (now,))
+            scopes = ["global"] + ([f"item:{item_id}"] if item_id else [])
+            placeholders = ",".join("?" for _ in scopes)
+            row = self.db.execute(
+                f"SELECT scope,mode,until_at,note FROM monitor_suppressions WHERE scope IN ({placeholders}) ORDER BY CASE WHEN scope='global' THEN 0 ELSE 1 END LIMIT 1",
+                scopes,
+            ).fetchone()
+            self.db.commit()
+        return {"scope": row[0], "mode": row[1], "untilAt": row[2], "note": row[3]} if row else None
+
+    def set_suppression(self, item_id: str, mode: str, minutes: int, note: str = "") -> dict[str, Any]:
+        mode = mode if mode in ("silence", "maintenance") else "silence"
+        minutes = clamp(minutes, 1, 1440, 30)
+        scope = f"item:{text(item_id, 100)}" if item_id else "global"
+        until_at = int(time.time()) + minutes * 60
+        with self.lock:
+            self.db.execute(
+                """INSERT INTO monitor_suppressions(scope,mode,until_at,note) VALUES(?,?,?,?)
+                   ON CONFLICT(scope) DO UPDATE SET mode=excluded.mode,until_at=excluded.until_at,note=excluded.note""",
+                (scope, mode, until_at, text(note, 200)),
+            )
+            self.db.commit()
+        return {"scope": scope, "mode": mode, "untilAt": until_at, "note": text(note, 200)}
+
+    def clear_suppression(self, item_id: str = "") -> None:
+        scope = f"item:{text(item_id, 100)}" if item_id else "global"
+        with self.lock:
+            self.db.execute("DELETE FROM monitor_suppressions WHERE scope=?", (scope,))
+            self.db.commit()
+
+    def suppression_entries(self) -> list[dict[str, Any]]:
+        now = int(time.time())
+        with self.lock:
+            self.db.execute("DELETE FROM monitor_suppressions WHERE until_at<=?", (now,))
+            rows = self.db.execute("SELECT scope,mode,until_at,note FROM monitor_suppressions ORDER BY until_at").fetchall()
+            self.db.commit()
+        return [{"scope": row[0], "mode": row[1], "untilAt": row[2], "note": row[3]} for row in rows]
+
+    def _record_incident_transition(self, item_id: str, item_name: str, previous_state: str, state: str, now: int, detail: str = "") -> None:
+        if state == "offline" and previous_state != "offline":
+            existing = self.db.execute(
+                "SELECT id FROM incidents WHERE item_id=? AND resolved_at IS NULL ORDER BY id DESC LIMIT 1", (item_id,)
+            ).fetchone()
+            if not existing:
+                self.db.execute(
+                    "INSERT INTO incidents(item_id,item_name,opened_at,state,opening_detail) VALUES(?,?,?,?,?)",
+                    (item_id, item_name, now, "open", text(detail, 500)),
+                )
+        elif state == "online" and previous_state == "offline":
+            self.db.execute(
+                """UPDATE incidents SET resolved_at=?,state='resolved',resolution_detail=?
+                   WHERE id=(SELECT id FROM incidents WHERE item_id=? AND resolved_at IS NULL ORDER BY id DESC LIMIT 1)""",
+                (now, text(detail, 500), item_id),
+            )
+
+    def incidents(self, limit: int = 100) -> list[dict[str, Any]]:
+        now = int(time.time())
+        with self.lock:
+            rows = self.db.execute(
+                """SELECT id,item_id,item_name,opened_at,resolved_at,state,opening_detail,resolution_detail
+                   FROM incidents ORDER BY opened_at DESC LIMIT ?""",
+                (clamp(limit, 1, 250, 100),),
+            ).fetchall()
+        return [{
+            "id": row[0], "itemId": row[1], "name": row[2], "openedAt": row[3], "resolvedAt": row[4],
+            "state": row[5], "durationSeconds": max(0, (row[4] or now) - row[3]),
+            "openingDetail": row[6], "resolutionDetail": row[7],
+        } for row in rows]
+
+    def availability_windows(self) -> dict[str, dict[str, Any]]:
+        windows = {"1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000}
+        return {name: self.health_history(seconds) for name, seconds in windows.items()}
+
     def record_health_results(self, items: list[dict[str, Any]], results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         now = int(time.time())
         by_id = {str(item.get("id") or ""): item for item in items}
@@ -533,12 +619,13 @@ class Database:
                 previous_failures = int(previous[1]) if previous else 0
                 previous_changed = int(previous[2]) if previous else now
                 failures = 0 if raw_state == "online" else previous_failures + 1
-                confirmed_state = "online" if raw_state == "online" else (
-                    "offline" if failures >= MONITOR_FAILURE_THRESHOLD else previous_state
-                )
-                if confirmed_state not in ("online", "offline"):
-                    confirmed_state = "unknown"
-                changed_at = now if confirmed_state != previous_state and confirmed_state in ("online", "offline") else previous_changed
+                if raw_state == "online":
+                    confirmed_state = "online"
+                elif failures >= MONITOR_FAILURE_THRESHOLD:
+                    confirmed_state = "offline"
+                else:
+                    confirmed_state = "degraded"
+                changed_at = now if confirmed_state != previous_state else previous_changed
                 self.db.execute(
                     """INSERT INTO monitor_state(item_id,item_name,state,failures,changed_at,last_checked_at,last_latency_ms)
                        VALUES(?,?,?,?,?,?,?)
@@ -547,7 +634,11 @@ class Database:
                          changed_at=excluded.changed_at,last_checked_at=excluded.last_checked_at,last_latency_ms=excluded.last_latency_ms""",
                     (item_id, item_name, confirmed_state, failures, changed_at, now, latency),
                 )
-                if previous and previous_state in ("online", "offline") and confirmed_state in ("online", "offline") and confirmed_state != previous_state:
+                if previous and confirmed_state != previous_state:
+                    self._record_incident_transition(
+                        item_id, item_name, previous_state, confirmed_state, now,
+                        str(result.get("message") or ""),
+                    )
                     transitions.append({
                         "itemId": item_id,
                         "name": item_name,
@@ -600,6 +691,7 @@ class Database:
             {
                 "itemId": row[0], "name": row[1], "state": row[2], "failures": row[3],
                 "changedAt": row[4], "lastCheckedAt": row[5], "latencyMs": row[6],
+                "suppression": self.active_suppression(row[0]),
             }
             for row in rows
         ]
@@ -860,7 +952,11 @@ def send_discord_notification(title: str, description: str) -> None:
 def notify_transition(transition: dict[str, Any]) -> None:
     if not transition.get("alertsEnabled", True):
         return
+    if DB and DB.active_suppression(str(transition.get("itemId") or "")):
+        return
     state = transition.get("state")
+    if state == "degraded":
+        return
     if state == "offline" and not DISCORD_NOTIFY_DOWN:
         return
     if state == "online" and not DISCORD_NOTIFY_RECOVERY:
@@ -939,6 +1035,8 @@ def monitor_status() -> dict[str, Any]:
             "notifyRecovery": DISCORD_NOTIFY_RECOVERY,
         },
         "services": DB.monitor_states() if DB else [],
+        "suppressions": DB.suppression_entries() if DB else [],
+        "openIncidents": len([entry for entry in (DB.incidents(250) if DB else []) if entry["state"] == "open"]),
     }
 
 
@@ -1073,7 +1171,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 results = run_health_monitor_once()
             self.json_response(results)
         elif path == "/api/history":
-            self.json_response({"windowSeconds": 3600, "services": health_history_summary()})
+            windows = DB.availability_windows()
+            self.json_response({"windowSeconds": 3600, "services": windows["1h"], "windows": windows})
+        elif path == "/api/incidents":
+            self.json_response({"incidents": DB.incidents()})
         elif path == "/api/monitor/status":
             self.json_response(monitor_status())
         elif path == "/api/notifications":
@@ -1176,6 +1277,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     return
                 clear_monitor_caches()
                 MONITOR_WAKE.set()
+                self.json_response({"ok": True})
+            elif path == "/api/monitor/suppress":
+                if not self.require_admin():
+                    return
+                if not isinstance(body, dict):
+                    raise ValueError("Invalid suppression request")
+                item_id = text(body.get("itemId"), 100)
+                mode = text(body.get("mode"), 20, "silence")
+                minutes = clamp(body.get("minutes"), 1, 1440, 30)
+                result = DB.set_suppression(item_id, mode, minutes, text(body.get("note"), 200))
+                DB.audit(self.username() or "administrator", f"monitor.{mode}", item_id or "global", "success", f"{minutes} minutes")
+                self.json_response({"ok": True, "suppression": result})
+            elif path == "/api/monitor/suppress/clear":
+                if not self.require_admin():
+                    return
+                item_id = text(body.get("itemId"), 100) if isinstance(body, dict) else ""
+                DB.clear_suppression(item_id)
+                DB.audit(self.username() or "administrator", "monitor.suppression.clear", item_id or "global", "success")
                 self.json_response({"ok": True})
             elif path == "/api/notifications/test":
                 if not self.require_admin():
