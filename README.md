@@ -242,6 +242,19 @@ Icon: rogueforge
 
 The card can display RogueForge version, container engine, running/total stacks and running/total containers.
 
+## RogueMediaValidator card
+
+RogueMediaValidator artwork is recognised automatically when a card is named `RogueMediaValidator`, `Media Validator`, or uses the icon key `roguemediavalidator`. RogueDashboard uses the approved 128px artwork from the RogueMediaValidator repository and still honours a matching file placed in `/custom/icons/` as the highest-priority override.
+
+Example:
+
+```text
+Name: RogueMediaValidator
+Open URL: http://roguemediavalidator:7811
+Private health URL: http://roguemediavalidator:7811/health
+Icon: roguemediavalidator
+```
+
 ## Branding and icons
 
 RogueDashboard uses the approved high-detail **RD** artwork from the RogueDashboard icon pack. The web UI uses the corrected approved 128px PNG as the single canonical RogueDashboard mark for the header, setup, administrator surfaces, service cards and browser icon.
