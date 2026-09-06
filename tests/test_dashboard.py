@@ -446,7 +446,7 @@ class RogueDashboardTests(unittest.TestCase):
         widget["secretRefs"] = ["HOMEPAGE_VAR_QBITTORRENT_USERNAME", "HOMEPAGE_VAR_QBITTORRENT_PASSWORD"]
         widget["secretBindings"] = {"username": "HOMEPAGE_VAR_QBITTORRENT_USERNAME", "password": "HOMEPAGE_VAR_QBITTORRENT_PASSWORD"}
         migrated = dashboard_app.validate_dashboard(legacy)
-        self.assertEqual(migrated["version"], 8)
+        self.assertEqual(migrated["version"], 9)
         self.assertEqual(migrated["meta"]["theme"], "neon")
         self.assertEqual(migrated["meta"]["density"], "compact")
         migrated_widget = migrated["groups"][0]["items"][0]["widget"]
@@ -561,7 +561,7 @@ class RogueDashboardTests(unittest.TestCase):
         }
         validated = dashboard_app.validate_dashboard(current)
         item = validated["groups"][0]["items"][0]
-        self.assertEqual(validated["version"], 8)
+        self.assertEqual(validated["version"], 9)
         self.assertTrue(item["favorite"])
         self.assertEqual(item["tags"][:2], ["media", "movies"])
         self.assertEqual(len(item["tags"][2]), 40)
