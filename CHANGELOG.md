@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.0 (testing)
+
+- Advanced RogueDashboard to the Rogue ecosystem integration milestone.
+- Added native RogueMediaValidator read-only diagnostics with automatic integration aliases.
+- Added RogueMediaValidator integration defaults, health monitoring and approved logo handling.
+- Preserved RogueForge as the read-only management bridge without granting RogueDashboard an engine socket.
+- Preserved RogueRoute GPX web, OSRM and manager health handling.
+- Updated the integration Customise UI with native RogueMediaValidator configuration.
+- Kept restart, update and log control delegated to RogueForge.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.8.0-testing`.
+
 ## 1.7.1 (testing)
 
 - Aligned the Sections lower-row controls into fixed Cards per row, Page, Visible and Actions columns.
