@@ -878,6 +878,13 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
+    def test_v17_discord_delivery_controls_are_exposed(self):
+        status = dashboard_app.monitor_status()
+        self.assertIn("notifyDegraded", status["discord"])
+        self.assertIn("cooldownSeconds", status["discord"])
+        self.assertIn("retryAttempts", status["discord"])
+        self.assertIn("minOutageSeconds", status["discord"])
+
     def test_v16_incident_lifecycle_and_suppression(self):
         with tempfile.TemporaryDirectory() as directory:
             database = dashboard_app.Database(Path(directory) / "incidents.sqlite")
