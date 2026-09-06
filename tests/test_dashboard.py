@@ -676,6 +676,13 @@ class RogueDashboardTests(unittest.TestCase):
             self.assertTrue({"created_at", "last_seen_at"}.issubset(columns))
             self.assertIsNotNone(database.db.execute("SELECT name FROM sqlite_master WHERE name='action_audit'").fetchone())
 
+    def test_connection_diagnostics_initializes_history_before_detail(self):
+        source = (Path(__file__).parents[1] / "app" / "static" / "app.js").read_text(encoding="utf-8")
+        start = source.index("function connectionDiagnosticsMarkup()")
+        end = source.index("function proxyDiagnosticsMarkup()", start)
+        block = source[start:end]
+        self.assertLess(block.index("const historyDetail"), block.index("const detail"))
+
     def test_customiser_frontend_contains_resilient_open_path(self):
         source = (Path(__file__).parents[1] / "app" / "static" / "app.js").read_text(encoding="utf-8")
         self.assertIn('function openEditor()', source)
