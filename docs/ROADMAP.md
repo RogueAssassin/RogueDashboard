@@ -17,7 +17,7 @@ The v2 release must be able to replace Uptime Kuma for day-to-day monitoring whi
 
 ## v1.4.1 — monitoring foundation
 
-Status: active testing.
+Status: completed.
 
 - Server-side monitoring continues when all browsers are closed.
 - Persist health samples and monitor state in SQLite.
@@ -40,7 +40,7 @@ Exit criteria:
 
 ## v1.5.0 — complete Customise system
 
-Status: active testing.
+Status: completed.
 
 Goal: every visible dashboard structure must be editable without touching JSON or SQLite.
 
@@ -95,7 +95,7 @@ Customiser UX:
 
 ## v1.6.0 — uptime and incident engine
 
-Status: active testing.
+Status: completed in 1.7.x testing.
 
 Goal: replace the monitoring functions currently provided by Uptime Kuma.
 
