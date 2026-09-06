@@ -621,6 +621,12 @@ function editorMarkup() {
           <label class="toggle-row"><input id="edit-full" type="checkbox" ${state.draft.meta.fullWidth ? "checked" : ""}><span><strong>Full-width layout</strong><small>Use the available browser width while retaining dashboard gutters.</small></span></label>
           <label class="toggle-row"><input id="edit-equal" type="checkbox" ${state.draft.meta.equalHeights ? "checked" : ""}><span><strong>Equal-height cards</strong><small>Align rows even when widgets have different metric counts.</small></span></label>
           <label class="toggle-row"><input id="edit-latency" type="checkbox" ${state.draft.meta.showLatency ? "checked" : ""}><span><strong>Response-time badges</strong><small>Show the latest health/API latency on service cards.</small></span></label>
+          <div class="editor-card-heading compact-heading"><div><strong>Dashboard visibility</strong><span>Choose which dashboard chrome stays visible outside edit mode.</span></div></div>
+          <label class="toggle-row"><input id="edit-show-header" type="checkbox" ${state.draft.meta.showHeader !== false ? "checked" : ""}><span><strong>Dashboard title</strong><small>Show the logo, title and subtitle.</small></span></label>
+          <label class="toggle-row"><input id="edit-show-search" type="checkbox" ${state.draft.meta.showSearch !== false ? "checked" : ""}><span><strong>Search</strong><small>Show the service search field.</small></span></label>
+          <label class="toggle-row"><input id="edit-show-pages" type="checkbox" ${state.draft.meta.showPageTabs !== false ? "checked" : ""}><span><strong>Page tabs</strong><small>Show page navigation outside Customise.</small></span></label>
+          <label class="toggle-row"><input id="edit-show-stats" type="checkbox" ${state.draft.meta.showStats !== false ? "checked" : ""}><span><strong>Statistics strip</strong><small>Show runtime and availability summaries.</small></span></label>
+          <label class="toggle-row"><input id="edit-show-footer" type="checkbox" ${state.draft.meta.showFooter !== false ? "checked" : ""}><span><strong>Footer</strong><small>Show version and monitoring footer.</small></span></label>
         </div>
         <div class="editor-card">
           <div class="section-heading"><div><h3>Sections</h3><p>Edit each section title, choose exactly how many cards appear per row, reorder sections, or remove them.</p></div><button class="button small" id="add-group">+ Section</button></div>
@@ -762,6 +768,11 @@ function bindEditor() {
   document.getElementById("edit-full").onchange = event => { state.draft.meta.fullWidth = event.target.checked; document.querySelector(".dashboard").classList.toggle("full-width", event.target.checked); };
   document.getElementById("edit-equal").onchange = event => { state.draft.meta.equalHeights = event.target.checked; renderGroups(); };
   document.getElementById("edit-latency").onchange = event => { state.draft.meta.showLatency = event.target.checked; renderGroups(); };
+  const visibilityKeys = { header: "showHeader", search: "showSearch", pages: "showPageTabs", stats: "showStats", footer: "showFooter" };
+  Object.entries(visibilityKeys).forEach(([name, key]) => {
+    const control = document.getElementById(`edit-show-${name}`);
+    if (control) control.onchange = event => { state.draft.meta[key] = event.target.checked; renderDashboard(); };
+  });
   document.getElementById("add-group").onclick = addGroup;
   document.getElementById("add-page").onclick = addPage;
   document.getElementById("save-dashboard").onclick = saveDashboard;
