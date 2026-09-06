@@ -1,19 +1,36 @@
 # Upgrading
 
-Back up `.env`, `data/` and `custom/` first.
+RogueDashboard upgrades are container replacements. Keep the existing `.env`, `data/` and `custom/` paths.
 
-Podman:
-
-```bash
-sudo podman-compose --env-file .env -f compose.podman.yaml pull
-sudo podman-compose --env-file .env -f compose.podman.yaml up -d
-```
-
-Docker:
+## Before upgrading
 
 ```bash
-docker compose --env-file .env -f docker-compose.yaml pull
-docker compose --env-file .env -f docker-compose.yaml up -d
+cp .env .env.backup
+tar -czf roguedashboard-data-backup.tgz data custom
 ```
 
-No Git checkout or shell updater is required.
+Do not replace your existing `.env` with `.env.example`; compare new variables and merge only what you need.
+
+## Podman
+
+```bash
+cd /opt/media-server/roguedashboard
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
+podman compose --env-file .env -f compose.yaml pull
+podman compose --env-file .env -f compose.yaml up -d
+```
+
+## Docker
+
+```bash
+cd /opt/roguedashboard
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
+docker compose --env-file .env -f compose.yaml pull
+docker compose --env-file .env -f compose.yaml up -d
+```
+
+## After upgrading
+
+Check the running version, Customise pages, background monitor status, Discord delivery status and at least one native integration. Existing SQLite data is migrated in place when required.
+
+For stable releases, use the `main` branch compose file and the release image/tag rather than `testing`.
