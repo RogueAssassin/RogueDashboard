@@ -2,6 +2,8 @@
 
 ## 1.7.1 (testing)
 
+- Aligned the Sections lower-row controls into fixed Cards per row, Page, Visible and Actions columns.
+- Added an authoritative layout override so legacy section-editor CSS cannot distort the current Customise panel.
 - Added a notification delivery-history panel in Customise → Connect.
 - Shows recent sent, failed, suppressed and deduplicated Discord events.
 - Added manual notification-history refresh.
