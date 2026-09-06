@@ -1150,7 +1150,7 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
 
 /* RogueDashboard 1.5.0 layout customisation */
 .card-grid .service-card {
-  grid-column: span min(var(--card-span, 1), var(--group-columns, 1));
+  grid-column: span var(--card-span, 1);
 }
 .service-card.is-hidden-config {
   opacity: .48;
