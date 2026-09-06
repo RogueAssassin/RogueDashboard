@@ -880,9 +880,10 @@ class RogueDashboardTests(unittest.TestCase):
 
     def test_v171_section_alignment_override_is_authoritative(self):
         styles = (Path(__file__).parents[1] / "app" / "static" / "styles.css").read_text(encoding="utf-8")
-        self.assertIn("RogueDashboard 1.7.2 section alignment override", styles)
-        self.assertIn("grid-template-columns:88px minmax(0,1fr) 78px 96px !important", styles.replace(" ", ""))
-        self.assertIn("grid-template-columns:none !important", styles.replace(" ", ""))
+        self.assertIn("RogueDashboard 1.7.1 final section alignment override", styles)
+        compact = styles.replace(" ", "")
+        self.assertIn("grid-template-columns:88pxminmax(0,1fr)78px96px!important", compact)
+        self.assertIn("grid-template-columns:none!important", compact)
 
     def test_v171_notification_history_and_section_layout_present(self):
         root = Path(__file__).parents[1]
