@@ -20,7 +20,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
-USER_AGENT = "RogueDashboard/1.4.0"
+USER_AGENT = "RogueDashboard/1.8.0"
 MAX_RESPONSE = 2_000_000
 LARGE_LIBRARY_RESPONSE = 24_000_000
 TIMEOUT = 6
@@ -33,6 +33,7 @@ SUPPORTED_WIDGETS = {
     "qbittorrent",
     "radarr",
     "rogueforge",
+    "roguemediavalidator",
     "seerr",
     "sonarr",
     "tautulli",
@@ -551,6 +552,36 @@ def _uptimekuma(widget: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def _roguemediavalidator(widget: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect safe read-only RogueMediaValidator diagnostics."""
+    base = _base_url(widget.get("url"))
+    candidates = ("/api/diagnostics", "/diagnostics", "/api/status", "/health")
+    response: Any = None
+    for path in candidates:
+        try:
+            response = _json_request(f"{base}{path}")
+            if isinstance(response, dict):
+                break
+        except HTTPError as error:
+            if error.code != 404:
+                raise
+    if not isinstance(response, dict):
+        raise ValueError("RogueMediaValidator did not expose a supported read-only diagnostics endpoint.")
+
+    qb = response.get("qbittorrent") if isinstance(response.get("qbittorrent"), dict) else {}
+    categories = response.get("categories") if isinstance(response.get("categories"), dict) else {}
+    managed = categories.get("managed") or response.get("managed_categories") or response.get("managedCategories") or []
+    mode = response.get("mode") or response.get("validation_mode") or response.get("validationMode") or "unknown"
+    connected = qb.get("connected") if qb else response.get("connected")
+    version = response.get("version") or response.get("appVersion") or response.get("app_version") or "unknown"
+    return [
+        _metric("Version", version),
+        _metric("Mode", str(mode).replace("_", " ").title()),
+        _metric("qBittorrent", "Connected" if connected is True else ("Offline" if connected is False else "Unknown")),
+        _metric("Categories", len(managed) if isinstance(managed, list) else managed or 0),
+    ]
+
+
 def _rogueforge(widget: dict[str, Any]) -> list[dict[str, str]]:
     """Collect lightweight public RogueForge runtime, stack and container summaries."""
     base = _base_url(widget.get("url"))
@@ -591,6 +622,7 @@ COLLECTORS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "qbittorrent": _qbittorrent,
     "radarr": lambda widget: _arr(widget, "radarr"),
     "rogueforge": _rogueforge,
+    "roguemediavalidator": _roguemediavalidator,
     "seerr": _seerr,
     "sonarr": lambda widget: _arr(widget, "sonarr"),
     "tautulli": _tautulli,
