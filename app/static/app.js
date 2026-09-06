@@ -36,7 +36,7 @@ const ICON_FILES = {
   radarr: "radarr.svg", sonarr: "sonarr.svg", seerr: "seerr.svg",
   jellyseerr: "seerr.svg", overseerr: "seerr.svg", bazarr: "bazarr.svg",
   tautulli: "tautulli.svg", pihole: "pihole.svg", dozzle: "dozzle.svg",
-  uptimekuma: "uptime-kuma.svg", dockge: "dockge.svg",
+  uptimekuma: "uptime-kuma.svg",
   flaresolverr: "flaresolverr.svg", github: "github.svg",
   rogueforge: "rogueforge.jpg", roguedashboard: "roguedashboard-approved-128.png",
   rogueroutegpx: "rogueroute-gpx.svg", rogueroutegpxweb: "rogueroute-gpx.svg",
@@ -409,7 +409,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.8.1")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
+        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.9.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -515,6 +515,16 @@ function widgetCardMarkup(item, widget) {
   };
   const detail = widget?.missingRefs?.length ? `Missing: ${widget.missingRefs.join(", ")}` : widget?.message || "Waiting for the first refresh";
   return `<span class="widget-chip widget-${escapeHtml(widget?.state || "loading")}" title="${escapeHtml(detail)}">${escapeHtml(labels[widget?.state] || item.widget.type)}</span>`;
+}
+
+function migrationReadinessMarkup() {
+  const readiness = state.monitor?.migrationReadiness;
+  if (!readiness) return `<div class="notice info">Migration readiness is waiting for monitor data.</div>`;
+  const automatic = (readiness.checks || []).map(check => `<div class="migration-check"><span class="widget-state-dot ${check.passed ? "ok" : "degraded"}"></span><span>${escapeHtml(check.label)}</span><strong>${check.passed ? "Ready" : "Pending"}</strong></div>`).join("");
+  const manual = (readiness.manualChecks || []).map(check => `<div class="migration-check manual"><span class="widget-state-dot degraded"></span><span>${escapeHtml(check.label)}</span><strong>Manual</strong></div>`).join("");
+  const coverage = readiness.history?.coverageDays ?? 0;
+  const recommendation = readiness.uptimeKuma?.recommendation === "remove" ? "Automated Kuma gates passed" : "Keep Uptime Kuma for now";
+  return `<div class="migration-summary"><div><span>Observed history</span><strong>${escapeHtml(String(coverage))} days</strong></div><div><span>Uptime Kuma</span><strong>${escapeHtml(recommendation)}</strong></div></div><div class="migration-checks">${automatic}${manual}</div>`;
 }
 
 function notificationHistoryMarkup() {
@@ -687,6 +697,10 @@ function editorMarkup() {
           ${state.monitor?.lastError ? `<div class="notice error">${escapeHtml(state.monitor.lastError)}</div>` : ""}
         </div>
         <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Migration readiness</strong><span>Evidence-based gates for replacing Uptime Kuma and removing duplicate utility containers.</span></div><span class="health-pill ${state.monitor?.migrationReadiness?.automatedReady ? "online" : "degraded"}">${state.monitor?.migrationReadiness?.automatedReady ? "Automated gates ready" : "Validation in progress"}</span></div>
+          <div id="migration-readiness">${migrationReadinessMarkup()}</div>
+        </div>
+        <div class="editor-card">
           <div class="editor-card-heading"><div><strong>Incident history</strong><span>Persistent outage records continue across browser and container restarts.</span></div></div>
           <div class="incident-list">${incidentHistoryMarkup()}</div>
         </div>
@@ -713,7 +727,7 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.8.1")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.9.0")}</strong></div>
             <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
             <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
@@ -1041,7 +1055,7 @@ function openItem(groupIndex, itemIndex) {
     <label class="field"><span>Health timeout</span><select id="item-health-timeout">${[2,3,4,5,6,8,10].map(value => `<option value="${value}">${value} seconds</option>`).join("")}</select></label>
     <label class="field"><span>Accepted HTTP from</span><input id="item-health-min" type="number" min="100" max="599" value="${Number(item.healthStatusMin || 200)}"></label>
     <label class="field"><span>Accepted HTTP to</span><input id="item-health-max" type="number" min="100" max="599" value="${Number(item.healthStatusMax || 499)}"></label>
-    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "roguemediavalidator" ? "RogueMediaValidator" : type === "customapi" ? "Custom API" : type === "npm" ? "Nginx Proxy Manager" : type === "uptimekuma" ? "Uptime Kuma" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
+    <label class="field"><span>Live integration</span><select id="item-integration"><option value="">Health check only</option>${Object.keys(INTEGRATION_DEFAULTS).map(type => `<option value="${type}">${type === "pihole" ? "Pi-hole" : type === "qbittorrent" ? "qBittorrent" : type === "rogueforge" ? "RogueForge" : type === "roguemediavalidator" ? "RogueMediaValidator" : type === "customapi" ? "Custom API" : type === "npm" ? "Nginx Proxy Manager" : type === "uptimekuma" ? "Uptime Kuma (migration only)" : type[0].toUpperCase() + type.slice(1)}</option>`).join("")}</select></label>
     <label class="field"><span>Private API URL</span><input id="item-widget-url" value="${escapeHtml(item.widget?.url || item.monitorUrl || "")}" placeholder="http://container:port/api/status"></label>
     <div class="uptime-kuma-fields full" id="uptime-kuma-fields" ${item.widget?.type === "uptimekuma" ? "" : "hidden"}>
       <div class="editor-card">
@@ -1313,6 +1327,8 @@ async function refreshRuntime(force = false) {
     }
     updateStats();
     renderGroups();
+    const migrationReadiness = document.getElementById("migration-readiness");
+    if (migrationReadiness) migrationReadiness.innerHTML = migrationReadinessMarkup();
     const notificationHistory = document.getElementById("notification-history");
     if (notificationHistory) notificationHistory.innerHTML = notificationHistoryMarkup();
     const diagnostics = document.getElementById("widget-diagnostics");
