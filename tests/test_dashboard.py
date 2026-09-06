@@ -878,6 +878,17 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
+    def test_v180_rogue_media_validator_native_integration(self):
+        root = Path(__file__).parents[1]
+        integrations = (root / "app" / "integrations.py").read_text(encoding="utf-8")
+        importer = (root / "app" / "importer.py").read_text(encoding="utf-8")
+        source = (root / "app" / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('"roguemediavalidator"', integrations)
+        self.assertIn("def _roguemediavalidator(", integrations)
+        self.assertIn('"roguemediavalidator": ("roguemediavalidator", [], {})', importer)
+        self.assertIn("http://roguemediavalidator:7811", source)
+        self.assertIn("RogueMediaValidator", source)
+
     def test_v171_section_alignment_override_is_authoritative(self):
         styles = (Path(__file__).parents[1] / "app" / "static" / "styles.css").read_text(encoding="utf-8")
         self.assertIn("RogueDashboard 1.7.1 final section alignment override", styles)
