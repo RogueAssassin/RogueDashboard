@@ -523,10 +523,10 @@ function connectionDiagnosticsMarkup() {
     const latency = Number.isFinite(live?.latencyMs) ? live.latencyMs : probe?.latencyMs;
     const loadedEnvironment = (live?.environment || []).filter(entry => entry.loaded).map(entry => entry.name);
     const environmentDetail = loadedEnvironment.length ? ` · .env loaded: ${loadedEnvironment.join(", ")}` : "";
-    const detail = live?.missingRefs?.length ? `Missing ${live.missingRefs.join(", ")}` : `${live?.message || (live?.state === "ok" ? `${live.metrics.length} API metrics responding` : probe?.message || (probe?.state === "online" ? "Service endpoint responding" : "Waiting for connection test"))}${environmentDetail}${historyDetail}`;
     const endpoint = item.widget?.url || item.monitorUrl || "No private URL";
     const history = state.history.get(item.id);
     const historyDetail = history?.lastFailureAt ? ` · last failure ${relativeTime(history.lastFailureAt)}` : "";
+    const detail = live?.missingRefs?.length ? `Missing ${live.missingRefs.join(", ")}` : `${live?.message || (live?.state === "ok" ? `${live.metrics.length} API metrics responding` : probe?.message || (probe?.state === "online" ? "Service endpoint responding" : "Waiting for connection test"))}${environmentDetail}${historyDetail}`;
     const action = stateName === "ok" || stateName === "online" ? "Connected" : stateName === "degraded" ? "Degraded" : stateName === "configuration_required" ? "Configure" : stateName === "error" || stateName === "offline" ? "Check" : "Pending";
     return `<div class="widget-diagnostic"><span class="widget-state-dot ${escapeHtml(stateName)}"></span><div><strong>${escapeHtml(item.name)}</strong><small title="${escapeHtml(`${endpoint} · ${detail}`)}">${escapeHtml(item.widget?.type || "health probe")} · ${escapeHtml(endpoint)} · ${escapeHtml(detail)}</small></div><span>${Number.isFinite(latency) ? `${latency} ms · ` : ""}${action}</span></div>`;
   }).join("")}</div><div class="notice info">Credentials use <strong>RGDASH_*</strong> names in <strong>.env</strong>. Changes take effect after restarting the <strong>roguedashboard</strong> service.</div>`;
