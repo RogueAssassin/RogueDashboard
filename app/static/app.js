@@ -408,7 +408,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.7.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
+        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.7.1")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -514,6 +514,16 @@ function widgetCardMarkup(item, widget) {
   };
   const detail = widget?.missingRefs?.length ? `Missing: ${widget.missingRefs.join(", ")}` : widget?.message || "Waiting for the first refresh";
   return `<span class="widget-chip widget-${escapeHtml(widget?.state || "loading")}" title="${escapeHtml(detail)}">${escapeHtml(labels[widget?.state] || item.widget.type)}</span>`;
+}
+
+function notificationHistoryMarkup() {
+  if (!state.notifications.length) return `<div class="notice info">No notification deliveries recorded yet.</div>`;
+  const labels = { sent: "Sent", failed: "Failed", suppressed: "Suppressed", deduplicated: "Deduplicated" };
+  return state.notifications.slice(0, 30).map(entry => {
+    const outcome = entry.outcome || "unknown";
+    const when = entry.occurredAt ? relativeTime(entry.occurredAt) : "";
+    return `<div class="notification-row notification-${escapeHtml(outcome)}"><span class="widget-state-dot ${outcome === "sent" ? "ok" : outcome === "failed" ? "offline" : "degraded"}"></span><div><strong>${escapeHtml(entry.name || "RogueDashboard")} · ${escapeHtml(entry.event || "notification")}</strong><small>${escapeHtml(labels[outcome] || outcome)}${when ? ` · ${escapeHtml(when)}` : ""}${entry.detail ? ` · ${escapeHtml(entry.detail)}` : ""}</small></div><span class="protected-chip">${escapeHtml((labels[outcome] || outcome).toUpperCase())}</span></div>`;
+  }).join("");
 }
 
 function incidentHistoryMarkup() {
@@ -680,6 +690,10 @@ function editorMarkup() {
           <div class="incident-list">${incidentHistoryMarkup()}</div>
         </div>
         <div class="editor-card">
+          <div class="editor-card-heading"><div><strong>Notification delivery</strong><span>Recent Discord sends, failures, suppressions and deduplicated alerts.</span></div><button class="button tiny" id="refresh-notifications">↻ Refresh</button></div>
+          <div class="notification-list" id="notification-history">${notificationHistoryMarkup()}</div>
+        </div>
+        <div class="editor-card">
           <div class="editor-card-heading"><div><strong>Live integrations</strong><span>Shows which configured API widgets are communicating successfully.</span></div></div>
           <div id="widget-diagnostics">${connectionDiagnosticsMarkup()}</div>
         </div>
@@ -698,7 +712,7 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.7.0")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.7.1")}</strong></div>
             <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
             <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
@@ -834,6 +848,8 @@ function bindEditor() {
       await refreshRuntime(false);
     } catch (error) { toast(error.message); }
   };
+  const refreshNotifications = document.getElementById("refresh-notifications");
+  if (refreshNotifications) refreshNotifications.onclick = () => refreshRuntime(true);
   const testDiscord = document.getElementById("test-discord");
   if (testDiscord) testDiscord.onclick = async () => {
     testDiscord.disabled = true;
@@ -914,7 +930,18 @@ function renderGroupEditor() {
   const list = document.getElementById("group-editor-list");
   if (!list) return;
   const visible = state.draft.groups.map((group, index) => ({ group, index })).filter(({ group }) => (group.pageId || state.draft.pages[0].id) === state.activePage);
-  list.innerHTML = visible.map(({ group, index }, position) => `<div class="group-editor-row section-editor-row"><span class="section-editor-icon">▦</span><label class="inline-editor-field section-title-field"><span>Section title</span><input data-name="${index}" value="${escapeHtml(group.name)}" aria-label="Section title"><small>${group.items.length} cards</small></label><label class="inline-editor-field cards-per-row-field"><span>Cards per row</span><select data-columns="${index}" aria-label="Cards per row">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${group.columns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label><label class="inline-editor-field section-page-field"><span>Page</span><select data-group-page="${index}">${state.draft.pages.map(page => `<option value="${escapeHtml(page.id)}" ${group.pageId === page.id ? "selected" : ""}>${escapeHtml(page.name)}</option>`).join("")}</select></label><label class="inline-editor-field compact-select"><span>Visible</span><select data-group-visible="${index}"><option value="true" ${group.visible !== false ? "selected" : ""}>Yes</option><option value="false" ${group.visible === false ? "selected" : ""}>No</option></select></label><div class="group-order"><button class="icon-button" data-move-up="${index}" title="Move section up" ${position === 0 ? "disabled" : ""}>↑</button><button class="icon-button" data-move-down="${index}" title="Move section down" ${position === visible.length - 1 ? "disabled" : ""}>↓</button></div><button class="icon-button danger" data-delete="${index}" title="Delete section">×</button></div>`).join("");
+  list.innerHTML = visible.map(({ group, index }, position) => `<div class="group-editor-row section-editor-row">
+    <div class="section-editor-primary">
+      <span class="section-editor-icon">▦</span>
+      <label class="inline-editor-field section-title-field"><span>Section title</span><input data-name="${index}" value="${escapeHtml(group.name)}" aria-label="Section title"><small>${group.items.length} cards</small></label>
+    </div>
+    <div class="section-editor-controls">
+      <label class="inline-editor-field cards-per-row-field"><span>Cards per row</span><select data-columns="${index}" aria-label="Cards per row">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${group.columns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+      <label class="inline-editor-field section-page-field"><span>Page</span><select data-group-page="${index}">${state.draft.pages.map(page => `<option value="${escapeHtml(page.id)}" ${group.pageId === page.id ? "selected" : ""}>${escapeHtml(page.name)}</option>`).join("")}</select></label>
+      <label class="inline-editor-field compact-select"><span>Visible</span><select data-group-visible="${index}"><option value="true" ${group.visible !== false ? "selected" : ""}>Yes</option><option value="false" ${group.visible === false ? "selected" : ""}>No</option></select></label>
+      <div class="section-editor-actions"><div class="group-order"><button class="icon-button" data-move-up="${index}" title="Move section up" ${position === 0 ? "disabled" : ""}>↑</button><button class="icon-button" data-move-down="${index}" title="Move section down" ${position === visible.length - 1 ? "disabled" : ""}>↓</button></div><button class="icon-button danger" data-delete="${index}" title="Delete section">×</button></div>
+    </div>
+  </div>`).join("");
   list.querySelectorAll("[data-name]").forEach(input => input.oninput = () => { state.draft.groups[Number(input.dataset.name)].name = input.value; renderGroups(); });
   list.querySelectorAll("[data-columns]").forEach(select => select.onchange = () => { state.draft.groups[Number(select.dataset.columns)].columns = Number(select.value); renderGroups(); });
   list.querySelectorAll("[data-group-page]").forEach(select => select.onchange = () => { state.draft.groups[Number(select.dataset.groupPage)].pageId = select.value; renderGroupEditor(); renderGroups(); });
@@ -1262,20 +1289,23 @@ async function refreshRuntime(force = false) {
       try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
       catch (error) { toast(error.message); }
     }
-    const [health, system, widgets, history, monitor, incidents] = await Promise.allSettled([
-      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"), request("/api/monitor/status"), request("/api/incidents"),
+    const [health, system, widgets, history, monitor, incidents, notifications] = await Promise.allSettled([
+      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"), request("/api/monitor/status"), request("/api/incidents"), state.authenticated ? request("/api/notifications") : Promise.resolve({ entries: [] }),
     ]);
     if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
     if (system.status === "fulfilled") state.system = system.value;
     if (history.status === "fulfilled") { state.history = new Map(Object.entries(history.value.services || {})); state.availabilityWindows = history.value.windows || {}; }
     if (monitor.status === "fulfilled") state.monitor = monitor.value;
     if (incidents.status === "fulfilled") state.incidents = incidents.value.incidents || [];
+    if (notifications.status === "fulfilled") state.notifications = notifications.value.entries || [];
     if (widgets.status === "fulfilled") {
       state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
       state.widgetSupport = widgets.value.supported;
     }
     updateStats();
     renderGroups();
+    const notificationHistory = document.getElementById("notification-history");
+    if (notificationHistory) notificationHistory.innerHTML = notificationHistoryMarkup();
     const diagnostics = document.getElementById("widget-diagnostics");
     if (diagnostics) {
       diagnostics.innerHTML = connectionDiagnosticsMarkup();
