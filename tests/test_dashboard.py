@@ -878,6 +878,39 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
+    def test_v16_incident_lifecycle_and_suppression(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = dashboard_app.Database(Path(directory) / "incidents.sqlite")
+            items = [{"id": "service-one", "name": "Service One", "alertsEnabled": True}]
+            for _ in range(dashboard_app.MONITOR_FAILURE_THRESHOLD):
+                transitions = database.record_health_results(items, [{
+                    "itemId": "service-one", "state": "offline", "message": "connection failed",
+                }])
+            incidents = database.incidents()
+            self.assertEqual(len(incidents), 1)
+            self.assertEqual(incidents[0]["state"], "open")
+            transitions = database.record_health_results(items, [{
+                "itemId": "service-one", "state": "online", "latencyMs": 12,
+            }])
+            self.assertTrue(any(entry["state"] == "online" for entry in transitions))
+            incidents = database.incidents()
+            self.assertEqual(incidents[0]["state"], "resolved")
+            self.assertIsNotNone(incidents[0]["resolvedAt"])
+            suppression = database.set_suppression("service-one", "silence", 30, "test")
+            self.assertEqual(suppression["mode"], "silence")
+            self.assertIsNotNone(database.active_suppression("service-one"))
+            database.clear_suppression("service-one")
+            self.assertIsNone(database.active_suppression("service-one"))
+
+    def test_v16_availability_windows_are_available(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = dashboard_app.Database(Path(directory) / "windows.sqlite")
+            items = [{"id": "service-one", "name": "Service One"}]
+            database.record_health_results(items, [{"itemId": "service-one", "state": "online", "latencyMs": 10}])
+            windows = database.availability_windows()
+            self.assertEqual(set(windows), {"1h", "24h", "7d", "30d"})
+            self.assertIn("service-one", windows["1h"])
+
     def test_health_history_persists_in_sqlite_and_returns_compact_hour_summary(self):
         with tempfile.TemporaryDirectory() as directory:
             database = dashboard_app.Database(Path(directory) / "monitor.sqlite")
