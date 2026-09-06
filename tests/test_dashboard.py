@@ -676,6 +676,15 @@ class RogueDashboardTests(unittest.TestCase):
             self.assertTrue({"created_at", "last_seen_at"}.issubset(columns))
             self.assertIsNotNone(database.db.execute("SELECT name FROM sqlite_master WHERE name='action_audit'").fetchone())
 
+    def test_customiser_frontend_contains_resilient_open_path(self):
+        source = (Path(__file__).parents[1] / "app" / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('function openEditor()', source)
+        self.assertIn('document.querySelector(".editor-panel")', source)
+        self.assertIn('RogueDashboard customiser binding failed', source)
+        self.assertIn('id="edit-title"', source)
+        self.assertIn('id="edit-max-columns"', source)
+        self.assertIn('id="group-editor-list"', source)
+
     def test_setup_and_authenticated_save_over_http(self):
         with tempfile.TemporaryDirectory() as directory:
             previous = dashboard_app.DB
