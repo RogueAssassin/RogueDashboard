@@ -35,7 +35,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.4.1"
+VERSION = "1.5.0"
 PORT = int(os.environ.get("PORT", "8080"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
@@ -114,7 +114,7 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_secondary):
         accent_secondary = "#00e5ff"
     result: dict[str, Any] = {
-        "version": 8,
+        "version": 9,
         "meta": {
             "title": text(raw_meta.get("title"), 100, "My RogueDashboard").strip() or "My RogueDashboard",
             "subtitle": text(raw_meta.get("subtitle"), 180, "Your self-hosted command centre"),
@@ -130,6 +130,11 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
             "fullWidth": raw_meta.get("fullWidth", True) is True,
             "equalHeights": raw_meta.get("equalHeights", True) is True,
             "maxColumns": clamp(raw_meta.get("maxColumns"), 1, 6, 4),
+            "showHeader": raw_meta.get("showHeader", True) is True,
+            "showSearch": raw_meta.get("showSearch", True) is True,
+            "showPageTabs": raw_meta.get("showPageTabs", True) is True,
+            "showStats": raw_meta.get("showStats", True) is True,
+            "showFooter": raw_meta.get("showFooter", True) is True,
         },
         "groups": [],
         "widgets": {
@@ -169,6 +174,7 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
             "columns": clamp(raw_group.get("columns"), 1, 6, 3),
             "collapsed": raw_group.get("collapsed", False) is True,
             "pageId": raw_group.get("pageId") if stored_version >= 6 and raw_group.get("pageId") in page_ids else default_page_id,
+            "visible": raw_group.get("visible", True) is True,
             "items": [],
         }
         raw_items = raw_group.get("items") if isinstance(raw_group.get("items"), list) else []
@@ -193,6 +199,8 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
                     item[key] = text(raw_item[key], limit)
             item["favorite"] = raw_item.get("favorite", False) is True
             item["alertsEnabled"] = raw_item.get("alertsEnabled", True) is True
+            item["visible"] = raw_item.get("visible", True) is True
+            item["span"] = clamp(raw_item.get("span"), 1, 3, 1)
             raw_tags = raw_item.get("tags") if isinstance(raw_item.get("tags"), list) else []
             item["tags"] = [
                 text(tag, 40).strip()
