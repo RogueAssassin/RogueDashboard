@@ -58,6 +58,9 @@ INTEGRATION_DEFAULTS = {
     "npm": ("npm", ["RGDASH_NPM_TOKEN"], {"token": "RGDASH_NPM_TOKEN"}),
     "uptimekuma": ("uptimekuma", [], {}),
     "rogueforge": ("rogueforge", [], {}),
+    "roguemediavalidator": ("roguemediavalidator", [], {}),
+    "mediavalidator": ("roguemediavalidator", [], {}),
+    "roguevalidator": ("roguemediavalidator", [], {}),
 }
 
 
