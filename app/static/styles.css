@@ -1089,3 +1089,60 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
   .stat-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .stat-strip .hero-time { grid-column: span 2; }
 }
+
+
+/* RogueDashboard 1.4.1 explicit customiser controls */
+.inline-editor-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+.inline-editor-field > span {
+  color: var(--muted);
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.inline-editor-field > small {
+  color: var(--muted);
+  font-size: .56rem;
+}
+.page-editor-row {
+  align-items: end;
+}
+.page-editor-row .inline-editor-field {
+  flex: 1 1 auto;
+}
+.section-editor-row {
+  grid-template-columns: auto minmax(160px,1fr) minmax(92px,120px) auto auto;
+  align-items: end;
+  gap: 9px;
+}
+.section-editor-icon {
+  align-self: center;
+}
+.section-title-field input,
+.cards-per-row-field select,
+.page-editor-row input {
+  width: 100%;
+}
+.cards-per-row-field {
+  min-width: 92px;
+}
+@media (max-width: 620px) {
+  .section-editor-row {
+    grid-template-columns: auto minmax(0,1fr) auto;
+    align-items: end;
+  }
+  .section-title-field {
+    grid-column: 2 / 4;
+  }
+  .cards-per-row-field {
+    grid-column: 2;
+  }
+  .group-order {
+    grid-column: 3;
+  }
+}
