@@ -1252,3 +1252,69 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
   .section-page-field { grid-column:1 / -1; }
   .section-editor-actions { grid-column:1 / -1; justify-content:flex-end; }
 }
+
+
+/* RogueDashboard 1.7.2 section alignment override */
+.section-editor-row {
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  gap:10px !important;
+  min-width:0 !important;
+  grid-template-columns:none !important;
+}
+.section-editor-primary {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+.section-editor-controls {
+  display:grid !important;
+  grid-template-columns:88px minmax(0,1fr) 78px 96px !important;
+  align-items:end !important;
+  gap:8px !important;
+  min-width:0 !important;
+}
+.section-editor-controls > * { min-width:0 !important; }
+.section-editor-actions {
+  width:96px;
+  display:grid !important;
+  grid-template-columns:1fr auto !important;
+  align-items:end !important;
+  gap:6px !important;
+  justify-self:end;
+}
+.section-editor-actions .group-order {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+}
+.section-editor-actions .icon-button,
+.section-editor-actions .group-order .icon-button {
+  width:29px;
+  min-width:29px;
+  height:32px;
+}
+.section-editor-controls .compact-select,
+.section-editor-controls .cards-per-row-field,
+.section-editor-controls .section-page-field {
+  width:auto !important;
+  min-width:0 !important;
+  grid-column:auto !important;
+}
+.section-editor-controls select { width:100% !important; }
+@media (max-width:620px) {
+  .section-editor-controls {
+    grid-template-columns:1fr 1fr !important;
+  }
+  .section-editor-controls .section-page-field {
+    grid-column:1 / -1 !important;
+  }
+  .section-editor-actions {
+    grid-column:1 / -1 !important;
+    width:auto;
+    justify-self:end;
+  }
+}
