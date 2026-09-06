@@ -157,7 +157,7 @@ Privileged container actions such as restart/log access must remain delegated to
 
 ## v1.8.0 — Rogue ecosystem integration
 
-Status: active testing.
+Status: completed in 1.8.1 testing.
 
 RogueForge:
 
@@ -179,6 +179,18 @@ RogueRoute GPX:
 - Preserve native private-health endpoint handling.
 - Maintain separate web/OSRM/manager states.
 - Improve grouping/presentation as one logical RogueRoute application when useful.
+
+## v1.8.1 — release hardening
+
+Status: active testing.
+
+- Clean and simplify repository documentation.
+- Keep one current Docker/Podman installation path.
+- Keep Customise responsive and visually consistent.
+- Add native container healthcheck.
+- Remove unused assets and obsolete release-era files.
+- Revalidate RogueForge, RogueMediaValidator and RogueRoute integration.
+- Prepare the repository for the final 1.9.0 migration/removal gate and v2.0.0 release work.
 
 ## v1.9.0 — migration and container removal release candidate
 
