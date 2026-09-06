@@ -409,7 +409,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
         <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
-        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.8.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
+        ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "1.8.1")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
@@ -713,7 +713,7 @@ function editorMarkup() {
             <div><span>Signed in as</span><strong>${escapeHtml(state.username || "administrator")}</strong></div>
             <div><span>Runtime</span><strong>${escapeHtml(runtimeName)}</strong></div>
             <div><span>Platform</span><strong>${escapeHtml(runtimePlatform)}</strong></div>
-            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.8.0")}</strong></div>
+            <div><span>Version</span><strong>${escapeHtml(state.bootstrap?.version || "1.8.1")}</strong></div>
             <div><span>Storage</span><strong>${state.system?.storageTotal ? `${formatBytes(state.system.storageUsed)} / ${formatBytes(state.system.storageTotal)}` : "Loading…"}</strong></div>
             <div><span>Network</span><strong>${escapeHtml((state.system?.addresses || []).join(", ") || "Loading…")}</strong></div>
           </div>
@@ -940,7 +940,7 @@ function renderGroupEditor() {
       <label class="inline-editor-field cards-per-row-field"><span>Cards per row</span><select data-columns="${index}" aria-label="Cards per row">${[1,2,3,4,5,6].map(value => `<option value="${value}" ${group.columns === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
       <label class="inline-editor-field section-page-field"><span>Page</span><select data-group-page="${index}">${state.draft.pages.map(page => `<option value="${escapeHtml(page.id)}" ${group.pageId === page.id ? "selected" : ""}>${escapeHtml(page.name)}</option>`).join("")}</select></label>
       <label class="inline-editor-field compact-select"><span>Visible</span><select data-group-visible="${index}"><option value="true" ${group.visible !== false ? "selected" : ""}>Yes</option><option value="false" ${group.visible === false ? "selected" : ""}>No</option></select></label>
-      <div class="section-editor-actions"><div class="group-order"><button class="icon-button" data-move-up="${index}" title="Move section up" ${position === 0 ? "disabled" : ""}>↑</button><button class="icon-button" data-move-down="${index}" title="Move section down" ${position === visible.length - 1 ? "disabled" : ""}>↓</button></div><button class="icon-button danger" data-delete="${index}" title="Delete section">×</button></div>
+      <div class="section-editor-actions-wrap"><span class="section-actions-label">Actions</span><div class="section-editor-actions"><div class="group-order"><button class="icon-button" data-move-up="${index}" title="Move section up" ${position === 0 ? "disabled" : ""}>↑</button><button class="icon-button" data-move-down="${index}" title="Move section down" ${position === visible.length - 1 ? "disabled" : ""}>↓</button></div><button class="icon-button danger" data-delete="${index}" title="Delete section">×</button></div></div>
     </div>
   </div>`).join("");
   list.querySelectorAll("[data-name]").forEach(input => input.oninput = () => { state.draft.groups[Number(input.dataset.name)].name = input.value; renderGroups(); });
