@@ -1,6 +1,6 @@
 FROM python:3.13-alpine
 
-ARG RGDASH_VERSION=1.8.1
+ARG RGDASH_VERSION=1.9.0
 
 LABEL org.opencontainers.image.title="RogueDashboard" \
       org.opencontainers.image.description="Local-first service dashboard" \
