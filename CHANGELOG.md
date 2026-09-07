@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.0 (testing)
+
+- Established the first RogueDashboard 2.x testing baseline.
+- Aligned the README and Customise experience with RogueForge's Rogue ecosystem presentation.
+- Reworked `.env.example` into the same fully documented sectioned style and revision policy used by RogueForge.
+- Standardised the canonical deployment name, directory, service, hostname and GHCR package on `roguedashboard`.
+- Removed the legacy hyphenated service/network alias and legacy database-name migration.
+- Added an explicit Rogue ecosystem responsibility panel to Customise → Connect.
+- Preserved the socket-free monitoring architecture, migration readiness engine and Discord incident system from 1.9.0.
+- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:2.0.0-testing`.
+
 ## 1.9.0 (testing)
 
 - Advanced RogueDashboard to the migration and container-removal release candidate.
