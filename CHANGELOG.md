@@ -1,256 +1,80 @@
 # Changelog
 
-## 2.0.0 (testing)
+## 2.0.0
 
-- Established the first RogueDashboard 2.x testing baseline.
-- Aligned the README and Customise experience with RogueForge's Rogue ecosystem presentation.
-- Reworked `.env.example` into the same fully documented sectioned style and revision policy used by RogueForge.
-- Standardised the canonical deployment name, directory, service, hostname and GHCR package on `roguedashboard`.
-- Removed the legacy hyphenated service/network alias and legacy database-name migration.
-- Added an explicit Rogue ecosystem responsibility panel to Customise → Connect.
-- Preserved the socket-free monitoring architecture, migration readiness engine and Discord incident system from 1.9.0.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:2.0.0-testing`.
+- Established the RogueDashboard 2.x monitoring platform.
+- Standardised the canonical deployment, container and GHCR identity on `roguedashboard`.
+- Aligned the Rogue ecosystem presentation and documented `.env` style with RogueForge.
+- Added the RogueForge-style `update.sh` workflow for production, testing and pinned-version updates.
+- Added browser-closed monitoring, persistent uptime/incidents and Discord DOWN/RECOVERED delivery.
+- Added migration readiness for retiring duplicate Uptime Kuma monitoring after live validation.
+- Kept Docker and rootless Podman first-class through one `compose.yaml`.
+- Testing validation image: `ghcr.io/rogueassassin/roguedashboard:2.0.0-testing`.
 
-## 1.9.0 (testing)
+## 1.9.0
 
-- Advanced RogueDashboard to the migration and container-removal release candidate.
-- Added evidence-based Migration Readiness in Customise → Connect.
-- Added automated checks for live background monitoring, 7-day retention/history coverage, resolved incidents, Discord connectivity, real DOWN/RECOVERED delivery, maintenance testing and per-service silence testing.
-- Added observed history coverage and Uptime Kuma keep/remove recommendation.
-- Kept restart/reboot persistence and RogueForge log validation as explicit manual gates.
-- Marked Uptime Kuma as migration-only in the integration selector.
-- Removed the stale Dockge icon alias left after repository cleanup.
-- Preserved Uptime Kuma compatibility until all removal gates are satisfied.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.9.0-testing`.
+- Added evidence-based monitoring and notification readiness checks.
+- Added persistent incident/availability validation and Uptime Kuma replacement gates.
 
-## 1.8.1 (testing)
+## 1.8.1
 
-- Hardened RogueDashboard 1.8.x for the final pre-1.9 integration cycle.
-- Added a Docker/Podman-compatible container healthcheck.
-- Polished the Customise Sections action area and aligned it with the field labels.
-- Rewrote installation, configuration, upgrading, reverse-proxy, support and testing documentation for the current socket-free architecture.
-- Rewrote the README around the current 1.8.x feature set and Docker/Podman quick-start paths.
-- Removed obsolete historical release notes, stale deployment/branding documents and unused documentation artwork.
-- Removed the unused Dockge icon.
-- Kept one unified `compose.yaml` and one current installation path for both Docker and Podman.
-- Preserved Uptime Kuma compatibility only for migration until the 1.9.0 removal gate.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.8.1-testing`.
+- Hardened Docker/Podman deployment, Customise layout and release documentation.
 
-## 1.8.0 (testing)
+## 1.8.0
 
-- Advanced RogueDashboard to the Rogue ecosystem integration milestone.
-- Added native RogueMediaValidator read-only diagnostics with automatic integration aliases.
-- Added RogueMediaValidator integration defaults, health monitoring and approved logo handling.
-- Preserved RogueForge as the read-only management bridge without granting RogueDashboard an engine socket.
-- Preserved RogueRoute GPX web, OSRM and manager health handling.
-- Updated the integration Customise UI with native RogueMediaValidator configuration.
-- Kept restart, update and log control delegated to RogueForge.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.8.0-testing`.
+- Added RogueMediaValidator and expanded Rogue ecosystem integration.
 
-## 1.7.1 (testing)
+## 1.7.1
 
-- Aligned the Sections lower-row controls into fixed Cards per row, Page, Visible and Actions columns.
-- Added an authoritative layout override so legacy section-editor CSS cannot distort the current Customise panel.
-- Added a notification delivery-history panel in Customise → Connect.
-- Shows recent sent, failed, suppressed and deduplicated Discord events.
-- Added manual notification-history refresh.
-- Reworked the Sections editor into a two-row responsive layout.
-- Moved Cards per row, Page, Visible and reorder/delete controls underneath the section title.
-- Prevented the Sections editor from forcing horizontal scrolling or widening the Customise panel.
-- Preserved all 1.7.0 Discord delivery, retry, cooldown and incident features.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.7.1-testing`.
+- Refined Customise section layout and notification delivery history.
 
-## 1.7.0 (testing)
+## 1.7.0
 
-- Added Discord notification-centre delivery controls.
-- Added optional DEGRADED notifications.
-- Added per-event deduplication/cooldown to reduce alert floods.
-- Added retry/backoff for temporary Discord webhook failures.
-- Added configurable minimum outage duration.
-- Preserved server-side webhook secrecy and notification delivery history.
-- Retained 1.6.0 persistent incidents, maintenance and service silencing.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.7.0-testing`.
+- Added Discord delivery controls, retries, cooldowns and optional DEGRADED alerts.
 
-## 1.6.0 (testing)
+## 1.6.0
 
-- Advanced the testing channel to RogueDashboard 1.6.0.
-- Added persistent SQLite incident tracking with open and resolved outage lifecycle.
-- Added DEGRADED state before the configured failure threshold is reached.
-- Added 1h, 24h, 7d and 30d availability summaries.
-- Increased default monitor retention to 30 days.
-- Added global maintenance suppression and per-service 30-minute alert silencing.
-- Added incident history and open-incident counts to Customise → Connect.
-- Prevented false Discord recovery notifications after brief degraded probes.
-- Preserved the complete 1.5.0 Customise system and browser-closed monitoring.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.6.0-testing`.
+- Added persistent incidents, availability windows, maintenance mode and service silencing.
 
-## 1.5.0 (testing)
+## 1.5.0
 
-- Advanced the testing channel to RogueDashboard 1.5.0.
-- Expanded Customise with explicit dashboard, page, section and card layout controls.
-- Added section page assignment and visibility controls.
-- Added per-card visibility and 1–3 column width/span controls.
-- Added moving cards between sections directly from the card editor.
-- Added dashboard title/search/page-tab/statistics/footer visibility controls.
-- Added unsaved-change protection when closing or leaving the customiser.
-- Preserved the 1.4.1 always-on SQLite monitoring and Discord notification foundation.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.5.0-testing`.
+- Expanded Customise with dashboard, page, section and card layout controls.
 
-## 1.4.1 (testing)
+## 1.4.1
 
-- Started the next testing cycle from the validated RogueDashboard 1.4.0 release.
-- Stable production remains 1.4.0 / latest while 1.4.1 changes are validated on the testing channel.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `:1.4.1-testing`.
-- Added server-side health monitoring that continues when all browser sessions are closed.
-- Persisted rolling health samples and confirmed monitor state in SQLite.
-- Added configurable health interval, failure threshold and retention settings.
-- Added Discord webhook notifications for confirmed outages and recoveries without adding another container.
-- Added per-service Discord alert enable/disable controls and a Connect-page Discord test action.
-- Added monitor status APIs and notification history storage.
-- Added first-class RogueMediaValidator artwork aliases using its approved repository logo.
-- Restored a dedicated Customise tab so Appearance, Layout, Connect and Admin remain easy to reach while inline card editing is active.
-- Removed obsolete duplicate Compose files and retained one unified Docker/Podman `compose.yaml`.
-- Corrected stale architecture/security documentation for the current socket-free RogueDashboard design.
-- Made Customise layout controls explicit with Page title, Section title, Maximum cards per row and per-section Cards per row fields.
-- Replaced the obsolete 1.1-era roadmap with a staged v1.4.1 → v2.0.0 production roadmap covering complete customisation, incident monitoring, Discord alerts, Rogue ecosystem integration and Uptime Kuma/Dozzle removal gates.
-
-RogueDashboard follows semantic versioning for published GHCR releases.
+- Added always-on SQLite monitoring and browser-closed Discord notifications.
 
 ## 1.4.0
 
-- Started the next RogueDashboard testing cycle from the stable 1.3.5 main release.
-- Production remains on 1.3.5 / latest while new feature work is validated through the testing channel.
-- Testing images publish as `ghcr.io/rogueassassin/roguedashboard:testing` and `1.4.0-testing`.
-- Added a lightweight keyboard command palette with `Ctrl+K` / `/` shortcuts.
-- Added per-card favourites and tags with `fav:` and `tag:<name>` search filters.
-- Added per-card launch modes for new tab, same tab and copy-URL workflows.
-- Added configurable endpoint health method, timeout and accepted HTTP status range.
-- Preserved the existing 30-second browser refresh, 15-second health cache and bounded health worker pool to avoid increasing monitoring load.
-- Changed imported/default dashboard wording from Docker-specific naming to `My RogueDashboard`.
-- Removed obsolete dead container-management JavaScript from the socket-free frontend.
-- Added regression tests for the new dashboard schema fields and configurable health probes.
-- Added a dependency-free Custom API widget for mapping up to four JSON dot-path values onto a service card.
-- Added optional Bearer-token and X-Api-Key authentication using server-side `RGDASH_*` environment references.
-- Bounded Custom API response size, metric count, label/path length and output length to protect dashboard performance.
-- Reused the existing cached widget refresh path; Custom API widgets add no separate timer or background polling loop.
-- Added regression tests for nested/list JSON paths, secret non-disclosure and configuration bounds.
-- Added native Nginx Proxy Manager metrics for proxy-host totals, enabled hosts, certificate totals and 30-day certificate expiry.
-- Added server-side NPM bearer-token support through `RGDASH_NPM_TOKEN`.
-- Added native Uptime Kuma status-page metrics for monitor totals, up/down state and average 24-hour uptime.
-- Uptime Kuma integration deliberately uses published status-page JSON endpoints instead of its unstable internal Socket.IO administration API.
-- Reused the existing widget cache/refresh path for both integrations; no new background timer or container-engine dependency was introduced.
-- Added import auto-detection and regression tests for NPM and Uptime Kuma.
-- Added lightweight runtime storage, memory-scope, normalized load and local network information to the dashboard information layer.
-- Added a bounded in-memory one-hour health history with availability percentage and average latency per monitored service.
-- Capped history at 120 samples per service and deliberately avoided SQLite history writes to preserve storage and CPU performance.
-- Added compact dashboard-wide availability and data-storage summary tiles plus per-card one-hour availability context.
-- Added Admin runtime storage/network details without introducing Docker/Podman socket access.
-- Added regression tests for runtime information fields, socket-free behavior and bounded health-history summaries.
-- Added explicit degraded/offline card styling and last-failure/last-recovery health context.
-- Improved responsive behavior for the expanded runtime information strip across desktop, tablet and mobile widths.
-- Added refresh de-duplication so a slow monitoring cycle cannot overlap with the next scheduled cycle.
-- Paused normal monitoring requests while the dashboard tab is hidden and resume-refreshes when visible again.
-- Added a 10-second shared runtime-stat cache to avoid repeated filesystem, storage and network reads across multiple browser clients.
-- Kept widget, health, system and history request failures isolated so one unavailable service cannot block the rest of the dashboard.
-- Added regression coverage for runtime snapshot caching and recovery timestamps.
+- Added richer health, runtime and integration monitoring.
 
 ## 1.3.5
 
-- Integrated the corrected approved RogueDashboard icon-pack artwork into the runtime UI.
-- Standardized all active RogueDashboard branding on the corrected `roguedashboard-approved-128.png` asset so GitHub README rendering, browser icons and runtime UI all use the same source.
-- Reworked the main shell for tighter header, stats, group-title and service-card alignment.
-- Reduced unnecessary blur/shadow work while retaining the Rogue purple/cyan visual identity.
-- Rebuilt the Customise experience into clearer Appearance, Layout, Connect and Admin sections.
-- Grouped related settings into consistent editor cards with improved descriptions and responsive spacing.
-- Reworked the administrator sign-in modal to match the RogueDashboard setup/customiser design.
-- Added explicit sign-in progress/error feedback and consistent session messaging.
-- Removed the remaining obsolete pre-socket-free container discovery binding from the customiser.
-- Replaced stale engine-agent administration presentation with RogueDashboard runtime/session information.
-- Improved mobile/tablet behaviour for the dashboard, customiser and authentication surfaces.
-- Updated the README banner to load the corrected RogueDashboard PNG from an absolute raw GitHub URL with cache-busting, avoiding GitHub's unreliable nested/relative image rendering.
-- Replaced the old README badge row with container-release style release, GHCR, live build, runtime, engine and platform badges.
-- The README build badge now follows the testing CI workflow live on every push.
-- Removed superseded RogueDashboard SVG branding assets so all active core branding resolves to the approved artwork.
-- Fixed the README header so the approved RogueDashboard artwork renders directly in GitHub instead of relying on an SVG that referenced another repository asset.
-- Advanced the testing line from 1.3.1 to 1.3.5 to clearly identify this broader visual/authentication/README refresh.
-- Kept existing `RGDASH_*`, `.env`, database and custom-asset compatibility intact.
+- Refined branding, Customise, authentication and responsive layout.
 
 ## 1.3.0
 
-- Promoted the polished socket-free dashboard architecture to the next stable feature release.
-- Finalized a new interlocked metallic **RD** monogram with dedicated base, dark, light and compact SVG variants.
-- Kept RogueDashboard branding independent from RogueForge while aligning both products to the same Rogue visual language.
-- Removed release/runtime/platform/license badges and legacy engine-agent presentation from the live dashboard.
-- Added native RogueForge service-card monitoring for application version, engine, stacks and container summaries.
-- Kept RogueDashboard free of Docker/Podman socket access and administrator credentials from RogueForge.
-- Improved the main status layout and removed obsolete container-management UI left over from the pre-1.1.3 architecture.
-- Standardized the runtime folder, container, Compose project and GHCR identity around `roguedashboard`.
-- Retained `RGDASH_*` as the stable environment-variable contract.
-- Preserved existing `.env`, SQLite data, users, pages, groups, integrations and local custom assets during upgrades.
-- Continued unified Docker/Podman deployment through one `compose.yaml`.
-- Added cache-busted bundled core branding so testing and production builds cannot display stale artwork from another branch.
-- Cleaned and simplified the README around what RogueDashboard does, how it works and how it complements RogueForge.
-- Added a prominent RogueForge GitHub link for users who also want container and Compose-stack management.
-- Updated the testing channel and release workflows for `1.3.0`.
+- Established the socket-free RogueDashboard architecture and RogueForge integration.
 
 ## 1.2.1
 
-- Removed the version/runtime/platform/license badge strip from the live dashboard; release metadata now lives in the README.
-- Removed the remaining stale engine-agent status presentation from the socket-free interface.
-- Added a native RogueForge card integration for version, engine, stack and container summary metrics.
-- Reworked the RD logo into a higher-detail metallic Rogue-style monogram with segmented purple/cyan illumination.
-- Added dedicated base, dark, light and compact SVG variants and cache-busted all live branding references.
-- Removed legacy PNG favicon references from the live page and web manifest so browsers consistently use the current RD SVG identity.
-- Switched the core RogueDashboard icon to a bundled 1.2.1 asset instead of fetching the older `main` logo during testing.
-- Added a new version-neutral README banner and simplified installation, upgrade, architecture and testing documentation.
-- Updated the testing channel to publish `1.2.1-testing`.
-- Preserved `RGDASH_*`, `.env`, SQLite data and custom assets across upgrades.
-
+- Refined runtime presentation and Rogue ecosystem branding.
 
 ## 1.2.0
 
-- Standardized product naming from **Rogue Dashboard** to **RogueDashboard**.
-- Standardized the canonical internal container/network identity as `roguedashboard`.
-- Replaced separate Docker and Podman compose files with a single engine-neutral `compose.yaml`.
-- Standardized the GHCR image path as `ghcr.io/rogueassassin/roguedashboard`.
-- Retained the existing `RGDASH_*` environment-variable contract for compatibility with 1.1.3 installations.
-- Added the legacy `rogue-dashboard` network alias as a transition compatibility alias.
-- Kept the proven 1.1.3 socket-free architecture; container and stack management remains owned by RogueForge.
-- Prepared RogueForge-style remote-first branding and image resolution with local `/custom` overrides.
-- Updated documentation and deployment examples for the renamed GitHub repository and runtime folder.
-- Removed the stale 1.1.3 engine-agent health/system calls that could break socket-free deployments.
-- Added lightweight runtime/platform metadata without mounting Docker or Podman sockets.
-- Added an in-place SQLite filename migration from `rogue-dashboard.sqlite` to `roguedashboard.sqlite`.
-- Added dual GHCR publishing so existing `RGDASH_IMAGE=ghcr.io/rogueassassin/rogue-dashboard:...` values remain valid during upgrades.
-- Added remote-first service artwork with local `/custom/icons` overrides and bundled fallbacks.
-- Added RogueForge artwork for RogueForge service cards.
-- Refreshed the interface with the cleaner RogueForge surface, border and typography treatment while keeping animations and effects lightweight.
-- Added migration and socket-free health regression tests.
-- Removed version/runtime/platform/license badges from the live dashboard and kept build metadata in project documentation.
-- Removed the remaining engine-agent status tile and obsolete container-management editor surface from the socket-free UI.
-- Added a native RogueForge widget that reads public RogueForge status/stack summaries without exposing engine sockets or credentials.
-- Upgraded the RogueDashboard RD branding to a higher-detail vector set with segmented Rogue neon rings, metallic depth, dark/light variants and a compact service-card mark.
-- Tightened the dashboard status row and reduced unnecessary UI work for a cleaner, faster live view.
+- Standardised the `roguedashboard` runtime and GHCR identity.
 
 ## 1.1.3
 
-- Removed direct Docker and Podman container-engine management from RogueDashboard.
-- Removed the engine-agent service and all engine socket mounts.
-- Removed container lifecycle controls and engine inventory APIs.
-- Simplified Docker and Podman deployments to one RogueDashboard container.
-- Retained service integrations, HTTP/API health monitoring, widgets, admin/session controls and persistent configuration.
-- Kept synchronized RogueDashboard branding and browser/app icon assets.
-- Simplified server upgrades to Compose `pull` + `up -d`.
-- Established RogueForge as the home for container/stack management.
+- Removed direct Docker/Podman management and delegated container operations to RogueForge.
 
 ## 1.1.2
 
-- Introduced synchronized Rogue branding and browser/app icon assets.
-- Added Docker/Podman engine abstraction work that was later removed in 1.1.3 after production testing showed the management layer added unnecessary deployment complexity.
+- Added synchronised Rogue branding and early engine-neutral work.
 
 ## 1.1.0
 
-- Added first-class Docker and Podman experiments and engine-neutral configuration.
+- Added initial Docker and Podman engine-neutral deployment work.
 
 ## 1.0.1
 
@@ -258,4 +82,4 @@ RogueDashboard follows semantic versioning for published GHCR releases.
 
 ## 1.0.0
 
-- Initial stable public release series.
+- Initial stable public release.
