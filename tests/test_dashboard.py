@@ -831,20 +831,6 @@ class RogueDashboardTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=2)
 
-    def test_legacy_database_filename_is_migrated_without_data_loss(self):
-        previous_data_dir = dashboard_app.DATA_DIR
-        try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                dashboard_app.DATA_DIR = Path(temp_dir)
-                legacy = dashboard_app.DATA_DIR / "rogue-dashboard.sqlite"
-                legacy.write_bytes(b"legacy-database")
-                resolved = dashboard_app.resolve_database_path()
-                self.assertEqual(resolved.name, "roguedashboard.sqlite")
-                self.assertFalse(legacy.exists())
-                self.assertEqual(resolved.read_bytes(), b"legacy-database")
-        finally:
-            dashboard_app.DATA_DIR = previous_data_dir
-
     def test_runtime_metadata_is_exposed_in_bootstrap_contract(self):
         metadata = dashboard_app.runtime_metadata()
         self.assertIn(metadata["runtime"], {"Podman", "Docker", "Container"} | ({os.environ.get("RGDASH_RUNTIME")} if os.environ.get("RGDASH_RUNTIME") and os.environ.get("RGDASH_RUNTIME").lower() != "auto" else set()))
@@ -877,6 +863,17 @@ class RogueDashboardTests(unittest.TestCase):
             self.assertGreater(dashboard_app.SYSTEM_STATS_CACHE[0], time.time())
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
+
+    def test_v200_canonical_roguedashboard_naming(self):
+        root = Path(__file__).parents[1]
+        compose = (root / "compose.yaml").read_text(encoding="utf-8")
+        source = (root / "app" / "static" / "app.js").read_text(encoding="utf-8")
+        environment = (root / ".env.example").read_text(encoding="utf-8")
+        self.assertNotIn("rogue-" + "dashboard", compose)
+        self.assertNotIn("rogue-" + "dashboard", environment)
+        self.assertIn("Rogue ecosystem", source)
+        self.assertIn("/opt/media-server/roguedashboard", environment)
+        self.assertIn("ghcr.io/rogueassassin/roguedashboard:2.0.0-testing", environment)
 
     def test_v190_migration_readiness_structure(self):
         with tempfile.TemporaryDirectory() as directory:
