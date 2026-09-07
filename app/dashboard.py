@@ -35,7 +35,7 @@ from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "1.9.0"
+VERSION = "2.0.0"
 PORT = int(os.environ.get("PORT", "8080"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
@@ -48,7 +48,7 @@ CONFIGURED_ALLOWED_HOSTS = {
     if host.strip()
 }
 ALLOWED_HOSTS = set(CONFIGURED_ALLOWED_HOSTS)
-ALLOWED_HOSTS.update({"localhost", "127.0.0.1", "::1", "dashboard", "roguedashboard", "rogue-dashboard"})
+ALLOWED_HOSTS.update({"localhost", "127.0.0.1", "::1", "dashboard", "roguedashboard"})
 ROGUEROUTE_PUBLIC_URL = os.environ.get("RGDASH_ROGUEROUTE_URL", "").strip()
 ASSET_BASE_URL = os.environ.get("RGDASH_ASSET_BASE_URL", "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static").strip().rstrip("/")
 if urlparse(ROGUEROUTE_PUBLIC_URL).scheme not in ("http", "https"):
@@ -859,9 +859,6 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
 
 def resolve_database_path() -> Path:
     database_path = DATA_DIR / "roguedashboard.sqlite"
-    legacy_database_path = DATA_DIR / "rogue-dashboard.sqlite"
-    if not database_path.exists() and legacy_database_path.exists():
-        legacy_database_path.replace(database_path)
     return database_path
 
 
