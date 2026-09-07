@@ -864,6 +864,17 @@ class RogueDashboardTests(unittest.TestCase):
         finally:
             dashboard_app.SYSTEM_STATS_CACHE = previous
 
+    def test_v200_updater_and_docs_are_release_clean(self):
+        root = Path(__file__).parents[1]
+        updater = (root / "update.sh").read_text(encoding="utf-8")
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        self.assertIn("ghcr.io/rogueassassin/roguedashboard:$IMAGE_TAG", updater)
+        self.assertIn("./update.sh latest", readme)
+        self.assertIn("./update.sh testing", readme)
+        self.assertFalse((root / "docs" / "MIGRATIONS.md").exists())
+        self.assertFalse((root / "docs" / "ROADMAP.md").exists())
+        self.assertNotIn("2.0.0-testing", readme)
+
     def test_v200_canonical_roguedashboard_naming(self):
         root = Path(__file__).parents[1]
         compose = (root / "compose.yaml").read_text(encoding="utf-8")
