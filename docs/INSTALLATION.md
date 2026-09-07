@@ -1,114 +1,92 @@
 # Installation
 
-RogueDashboard runs as one unprivileged container and uses the same `compose.yaml` with Docker Compose or Podman Compose. It does not mount a Docker or Podman socket.
+RogueDashboard runs as one unprivileged container and uses the same `compose.yaml` with Docker Compose or Podman Compose. No Docker or Podman socket is required.
 
 ## Requirements
 
-- Linux or WSL 2 host
-- Docker Engine + Docker Compose v2, or Podman + Podman Compose
-- an external container network such as `media-net`
-- persistent `data/` and `custom/` directories
-- host port 7805 available, or set another `RGDASH_PORT`
+- Linux or WSL 2
+- Docker + Compose v2, or Podman + a Compose provider
+- an external network such as `media-net`
+- host port `7805` available, or another `RGDASH_PORT`
 
-The container runs as UID/GID `10001:10001`. Ensure the bind-mounted `data/` directory is writable by that account.
+The container runs as UID/GID `10001:10001`.
 
-## Directory layout
+## Install directory
 
 ```text
-roguedashboard/
-├── .env
+/opt/media-server/roguedashboard/
 ├── compose.yaml
+├── update.sh
+├── .env
 ├── data/
 └── custom/
     ├── backgrounds/
     └── icons/
 ```
 
-## Podman installation
-
-Example for a media stack under `/opt/media-server`:
+Create it:
 
 ```bash
 sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/backgrounds,custom/icons}
 sudo chown -R 10001:10001 /opt/media-server/roguedashboard/data
 cd /opt/media-server/roguedashboard
+```
 
+Download the deployment files from the branch you want to run:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/.env.example -o .env
+curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/update.sh -o update.sh
+chmod 600 .env
+chmod +x update.sh
+nano .env
+```
 
+For stable production after release, use `main` instead of `testing`.
+
+## Start with Podman
+
+```bash
 podman network inspect media-net >/dev/null 2>&1 || podman network create media-net
 podman compose --env-file .env -f compose.yaml pull
 podman compose --env-file .env -f compose.yaml up -d
 ```
 
-Open `http://HOST:7805` and complete the initial administrator setup.
-
-For a stable/main release, replace `/testing/` in the two download URLs with `/main/` and set `RGDASH_IMAGE` to the stable image tag documented in the release.
-
-## Docker installation
+## Start with Docker
 
 ```bash
-sudo mkdir -p /opt/roguedashboard/{data,custom/backgrounds,custom/icons}
-sudo chown -R 10001:10001 /opt/roguedashboard/data
-cd /opt/roguedashboard
-
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/.env.example -o .env
-
 docker network inspect media-net >/dev/null 2>&1 || docker network create media-net
 docker compose --env-file .env -f compose.yaml pull
 docker compose --env-file .env -f compose.yaml up -d
 ```
 
-Open `http://HOST:7805` and complete the initial administrator setup.
+Open `http://HOST:7805` and complete administrator setup.
 
-## Existing shared media stack
+## Shared media network
 
-If Radarr, Sonarr, RogueForge, RogueMediaValidator, RogueRoute GPX, Nginx Proxy Manager or other monitored services already use another external network, set:
-
-```env
-MEDIA_NETWORK=your-network-name
-```
-
-RogueDashboard and the services it monitors must share a network for container-name health/API URLs such as `http://sonarr:8989`.
-
-## Discord notifications
-
-Create a webhook in the Discord channel you want to receive alerts, then set:
+RogueDashboard and services addressed by container name must share the same external network. The default is:
 
 ```env
-RGDASH_DISCORD_ENABLED=true
-RGDASH_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-RGDASH_DISCORD_NOTIFY_DOWN=true
-RGDASH_DISCORD_NOTIFY_RECOVERY=true
+MEDIA_NETWORK=media-net
 ```
 
-Recreate the container, then use **Customise → Connect → Send Discord test**.
-
-## Reverse proxy
-
-The container listens on port `8080` internally. A reverse proxy on the same container network should forward to:
-
-```text
-http://roguedashboard:8080
-```
-
-See `docs/REVERSE_PROXY.md` for Nginx Proxy Manager and Cloudflare guidance.
+For example, a Sonarr health URL can then use `http://sonarr:8989`.
 
 ## Verify
 
-Podman:
-
 ```bash
-podman ps --filter name=roguedashboard
-podman logs --tail 100 roguedashboard
 curl -fsS http://127.0.0.1:7805/api/health
 ```
 
-Docker:
+Podman logs:
 
 ```bash
-docker ps --filter name=roguedashboard
+podman logs --tail 100 roguedashboard
+```
+
+Docker logs:
+
+```bash
 docker logs --tail 100 roguedashboard
-curl -fsS http://127.0.0.1:7805/api/health
 ```
