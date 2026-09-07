@@ -1,41 +1,39 @@
 # Architecture
 
-RogueDashboard is a lightweight, engine-neutral Python service with a dependency-free browser frontend. It monitors configured HTTP endpoints and service APIs without mounting the Docker or Podman socket.
+RogueDashboard is the lightweight monitoring layer of the Rogue ecosystem. It is a Python service with a dependency-free browser frontend and does not mount a Docker or Podman socket.
 
-## Runtime
+## Responsibilities
 
 | Component | Responsibility |
 | --- | --- |
-| `roguedashboard` | UI, local authentication, SQLite persistence, service health probes, API widgets, imports and administration |
-| `RogueForge` | Optional companion for Docker/Podman stack and container management |
+| RogueDashboard | UI, authentication, SQLite state, health monitoring, incidents, Discord and read-only integrations |
+| RogueForge | Docker/Podman stack management, updates, logs and terminals |
+| RogueMediaValidator | Torrent/media validation and protection |
+| RogueRoute-GPX | Routing and GPX services |
 
-RogueDashboard deliberately does not manage the container engine. Container lifecycle, logs, Compose stacks and privileged engine access belong in RogueForge.
+Keeping monitoring separate from engine management gives RogueDashboard a smaller privilege and resource footprint.
 
 ## Data flow
 
 ```mermaid
 flowchart TD
     Browser["Browser"] --> Dashboard["RogueDashboard"]
-    Dashboard --> SQLite["SQLite in ./data"]
-    Dashboard --> Services["Health/API endpoints on media-net"]
-    Dashboard --> RogueForge["Optional RogueForge read-only status API"]
+    Dashboard --> SQLite["SQLite / data"]
+    Dashboard --> Services["HTTP/API endpoints on media-net"]
+    Dashboard --> Discord["Discord webhook"]
+    Dashboard --> Rogue["Rogue read-only status APIs"]
 ```
 
 ## Source layout
 
-- `app/dashboard.py` — HTTP API, SQLite storage, sessions, validation and endpoint health monitoring.
-- `app/integrations.py` — server-side service API collectors.
-- `app/importer.py` / `app/homepage_yaml.py` — safe dashboard imports.
-- `app/static/` — dependency-free HTML, CSS, JavaScript and built-in icons.
-- `custom/` — persistent user icons and backgrounds.
-- `compose.yaml` — unified Docker/Podman deployment.
+- `app/dashboard.py` — HTTP API, sessions, SQLite, health monitoring and incidents
+- `app/integrations.py` — server-side integration collectors
+- `app/importer.py` and `app/homepage_yaml.py` — dashboard imports
+- `app/static/` — HTML, CSS, JavaScript and bundled icons
+- `custom/` — administrator-provided icons/backgrounds
+- `compose.yaml` — shared Docker/Podman deployment
+- `update.sh` — shared Docker/Podman updater
 
 ## Persistence and secrets
 
-SQLite uses WAL mode in the bind-mounted `data/` directory. Administrator passwords use scrypt with unique salts. Sessions are stored as hashes and expire according to application policy.
-
-Integration credentials are read from `RGDASH_*` environment variables. Secret values are never returned to the browser or written into dashboard configuration exports.
-
-## Monitoring boundary
-
-Health checks target explicitly configured HTTP/HTTPS URLs. RogueDashboard does not mount Docker or Podman sockets and does not require privileged container-engine access. This keeps monitoring independent of the runtime while RogueForge handles privileged management as a separate trust boundary.
+SQLite uses the bind-mounted `data/` directory. Integration credentials and Discord secrets remain in server-side `RGDASH_*` environment variables and are not returned in dashboard exports.
