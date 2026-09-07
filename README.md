@@ -6,7 +6,7 @@
 
 **Local-first service monitoring, uptime, incidents and notifications for Docker and Podman environments.**
 
-[![Release](https://img.shields.io/badge/RELEASE-1.9.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
+[![Release](https://img.shields.io/badge/RELEASE-2.0.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -31,9 +31,9 @@ RogueDashboard deliberately stays separate from **RogueForge**, which owns conta
 - read-only root filesystem, dropped capabilities and no engine socket
 - amd64 and arm64 testing images
 
-## 1.9.0 migration readiness
+## 2.0.0 Rogue ecosystem monitoring platform
 
-Customise → Connect now includes a **Migration readiness** panel. RogueDashboard checks its own persisted evidence before recommending Uptime Kuma removal:
+RogueDashboard 2.0.0 is the testing baseline for the first stable Rogue ecosystem monitoring contract. Customise → Connect retains the **Migration readiness** panel and now presents the same explicit Rogue ecosystem responsibility model used by RogueForge. RogueDashboard checks its own persisted evidence before recommending Uptime Kuma removal:
 
 - background monitor freshness
 - 7+ days of retained/observed health history
@@ -49,12 +49,12 @@ Uptime Kuma remains available as a migration-only integration until these gates 
 
 ## Rogue ecosystem
 
-| Service | Responsibility |
+| Service | What it does |
 | --- | --- |
-| **RogueDashboard** | visibility, health, uptime, incidents, alerts |
-| **RogueForge** | container/stack management, updates, logs |
-| **RogueMediaValidator** | torrent/media validation and protection |
-| **RogueRoute GPX** | routing and GPX services |
+| **RogueDashboard** | Lightweight media-server visibility, health, uptime, incidents, Discord alerts and service overview. |
+| **RogueForge** | Docker/Podman stack management, verified updates, live logs, terminals and operational troubleshooting. |
+| **RogueMediaValidator** | Torrent/media validation and protection, including policy enforcement and diagnostics. |
+| **RogueRoute-GPX** | Routing and GPX services for route generation, processing and mapping workflows. |
 
 RogueDashboard integrates with these applications through safe HTTP/read-only endpoints and does not gain container-engine privileges.
 
@@ -223,7 +223,7 @@ Container lifecycle and log access remain in RogueForge.
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:1.9.0-testing
+ghcr.io/rogueassassin/roguedashboard:2.0.0-testing
 ```
 
 The testing branch is promoted only after CI and live-host validation pass.
