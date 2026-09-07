@@ -42,17 +42,6 @@ It deliberately stays separate from [**RogueForge**](https://github.com/RogueAss
 
 The Rogue applications are intentionally separated by responsibility. RogueDashboard can read safe status information from the other services without receiving container-engine privileges or their administrator credentials.
 
-## 2.0.0 testing
-
-2.0.0 is the testing baseline for RogueDashboard's first 2.x monitoring contract.
-
-- canonical deployment name and directory are now `roguedashboard` and `/opt/media-server/roguedashboard`
-- `.env.example` follows the same documented layout and revision policy as RogueForge
-- Customise → Connect includes Rogue ecosystem responsibilities and migration readiness
-- browser-closed monitoring, SQLite history and Discord incident delivery remain server-side
-- Docker and rootless Podman remain first-class
-- Uptime Kuma support is migration-only while replacement validation is completed
-- RogueForge remains responsible for logs and container operations
 
 ## Default layout
 
@@ -143,29 +132,6 @@ Administrators can configure RogueDashboard from the web interface without manua
 
 **Customise → Connect** also exposes monitoring status, Discord testing and migration readiness.
 
-## Updating
-
-For the testing channel, keep your existing `.env` and refresh the Compose file before pulling the new image.
-
-Podman:
-
-```bash
-cd /opt/media-server/roguedashboard
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
-podman compose --env-file .env -f compose.yaml pull
-podman compose --env-file .env -f compose.yaml up -d
-```
-
-Docker:
-
-```bash
-cd /opt/media-server/roguedashboard
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
-docker compose --env-file .env -f compose.yaml pull
-docker compose --env-file .env -f compose.yaml up -d
-```
-
-Do **not** overwrite an existing `.env` with `.env.example`. Compare new variables and merge only settings introduced by the release.
 
 ## Persistent files
 
@@ -201,24 +167,25 @@ Use [RogueForge](https://github.com/RogueAssassin/RogueForge) for container life
 - [Security](docs/SECURITY.md)
 - [Support matrix](docs/SUPPORT.md)
 - [Testing channel](docs/TESTING.md)
-- [Migrations](docs/MIGRATIONS.md)
-- [Roadmap](docs/ROADMAP.md)
 - [Changelog](CHANGELOG.md)
 
-## Release channels
+## Updating
 
-Testing:
+RogueDashboard uses the same update pattern as RogueForge:
 
-```text
-ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:2.0.0-testing
+```bash
+cd /opt/media-server/roguedashboard
+
+# Stable production
+./update.sh latest
+
+# Testing channel
+./update.sh testing
+
+# Pinned release
+./update.sh 2.0.0
 ```
 
-After 2.0.0 is validated and promoted to `main`, stable releases use:
-
-```text
-ghcr.io/rogueassassin/roguedashboard:latest
-ghcr.io/rogueassassin/roguedashboard:2.0.0
-```
+The updater detects Docker or Podman, preserves your existing `.env`, `data/` and `custom/`, backs up deployment files, pulls the requested image, recreates the container and verifies the health endpoint.
 
 `main` is the stable production branch. `testing` is the proving ground for the next release.
