@@ -1,6 +1,6 @@
 services:
   roguedashboard:
-    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/roguedashboard:testing}
+    image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/roguedashboard:2.0.0-testing}
     pull_policy: always
     container_name: roguedashboard
     restart: unless-stopped
@@ -28,7 +28,6 @@ services:
       media-net:
         aliases:
           - roguedashboard
-          - rogue-dashboard
           - dash
     read_only: true
     tmpfs:
