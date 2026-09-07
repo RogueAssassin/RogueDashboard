@@ -884,7 +884,9 @@ class RogueDashboardTests(unittest.TestCase):
         self.assertNotIn("rogue-" + "dashboard", environment)
         self.assertIn("Rogue ecosystem", source)
         self.assertIn("/opt/media-server/roguedashboard", environment)
-        self.assertIn("ghcr.io/rogueassassin/roguedashboard:2.0.0-testing", environment)
+        image_line = next(line for line in environment.splitlines() if line.startswith("RGDASH_IMAGE="))
+        self.assertTrue(image_line.startswith("RGDASH_IMAGE=ghcr.io/rogueassassin/roguedashboard:"))
+        self.assertNotIn("rogue-" + "dashboard", image_line)
 
     def test_v190_migration_readiness_structure(self):
         with tempfile.TemporaryDirectory() as directory:
