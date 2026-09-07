@@ -194,7 +194,7 @@ Status: completed.
 
 ## v1.9.0 — migration and container removal release candidate
 
-Status: active testing.
+Status: completed in 2.0.0 testing.
 
 Goal: prove the Rogue stack can operate without duplicate utility containers.
 
@@ -227,6 +227,8 @@ Once those gates pass:
 - Use RogueForge as the single container-log interface.
 
 ## v2.0.0 — production release
+
+Status: active testing.
 
 v2.0.0 ships only when the following are true:
 
