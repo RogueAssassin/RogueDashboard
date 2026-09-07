@@ -4,7 +4,7 @@
 
 # RogueDashboard
 
-**Local-first service monitoring, uptime, incidents and notifications for Docker and Podman environments.**
+**Local-first service monitoring, uptime, incidents and Discord notifications for Docker and Podman environments.**
 
 [![Release](https://img.shields.io/badge/RELEASE-2.0.0%20TESTING-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/tree/testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=testing&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Atesting)
@@ -13,92 +13,67 @@
 
 </div>
 
-RogueDashboard is the visibility and monitoring layer for the Rogue media-server stack. It runs as one unprivileged container, keeps monitoring when no browser is open, persists uptime/incidents in SQLite, and can send Discord outage/recovery notifications without mounting a Docker or Podman socket.
+RogueDashboard is the monitoring and visibility layer for a media-server stack. It runs as a lightweight unprivileged container, checks services even when no browser is open, stores uptime and incident history in SQLite, and can send Discord DOWN/RECOVERED notifications.
 
-RogueDashboard deliberately stays separate from **RogueForge**, which owns container/stack management and logs.
+It deliberately stays separate from [**RogueForge**](https://github.com/RogueAssassin/RogueForge), which owns Docker/Podman management, updates and logs. RogueDashboard does **not** need an engine socket.
 
 ## Highlights
 
-- always-on health monitoring with browser closed
-- DEGRADED, DOWN and RECOVERED lifecycle
-- persistent SQLite health history and incidents
+- always-on monitoring with the browser closed
+- DEGRADED, DOWN and RECOVERED incident lifecycle
+- persistent uptime, health history and incidents
 - 1h, 24h, 7d and 30d availability windows
-- Discord webhook notifications with retry, cooldown and delivery history
+- Discord notifications with retry, cooldown and delivery history
 - maintenance mode and per-service alert silencing
-- fully editable pages, sections and cards through **Customise**
-- native integrations for media services and Rogue applications
-- one unified `compose.yaml` for Docker and Podman
+- editable pages, sections, card layout, titles, icons and appearance
+- native media-service and Rogue ecosystem integrations
+- one `compose.yaml` for Docker and Podman
 - read-only root filesystem, dropped capabilities and no engine socket
-- amd64 and arm64 testing images
-
-## 2.0.0 Rogue ecosystem monitoring platform
-
-RogueDashboard 2.0.0 is the testing baseline for the first stable Rogue ecosystem monitoring contract. Customise → Connect retains the **Migration readiness** panel and now presents the same explicit Rogue ecosystem responsibility model used by RogueForge. RogueDashboard checks its own persisted evidence before recommending Uptime Kuma removal:
-
-- background monitor freshness
-- 7+ days of retained/observed health history
-- at least one real resolved outage
-- Discord webhook connectivity
-- successful DOWN and RECOVERED deliveries
-- maintenance suppression test
-- per-service silence test
-
-Restart/reboot persistence and RogueForge logging remain manual validation gates because RogueDashboard cannot safely prove those from inside its own container.
-
-Uptime Kuma remains available as a migration-only integration until these gates pass.
+- amd64 and arm64 container images
 
 ## Rogue ecosystem
 
 | Service | What it does |
 | --- | --- |
-| **RogueDashboard** | Lightweight media-server visibility, health, uptime, incidents, Discord alerts and service overview. |
-| **RogueForge** | Docker/Podman stack management, verified updates, live logs, terminals and operational troubleshooting. |
-| **RogueMediaValidator** | Torrent/media validation and protection, including policy enforcement and diagnostics. |
-| **RogueRoute-GPX** | Routing and GPX services for route generation, processing and mapping workflows. |
+| **RogueDashboard** | Lightweight service visibility, health, uptime, incidents, Discord alerts and dashboard customisation. |
+| [**RogueForge**](https://github.com/RogueAssassin/RogueForge) | Docker/Podman stack management, verified updates, live logs, terminals and troubleshooting. |
+| [**RogueMediaValidator**](https://github.com/RogueAssassin/RogueMediaValidator) | Torrent/media validation and protection, including policy enforcement and diagnostics. |
+| [**RogueRoute-GPX**](https://github.com/RogueAssassin/RogueRoute-GPX) | Routing and GPX services for route generation, processing and mapping workflows. |
 
-RogueDashboard integrates with these applications through safe HTTP/read-only endpoints and does not gain container-engine privileges.
+The Rogue applications are intentionally separated by responsibility. RogueDashboard can read safe status information from the other services without receiving container-engine privileges or their administrator credentials.
 
-## Supported live integrations
+## 2.0.0 testing
 
-RogueDashboard includes native collectors or health support for:
+2.0.0 is the testing baseline for RogueDashboard's first 2.x monitoring contract.
+
+- canonical deployment name and directory are now `roguedashboard` and `/opt/media-server/roguedashboard`
+- `.env.example` follows the same documented layout and revision policy as RogueForge
+- Customise → Connect includes Rogue ecosystem responsibilities and migration readiness
+- browser-closed monitoring, SQLite history and Discord incident delivery remain server-side
+- Docker and rootless Podman remain first-class
+- Uptime Kuma support is migration-only while replacement validation is completed
+- RogueForge remains responsible for logs and container operations
+
+## Default layout
 
 ```text
-qBittorrent
-Prowlarr
-Radarr
-Sonarr
-Seerr
-Bazarr
-Tautulli
-Pi-hole
-Nginx Proxy Manager
-Uptime Kuma (migration compatibility)
-RogueForge
-RogueMediaValidator
-RogueRoute GPX / OSRM / Manager
-Custom JSON API
+/opt/media-server/
+├── roguedashboard/
+│   ├── compose.yaml
+│   ├── .env
+│   ├── data/
+│   └── custom/
+│       ├── backgrounds/
+│       └── icons/
+├── rogueforge/
+├── roguemediavalidator/
+├── rogueroute-gpx/
+├── radarr/
+├── sonarr/
+└── ...
 ```
 
-Uptime Kuma remains available only during the migration period. RogueDashboard already owns browser-closed uptime, incidents and Discord alerting.
-
-## Customise
-
-Authenticated administrators can manage the dashboard without editing JSON or SQLite:
-
-- dashboard title and subtitle
-- appearance, density, accents and backgrounds
-- show/hide header, search, page tabs, statistics and footer
-- page titles
-- section titles
-- cards per row
-- move sections between pages
-- show/hide sections
-- card title, description, icon and URL
-- health endpoint and integration
-- Discord alert enable/disable per service
-- card visibility and 1–3 column span
-- move cards between sections
-- unsaved-change protection
+Persistent state belongs in `data/`. Optional custom icons and backgrounds belong in `custom/`.
 
 ## Quick install — Podman
 
@@ -109,44 +84,48 @@ cd /opt/media-server/roguedashboard
 
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/.env.example -o .env
+chmod 600 .env
+
+nano .env
 
 podman network inspect media-net >/dev/null 2>&1 || podman network create media-net
 podman compose --env-file .env -f compose.yaml pull
 podman compose --env-file .env -f compose.yaml up -d
 ```
 
-Open:
-
-```text
-http://HOST:7805
-```
-
-For a stable/main release, use the `main` branch files and the stable image tag instead of `testing`.
+Open `http://HOST:7805`, create the administrator account on first launch, then use **Customise** to configure the dashboard.
 
 ## Quick install — Docker
 
 ```bash
-sudo mkdir -p /opt/roguedashboard/{data,custom/backgrounds,custom/icons}
-sudo chown -R 10001:10001 /opt/roguedashboard/data
-cd /opt/roguedashboard
+sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/backgrounds,custom/icons}
+sudo chown -R 10001:10001 /opt/media-server/roguedashboard/data
+cd /opt/media-server/roguedashboard
 
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/.env.example -o .env
+chmod 600 .env
+
+nano .env
 
 docker network inspect media-net >/dev/null 2>&1 || docker network create media-net
 docker compose --env-file .env -f compose.yaml pull
 docker compose --env-file .env -f compose.yaml up -d
 ```
 
-Open:
+Open `http://HOST:7805` and complete first-run setup.
 
-```text
-http://HOST:7805
-```
+The supplied `.env.example` explains every supported deployment, monitoring, integration and Discord setting. Keep your populated `.env` private.
 
-## Discord setup
+## Supported integrations
 
-Create a webhook in the Discord channel that should receive RogueDashboard alerts, then add it to `.env`:
+Native collectors or health support are available for qBittorrent, Prowlarr, Radarr, Sonarr, Seerr, Bazarr, Tautulli, Pi-hole, Nginx Proxy Manager, RogueForge, RogueMediaValidator, RogueRoute-GPX/OSRM/Manager and custom JSON APIs.
+
+Uptime Kuma remains available only for migration compatibility while RogueDashboard's replacement coverage is validated.
+
+## Discord notifications
+
+Create a Discord channel webhook and add it to `.env`:
 
 ```env
 RGDASH_DISCORD_ENABLED=true
@@ -156,21 +135,17 @@ RGDASH_DISCORD_NOTIFY_RECOVERY=true
 RGDASH_DISCORD_NOTIFY_DEGRADED=false
 ```
 
-Recreate the container, then open **Customise → Connect → Send Discord test**.
+Recreate the container, then use **Customise → Connect → Send Discord test**. Monitoring and notification delivery continue when the browser is closed.
 
-## Persistent files
+## Customise
 
-Keep these between upgrades:
+Administrators can configure RogueDashboard from the web interface without manually editing JSON or SQLite. This includes dashboard/page/section titles, cards per row, card placement and span, visibility, icons, URLs, health endpoints, integrations, alert controls, themes, density, accents and backgrounds.
 
-```text
-.env
-data/
-custom/
-```
-
-`data/` contains SQLite state including users, dashboard configuration, health samples, incidents and notification history.
+**Customise → Connect** also exposes monitoring status, Discord testing and migration readiness.
 
 ## Updating
+
+For the testing channel, keep your existing `.env` and refresh the Compose file before pulling the new image.
 
 Podman:
 
@@ -184,13 +159,37 @@ podman compose --env-file .env -f compose.yaml up -d
 Docker:
 
 ```bash
-cd /opt/roguedashboard
+cd /opt/media-server/roguedashboard
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
 docker compose --env-file .env -f compose.yaml pull
 docker compose --env-file .env -f compose.yaml up -d
 ```
 
-Do not replace an existing `.env` with `.env.example`; compare new variables and merge them.
+Do **not** overwrite an existing `.env` with `.env.example`. Compare new variables and merge only settings introduced by the release.
+
+## Persistent files
+
+Keep these between upgrades:
+
+```text
+.env
+data/
+custom/
+```
+
+`data/` contains the SQLite database with users, dashboard configuration, health samples, incidents and notification history.
+
+## Security model
+
+RogueDashboard:
+
+- runs as an unprivileged user
+- uses a read-only root filesystem
+- drops Linux capabilities and enables `no-new-privileges`
+- does not mount the Docker or Podman socket
+- keeps API credentials and Discord webhook URLs server-side
+
+Use [RogueForge](https://github.com/RogueAssassin/RogueForge) for container lifecycle operations, updates, live logs and terminals.
 
 ## Documentation
 
@@ -203,27 +202,23 @@ Do not replace an existing `.env` with `.env.example`; compare new variables and
 - [Support matrix](docs/SUPPORT.md)
 - [Testing channel](docs/TESTING.md)
 - [Migrations](docs/MIGRATIONS.md)
-- [Roadmap to v2.0.0](docs/ROADMAP.md)
+- [Roadmap](docs/ROADMAP.md)
 - [Changelog](CHANGELOG.md)
 
-## Security model
+## Release channels
 
-RogueDashboard:
-
-- runs as an unprivileged user
-- uses a read-only root filesystem
-- drops Linux capabilities
-- uses `no-new-privileges`
-- does not mount Docker/Podman sockets
-- keeps integration credentials and Discord webhook URLs server-side
-
-Container lifecycle and log access remain in RogueForge.
-
-## Testing images
+Testing:
 
 ```text
 ghcr.io/rogueassassin/roguedashboard:testing
 ghcr.io/rogueassassin/roguedashboard:2.0.0-testing
 ```
 
-The testing branch is promoted only after CI and live-host validation pass.
+After 2.0.0 is validated and promoted to `main`, stable releases use:
+
+```text
+ghcr.io/rogueassassin/roguedashboard:latest
+ghcr.io/rogueassassin/roguedashboard:2.0.0
+```
+
+`main` is the stable production branch. `testing` is the proving ground for the next release.
