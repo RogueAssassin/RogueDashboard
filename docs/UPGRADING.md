@@ -1,36 +1,47 @@
-# Upgrading
+# Updating
 
-RogueDashboard upgrades are container replacements. Keep the existing `.env`, `data/` and `custom/` paths.
+RogueDashboard includes `update.sh` so Docker and Podman installations use the same update workflow as RogueForge.
 
-## Before upgrading
-
-```bash
-cp .env .env.backup
-tar -czf roguedashboard-data-backup.tgz data custom
-```
-
-Do not replace your existing `.env` with `.env.example`; compare new variables and merge only what you need.
-
-## Podman
+Run it from:
 
 ```bash
 cd /opt/media-server/roguedashboard
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
-podman compose --env-file .env -f compose.yaml pull
-podman compose --env-file .env -f compose.yaml up -d
 ```
 
-## Docker
+## Stable production
 
 ```bash
-cd /opt/roguedashboard
-curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/testing/compose.yaml -o compose.yaml
-docker compose --env-file .env -f compose.yaml pull
-docker compose --env-file .env -f compose.yaml up -d
+./update.sh latest
 ```
 
-## After upgrading
+## Testing channel
 
-Check the running version, Customise pages, background monitor status, Discord delivery status and at least one native integration. Existing SQLite data is migrated in place when required.
+```bash
+./update.sh testing
+```
 
-For stable releases, use the `main` branch compose file and the release image/tag rather than `testing`.
+## Pinned release
+
+```bash
+./update.sh 2.0.0
+```
+
+A leading `v` is also accepted.
+
+## What the updater does
+
+The updater:
+
+1. detects Docker or Podman
+2. backs up `compose.yaml`, `.env`, the updater and custom assets
+3. downloads the requested Compose/updater files
+4. preserves the administrator's existing environment configuration
+5. updates the `RGDASH_IMAGE` tag
+6. pulls and verifies the requested image
+7. recreates RogueDashboard
+8. verifies `/api/health`
+9. refreshes `update.sh` for the next run
+
+Persistent SQLite data in `data/` is never replaced by the updater.
+
+Do not overwrite your existing `.env` with `.env.example`. New environment settings should be merged only when a release introduces them.
