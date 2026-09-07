@@ -1,24 +1,23 @@
-# Support matrix
+# Support
 
-RogueDashboard is engine-neutral and does not use the container-engine API.
+RogueDashboard is engine-neutral and uses the same application container on Docker and Podman.
 
 | Component | Supported baseline |
 | --- | --- |
-| Docker Engine | maintained releases |
-| Docker Compose | Compose v2 |
-| Podman | maintained releases |
-| Podman Compose | current `podman compose` / compatible provider |
-| Python runtime | version defined by the Dockerfile |
-| Architecture | amd64 and arm64 published by CI |
-| Host | Linux; WSL 2 supported |
+| Docker | maintained Engine releases with Compose v2 |
+| Podman | maintained releases with a working Compose provider |
+| Host | Linux and WSL 2 |
+| Architecture | amd64 and arm64 |
+| Network | external shared network such as `media-net` |
 
 ## Deployment model
 
-- one RogueDashboard container
-- external shared network
-- bind-mounted `data/` and optional `custom/`
-- no Docker/Podman socket
+- one `roguedashboard` container
+- `/opt/media-server/roguedashboard` canonical install directory
+- persistent `data/` and optional `custom/`
+- no engine socket
 - no privileged mode
-- read-only root filesystem with dropped capabilities
+- one `compose.yaml`
+- one `update.sh` workflow for Docker and Podman
 
-Container management, updates and log streaming belong to RogueForge.
+RogueForge is the supported companion for container management, updates, live logs and terminals.
