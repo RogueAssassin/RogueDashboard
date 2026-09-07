@@ -1,41 +1,37 @@
-# Testing channel
+# Testing
 
-The `testing` branch is the integration channel used before promotion to `main`.
+The `testing` branch is the proving ground before a release is promoted to `main`.
 
-Every push runs:
+Every push validates:
 
-- Python unit tests
-- Python syntax validation
-- JavaScript syntax validation
-- unified Compose validation
+- Python tests and syntax
+- JavaScript syntax
+- unified Compose configuration
 - container image build
-- multi-architecture image publication after validation
+- multi-architecture publication after validation
 
-Testing images:
+## Run the testing channel
 
-```text
-ghcr.io/rogueassassin/roguedashboard:testing
-ghcr.io/rogueassassin/roguedashboard:1.8.1-testing
-```
-
-## Live Podman validation
-
-Keep your existing `.env`, `data/` and `custom/`:
-
-```env
-RGDASH_IMAGE=ghcr.io/rogueassassin/roguedashboard:testing
-```
+Existing installations can switch with:
 
 ```bash
-podman compose --env-file .env -f compose.yaml pull
-podman compose --env-file .env -f compose.yaml up -d
+cd /opt/media-server/roguedashboard
+./update.sh testing
 ```
 
-## Live Docker validation
+For a first testing installation, follow [Installation](INSTALLATION.md) and download files from the `testing` branch.
 
-```bash
-docker compose --env-file .env -f compose.yaml pull
-docker compose --env-file .env -f compose.yaml up -d
-```
+## Release validation
 
-Validate Customise, background monitoring, incident persistence, Discord DOWN/RECOVERED delivery, notification history and native Rogue integrations before promotion.
+Before promotion to `main`, verify:
+
+- administrator login and Customise
+- browser-closed monitoring
+- health and incident persistence after container restart
+- Discord test, DOWN and RECOVERED delivery
+- notification history
+- maintenance and per-service silence
+- RogueForge, RogueMediaValidator and RogueRoute integrations
+- Docker and rootless Podman deployment behavior
+
+The exact testing image/version belongs in the changelog rather than the general documentation.
