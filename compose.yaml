@@ -44,3 +44,6 @@ networks:
   media-net:
     external: true
     name: ${MEDIA_NETWORK:-media-net}
+
+x-podman:
+  in_pod: false
