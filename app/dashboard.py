@@ -9,22 +9,28 @@ from datetime import datetime, timezone
 import hashlib
 import hmac
 from http import HTTPStatus
-from http.client import HTTPConnection
+from http.client import HTTPConnection, HTTPException
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import getpass
 import io
+import ipaddress
 import json
 import mimetypes
 import os
 import platform
 from pathlib import Path
+import queue
 import re
 import secrets
+import signal
 import socket
 import sqlite3
+import ssl
 import sys
 import threading
 import time
+import traceback
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -32,11 +38,24 @@ from urllib.request import Request, urlopen
 import zipfile
 
 from importer import DEFAULT_DASHBOARD, import_homepage, suggested_widget
+import integrations
 from integrations import SUPPORTED_WIDGETS, collect_widget
 
 
-VERSION = "2.0.0"
-PORT = int(os.environ.get("PORT", "8080"))
+def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    """Read a bounded integer setting; blank or invalid values fall back instead of crashing at import."""
+    raw = os.environ.get(name, "").strip()
+    try:
+        value = int(raw) if raw else default
+    except ValueError:
+        print(f"Ignoring invalid {name}={raw!r}; using {default}")
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+VERSION = "2.0.1"
+integrations.USER_AGENT = f"RogueDashboard/{VERSION}"
+PORT = env_int("PORT", 8080, 1, 65535)
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).with_name("static")))
 CUSTOM_DIR = Path(os.environ.get("CUSTOM_DIR", "/custom"))
@@ -64,19 +83,24 @@ CUSTOM_ASSET_SUFFIXES = {".avif", ".gif", ".ico", ".jpeg", ".jpg", ".png", ".svg
 ROGUEROUTE_WEB_HEALTH_URL = "http://rogueroute-gpx-web:9080/api/health"
 ROGUEROUTE_OSRM_HEALTH_URL = "http://rogueroute-gpx-web:9080/api/health/osrm"
 ROGUEROUTE_MANAGER_HEALTH_URL = "http://rogueroute-gpx-manager:9090/health"
-MONITOR_INTERVAL = max(15, min(300, int(os.environ.get("RGDASH_MONITOR_INTERVAL", "30"))))
-MONITOR_FAILURE_THRESHOLD = max(1, min(10, int(os.environ.get("RGDASH_MONITOR_FAILURE_THRESHOLD", "3"))))
-MONITOR_RETENTION_HOURS = max(24, min(2160, int(os.environ.get("RGDASH_MONITOR_RETENTION_HOURS", "720"))))
+MONITOR_INTERVAL = env_int("RGDASH_MONITOR_INTERVAL", 30, 15, 300)
+MONITOR_FAILURE_THRESHOLD = env_int("RGDASH_MONITOR_FAILURE_THRESHOLD", 3, 1, 10)
+MONITOR_RETENTION_HOURS = env_int("RGDASH_MONITOR_RETENTION_HOURS", 720, 24, 2160)
 DISCORD_ENABLED = os.environ.get("RGDASH_DISCORD_ENABLED", "false").lower() == "true"
 DISCORD_WEBHOOK_URL = os.environ.get("RGDASH_DISCORD_WEBHOOK_URL", "").strip()
 DISCORD_NOTIFY_DOWN = os.environ.get("RGDASH_DISCORD_NOTIFY_DOWN", "true").lower() == "true"
 DISCORD_NOTIFY_RECOVERY = os.environ.get("RGDASH_DISCORD_NOTIFY_RECOVERY", "true").lower() == "true"
 DISCORD_NOTIFY_DEGRADED = os.environ.get("RGDASH_DISCORD_NOTIFY_DEGRADED", "false").lower() == "true"
-DISCORD_MIN_OUTAGE_SECONDS = max(0, min(3600, int(os.environ.get("RGDASH_DISCORD_MIN_OUTAGE_SECONDS", "0"))))
-DISCORD_COOLDOWN_SECONDS = max(0, min(86400, int(os.environ.get("RGDASH_DISCORD_COOLDOWN_SECONDS", "300"))))
-DISCORD_RETRY_ATTEMPTS = max(1, min(5, int(os.environ.get("RGDASH_DISCORD_RETRY_ATTEMPTS", "3"))))
+DISCORD_MIN_OUTAGE_SECONDS = env_int("RGDASH_DISCORD_MIN_OUTAGE_SECONDS", 0, 0, 3600)
+DISCORD_COOLDOWN_SECONDS = env_int("RGDASH_DISCORD_COOLDOWN_SECONDS", 300, 0, 86400)
+DISCORD_RETRY_ATTEMPTS = env_int("RGDASH_DISCORD_RETRY_ATTEMPTS", 3, 1, 5)
 if DISCORD_WEBHOOK_URL and urlparse(DISCORD_WEBHOOK_URL).scheme != "https":
     DISCORD_WEBHOOK_URL = ""
+BACKUP_INTERVAL_HOURS = env_int("RGDASH_BACKUP_INTERVAL_HOURS", 24, 0, 720)
+BACKUP_KEEP = env_int("RGDASH_BACKUP_KEEP", 7, 1, 60)
+WATCHDOG_SECONDS = env_int("RGDASH_WATCHDOG_SECONDS", 900, 0, 86400)
+MAX_CONNECTIONS = 64
+REQUEST_TIMEOUT = 15
 
 
 class SetupCompleted(Exception):
@@ -319,9 +343,14 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
 class Database:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
+        self.path = path
         self.lock = threading.RLock()
-        self.db = sqlite3.connect(path, check_same_thread=False)
+        self._window_cache: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
+        self._window_lock = threading.Lock()
+        self.db = sqlite3.connect(path, check_same_thread=False, timeout=10)
         self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.execute("PRAGMA synchronous=NORMAL")
+        self.db.execute("PRAGMA busy_timeout=5000")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(
             """
@@ -372,13 +401,68 @@ class Database:
             self.db.execute("ALTER TABLE sessions ADD COLUMN created_at TEXT")
         if "last_seen_at" not in session_columns:
             self.db.execute("ALTER TABLE sessions ADD COLUMN last_seen_at TEXT")
+        sample_columns = {row[1] for row in self.db.execute("PRAGMA table_info(health_samples)")}
+        if "recovered" not in sample_columns:
+            self.db.execute("ALTER TABLE health_samples ADD COLUMN recovered INTEGER NOT NULL DEFAULT 0")
         now = utc_now()
         self.db.execute("UPDATE sessions SET created_at=COALESCE(created_at,?),last_seen_at=COALESCE(last_seen_at,?)", (now, now))
         self.db.commit()
 
+    def close(self) -> None:
+        """Close the connection, then fold the WAL back into the main database file."""
+        with self.lock:
+            try:
+                self.db.commit()
+            except sqlite3.Error:
+                pass
+            self.db.close()
+        try:
+            connection = sqlite3.connect(self.path, timeout=10)
+            try:
+                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            finally:
+                connection.close()
+        except sqlite3.Error as error:
+            print(f"WAL checkpoint failed during shutdown: {error}")
+
+    def read_connection(self) -> sqlite3.Connection:
+        """Short-lived read-only connection so heavy reports never hold the writer lock."""
+        connection = sqlite3.connect(self.path, timeout=10)
+        connection.execute("PRAGMA query_only=ON")
+        connection.execute("PRAGMA busy_timeout=5000")
+        return connection
+
+    def backup_to(self, destination: Path) -> None:
+        """Write a consistent online copy using SQLite's backup API."""
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        source = sqlite3.connect(self.path, timeout=10)
+        target = sqlite3.connect(destination)
+        try:
+            source.backup(target)
+        finally:
+            target.close()
+            source.close()
+
     def setup_required(self) -> bool:
         with self.lock:
             return self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+
+    def set_password(self, username: str, password: str) -> bool:
+        salt = secrets.token_bytes(16)
+        password_hash = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1, dklen=64)
+        with self.lock:
+            cursor = self.db.execute(
+                "UPDATE users SET password_hash=?,salt=? WHERE username=?",
+                (password_hash.hex(), salt.hex(), username),
+            )
+            if cursor.rowcount:
+                self.db.execute("DELETE FROM sessions")
+            self.db.commit()
+        return cursor.rowcount > 0
+
+    def usernames(self) -> list[str]:
+        with self.lock:
+            return [row[0] for row in self.db.execute("SELECT username FROM users ORDER BY id")]
 
     def setup(self, username: str, password: str, dashboard: dict[str, Any]) -> tuple[str, int]:
         salt = secrets.token_bytes(16)
@@ -440,8 +524,14 @@ class Database:
                 (digest, int(time.time())),
             ).fetchone()
             if row:
-                self.db.execute("UPDATE sessions SET last_seen_at=? WHERE token_hash=?", (utc_now(), digest))
-                self.db.commit()
+                now_iso = utc_now()
+                stale_before = datetime.fromtimestamp(time.time() - 60, timezone.utc).isoformat()
+                cursor = self.db.execute(
+                    "UPDATE sessions SET last_seen_at=? WHERE token_hash=? AND (last_seen_at IS NULL OR last_seen_at<?)",
+                    (now_iso, digest, stale_before),
+                )
+                if cursor.rowcount:
+                    self.db.commit()
         return row[0] if row else None
 
     def logout(self, token: str | None) -> None:
@@ -594,9 +684,24 @@ class Database:
             "openingDetail": row[6], "resolutionDetail": row[7],
         } for row in rows]
 
+    def open_incident_count(self) -> int:
+        with self.lock:
+            return int(self.db.execute("SELECT COUNT(*) FROM incidents WHERE resolved_at IS NULL").fetchone()[0])
+
     def availability_windows(self) -> dict[str, dict[str, Any]]:
-        windows = {"1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000}
-        return {name: self.health_history(seconds) for name, seconds in windows.items()}
+        windows = {"1h": (3600, 10), "24h": (86400, 30), "7d": (604800, 300), "30d": (2592000, 300)}
+        result: dict[str, dict[str, Any]] = {}
+        with self._window_lock:
+            for name, (seconds, ttl) in windows.items():
+                now = time.monotonic()
+                cached = self._window_cache.get(name)
+                if cached and cached[0] > now:
+                    result[name] = cached[1]
+                    continue
+                value = self.health_history(seconds)
+                self._window_cache[name] = (now + ttl, value)
+                result[name] = value
+        return result
 
     def record_health_results(self, items: list[dict[str, Any]], results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         now = int(time.time())
@@ -605,15 +710,20 @@ class Database:
         with self.lock:
             for result in results:
                 item_id = str(result.get("itemId") or "")
-                if not item_id:
-                    continue
+                if not item_id or result.get("state") not in ("online", "offline"):
+                    continue  # "unknown" (no usable probe URL) must never count as an outage
                 item = by_id.get(item_id, {})
                 item_name = text(item.get("name"), 100, item_id) or item_id
                 raw_state = "online" if result.get("state") == "online" else "offline"
                 latency = result.get("latencyMs") if isinstance(result.get("latencyMs"), int) else None
+                previous_sample = self.db.execute(
+                    "SELECT state FROM health_samples WHERE item_id=? ORDER BY checked_at DESC, id DESC LIMIT 1",
+                    (item_id,),
+                ).fetchone()
+                recovered = 1 if raw_state == "online" and previous_sample and previous_sample[0] == "offline" else 0
                 self.db.execute(
-                    "INSERT INTO health_samples(item_id,item_name,checked_at,state,latency_ms) VALUES(?,?,?,?,?)",
-                    (item_id, item_name, now, raw_state, latency),
+                    "INSERT INTO health_samples(item_id,item_name,checked_at,state,latency_ms,recovered) VALUES(?,?,?,?,?,?)",
+                    (item_id, item_name, now, raw_state, latency, recovered),
                 )
                 previous = self.db.execute(
                     "SELECT state,failures,changed_at FROM monitor_state WHERE item_id=?",
@@ -669,42 +779,45 @@ class Database:
 
     def health_history(self, window_seconds: int = 3600) -> dict[str, dict[str, Any]]:
         cutoff = int(time.time()) - window_seconds
-        with self.lock:
-            rows = self.db.execute(
-                "SELECT item_id,checked_at,state,latency_ms FROM health_samples WHERE checked_at>=? ORDER BY item_id,checked_at",
+        connection = self.read_connection()
+        try:
+            rows = connection.execute(
+                """
+                SELECT item_id, COUNT(*), SUM(state='online'), AVG(latency_ms),
+                       MAX(CASE WHEN state='offline' THEN checked_at END),
+                       MAX(CASE WHEN recovered=1 THEN checked_at END)
+                FROM health_samples WHERE checked_at>=? GROUP BY item_id
+                """,
                 (cutoff,),
             ).fetchall()
-        grouped: dict[str, list[tuple[int, str, int | None]]] = {}
-        for item_id, checked_at, state, latency in rows:
-            grouped.setdefault(item_id, []).append((checked_at, state, latency))
-        summary: dict[str, dict[str, Any]] = {}
-        for item_id, samples in grouped.items():
-            online = sum(1 for _, state, _ in samples if state == "online")
-            latencies = [latency for _, _, latency in samples if isinstance(latency, int)]
-            failures = [checked_at for checked_at, state, _ in samples if state == "offline"]
-            last_recovery = None
-            for index in range(1, len(samples)):
-                if samples[index - 1][1] == "offline" and samples[index][1] == "online":
-                    last_recovery = samples[index][0]
-            summary[item_id] = {
-                "samples": len(samples),
-                "availability": round((online / len(samples)) * 100, 1) if samples else 0,
-                "averageLatencyMs": round(sum(latencies) / len(latencies)) if latencies else None,
-                "lastFailureAt": datetime.fromtimestamp(failures[-1], timezone.utc).isoformat().replace("+00:00", "Z") if failures else None,
-                "lastRecoveryAt": datetime.fromtimestamp(last_recovery, timezone.utc).isoformat().replace("+00:00", "Z") if last_recovery else None,
+        finally:
+            connection.close()
+
+        def iso(value: int | None) -> str | None:
+            return datetime.fromtimestamp(value, timezone.utc).isoformat().replace("+00:00", "Z") if value else None
+
+        return {
+            item_id: {
+                "samples": count,
+                "availability": round((online / count) * 100, 1) if count else 0,
+                "averageLatencyMs": round(average_latency) if average_latency is not None else None,
+                "lastFailureAt": iso(last_failure),
+                "lastRecoveryAt": iso(last_recovery),
             }
-        return summary
+            for item_id, count, online, average_latency, last_failure, last_recovery in rows
+        }
 
     def monitor_states(self) -> list[dict[str, Any]]:
         with self.lock:
             rows = self.db.execute(
                 "SELECT item_id,item_name,state,failures,changed_at,last_checked_at,last_latency_ms FROM monitor_state ORDER BY item_name COLLATE NOCASE"
             ).fetchall()
+        suppressions = {entry["scope"]: entry for entry in self.suppression_entries()}
         return [
             {
                 "itemId": row[0], "name": row[1], "state": row[2], "failures": row[3],
                 "changedAt": row[4], "lastCheckedAt": row[5], "latencyMs": row[6],
-                "suppression": self.active_suppression(row[0]),
+                "suppression": suppressions.get("global") or suppressions.get(f"item:{row[0]}"),
             }
             for row in rows
         ]
@@ -831,9 +944,15 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
         status = probe(method)
         if method == "HEAD" and status in (405, 501):
             status = probe("GET")
-    except (URLError, TimeoutError, ValueError):
+    except (URLError, OSError, HTTPException, ValueError) as error:
         status = None
-        probe_error = "Private endpoint is unreachable from the dashboard network"
+        reason = getattr(error, "reason", error)
+        if isinstance(reason, ssl.SSLCertVerificationError):
+            probe_error = "TLS certificate verification failed"
+        elif isinstance(error, HTTPException) or isinstance(reason, ConnectionResetError):
+            probe_error = "Endpoint closed the connection without a valid HTTP response"
+        else:
+            probe_error = "Private endpoint is unreachable from the dashboard network"
 
     state = "online" if status is not None and status_min <= status <= status_max else "offline"
     message = f"Endpoint responding (HTTP {status})" if state == "online" else (
@@ -855,6 +974,21 @@ def health_check(item: dict[str, Any]) -> dict[str, Any]:
     if status is not None:
         result["status"] = status
     return result
+
+
+def safe_health_check(item: dict[str, Any]) -> dict[str, Any]:
+    """health_check() that can never abort a monitoring cycle."""
+    try:
+        return health_check(item)
+    except Exception as error:  # noqa: BLE001 - one bad probe must not stop the others
+        return {
+            "itemId": item.get("id", ""),
+            "state": "offline",
+            "source": "endpoint",
+            "message": f"Probe failed unexpectedly ({type(error).__name__})",
+            "latencyMs": None,
+            "checkedAt": utc_now(),
+        }
 
 
 def resolve_database_path() -> Path:
@@ -993,6 +1127,16 @@ MONITOR_STOP = threading.Event()
 MONITOR_WAKE = threading.Event()
 MONITOR_LAST_RUN = 0
 MONITOR_LAST_ERROR = ""
+MONITOR_RUN_LOCK = threading.Lock()
+MONITOR_GENERATION = 0
+MONITOR_LAST_GENERATION = -1
+MONITOR_LAST_STARTED = 0.0
+MONITOR_MIN_SPACING = 5.0
+MONITOR_HEARTBEAT = time.time()
+WIDGET_REFRESH_LOCK = threading.Lock()
+WIDGET_LAST: list[dict[str, Any]] = []
+NOTIFY_QUEUE: "queue.Queue[dict[str, Any] | None]" = queue.Queue(maxsize=500)
+NOTIFY_WORKER_ACTIVE = False
 
 
 def discord_configured() -> bool:
@@ -1103,36 +1247,137 @@ def notify_transition(transition: dict[str, Any]) -> None:
         print(f"Discord notification failed for {name}: {error}")
 
 def run_health_monitor_once() -> list[dict[str, Any]]:
-    global HEALTH_CACHE, MONITOR_LAST_RUN, MONITOR_LAST_ERROR
-    if DB is None or DB.setup_required():
-        return []
-    items = [item for group in DB.dashboard()["groups"] for item in group["items"] if item.get("monitorUrl")]
-    if not items:
-        MONITOR_LAST_RUN = int(time.time())
-        MONITOR_LAST_ERROR = ""
-        return []
-    try:
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            results = list(pool.map(health_check, items))
+    """Probe every monitored service once.
+
+    Runs are serialised so the background loop and request threads can never
+    double-count a failure, and every error is contained so the loop survives.
+    """
+    global HEALTH_CACHE, MONITOR_LAST_RUN, MONITOR_LAST_ERROR, MONITOR_LAST_GENERATION, MONITOR_LAST_STARTED
+    transitions: list[dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    with MONITOR_RUN_LOCK:
         with HEALTH_LOCK:
-            HEALTH_CACHE = (time.time() + MONITOR_INTERVAL, results)
-        transitions = DB.record_health_results(items, results)
-        MONITOR_LAST_RUN = int(time.time())
-        MONITOR_LAST_ERROR = ""
-        for transition in transitions:
+            cached = HEALTH_CACHE[1]
+        if (
+            cached
+            and MONITOR_LAST_GENERATION == MONITOR_GENERATION
+            and time.monotonic() - MONITOR_LAST_STARTED < MONITOR_MIN_SPACING
+        ):
+            return cached
+        generation = MONITOR_GENERATION
+        started = time.monotonic()
+        try:
+            if DB is None or DB.setup_required():
+                return []
+            items = [item for group in DB.dashboard()["groups"] for item in group["items"] if item.get("monitorUrl")]
+            if not items:
+                MONITOR_LAST_RUN = int(time.time())
+                MONITOR_LAST_ERROR = ""
+                return []
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results = list(pool.map(safe_health_check, items))
+            with HEALTH_LOCK:
+                HEALTH_CACHE = (time.time() + MONITOR_INTERVAL, results)
+            transitions = DB.record_health_results(items, results)
+            MONITOR_LAST_RUN = int(time.time())
+            MONITOR_LAST_ERROR = ""
+            MONITOR_LAST_STARTED = started
+            MONITOR_LAST_GENERATION = generation
+        except Exception as error:  # noqa: BLE001 - keep the monitor alive on any failure
+            MONITOR_LAST_ERROR = str(error) or type(error).__name__
+            print(f"Background monitor failed: {MONITOR_LAST_ERROR}")
+            traceback.print_exc()
+            return cached
+    for transition in transitions:
+        dispatch_notification(transition)
+    return results
+
+
+def dispatch_notification(transition: dict[str, Any]) -> None:
+    """Hand Discord delivery to the worker so slow webhooks never stall probing."""
+    if NOTIFY_WORKER_ACTIVE:
+        try:
+            NOTIFY_QUEUE.put_nowait(transition)
+            return
+        except queue.Full:
+            print("Notification queue is full; delivering synchronously")
+    notify_transition(transition)
+
+
+def notification_worker() -> None:
+    while True:
+        transition = NOTIFY_QUEUE.get()
+        if transition is None:
+            return
+        try:
             notify_transition(transition)
-        return results
-    except Exception as error:
-        MONITOR_LAST_ERROR = str(error)
-        print(f"Background monitor failed: {error}")
-        return []
+        except Exception as error:  # noqa: BLE001
+            print(f"Notification worker error: {error}")
 
 
 def monitor_loop() -> None:
+    global MONITOR_LAST_ERROR, MONITOR_HEARTBEAT
     while not MONITOR_STOP.is_set():
-        run_health_monitor_once()
+        try:
+            run_health_monitor_once()
+        except Exception as error:  # noqa: BLE001 - the loop must never die
+            MONITOR_LAST_ERROR = str(error) or type(error).__name__
+            traceback.print_exc()
+        MONITOR_HEARTBEAT = time.time()
         MONITOR_WAKE.wait(MONITOR_INTERVAL)
         MONITOR_WAKE.clear()
+
+
+def monitor_stale_seconds() -> float:
+    return max(0.0, time.time() - MONITOR_HEARTBEAT)
+
+
+def monitor_healthy() -> bool:
+    """False when the background loop has stopped completing cycles."""
+    return monitor_stale_seconds() <= max(300, MONITOR_INTERVAL * 10)
+
+
+def watchdog_loop() -> None:
+    """Exit the process (so the restart policy recovers it) if probing hangs for good."""
+    while not MONITOR_STOP.wait(30):
+        if WATCHDOG_SECONDS and monitor_stale_seconds() > WATCHDOG_SECONDS:
+            print(f"Watchdog: monitor made no progress for {int(monitor_stale_seconds())}s; exiting for restart", flush=True)
+            os._exit(70)
+
+
+def backup_database(directory: Path | None = None, keep: int | None = None) -> Path | None:
+    """Create a timestamped SQLite backup and prune old ones."""
+    if DB is None:
+        return None
+    target_dir = directory or (DATA_DIR / "backups")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    destination = target_dir / f"roguedashboard-{stamp}.sqlite"
+    DB.backup_to(destination)
+    retained = max(1, keep if keep is not None else BACKUP_KEEP)
+    for old in sorted(target_dir.glob("roguedashboard-*.sqlite"), reverse=True)[retained:]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    return destination
+
+
+def backup_loop() -> None:
+    if not BACKUP_INTERVAL_HOURS:
+        return
+    interval = BACKUP_INTERVAL_HOURS * 3600
+    backups = DATA_DIR / "backups"
+    while not MONITOR_STOP.is_set():
+        existing = sorted(backups.glob("roguedashboard-*.sqlite")) if backups.exists() else []
+        age = time.time() - existing[-1].stat().st_mtime if existing else interval
+        wait = max(60, interval - age) if existing else 120
+        if MONITOR_STOP.wait(wait):
+            return
+        try:
+            created = backup_database()
+            print(f"Database backup written: {created}")
+        except Exception as error:  # noqa: BLE001
+            print(f"Database backup failed: {error}")
 
 
 def monitor_status() -> dict[str, Any]:
@@ -1155,7 +1400,7 @@ def monitor_status() -> dict[str, Any]:
         },
         "services": DB.monitor_states() if DB else [],
         "suppressions": DB.suppression_entries() if DB else [],
-        "openIncidents": len([entry for entry in (DB.incidents(250) if DB else []) if entry["state"] == "open"]),
+        "openIncidents": DB.open_incident_count() if DB else 0,
         "migrationReadiness": DB.migration_readiness() if DB else None,
     }
 
@@ -1164,7 +1409,8 @@ def health_history_summary() -> dict[str, dict[str, Any]]:
     return DB.health_history(3600) if DB else {}
 
 def clear_monitor_caches() -> None:
-    global HEALTH_CACHE, WIDGET_CACHE
+    global HEALTH_CACHE, WIDGET_CACHE, MONITOR_GENERATION
+    MONITOR_GENERATION += 1
     with HEALTH_LOCK:
         HEALTH_CACHE = (0, [])
     with WIDGET_LOCK:
@@ -1172,11 +1418,138 @@ def clear_monitor_caches() -> None:
     MONITOR_WAKE.set()
 
 
+def collect_widget_results() -> list[dict[str, Any]]:
+    """Return widget data, refreshing at most once at a time.
+
+    Concurrent requests receive the previous snapshot instead of queueing
+    behind slow upstream services.
+    """
+    global WIDGET_CACHE, WIDGET_LAST
+    with WIDGET_LOCK:
+        if WIDGET_CACHE[0] > time.time():
+            return WIDGET_CACHE[1]
+    if not WIDGET_REFRESH_LOCK.acquire(blocking=False):
+        if WIDGET_LAST:
+            return WIDGET_LAST
+        with WIDGET_REFRESH_LOCK:  # very first load: wait for the refresh in progress
+            pass
+        with WIDGET_LOCK:
+            return WIDGET_CACHE[1] or WIDGET_LAST
+    try:
+        with WIDGET_LOCK:
+            if WIDGET_CACHE[0] > time.time():
+                return WIDGET_CACHE[1]
+        widget_items = [
+            item
+            for group in DB.dashboard()["groups"]
+            for item in group["items"]
+            if isinstance(item.get("widget"), dict)
+        ]
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            widget_results = list(pool.map(collect_widget, widget_items))
+        checked_at = utc_now()
+        for result in widget_results:
+            result["checkedAt"] = checked_at
+        with WIDGET_LOCK:
+            WIDGET_CACHE = (time.time() + 25, widget_results)
+        WIDGET_LAST = widget_results
+        return widget_results
+    finally:
+        WIDGET_REFRESH_LOCK.release()
+
+
+FAILED_LOGIN_LIMIT = 5
+FAILED_LOGIN_WINDOW = 900
+
+
+class DashboardServer(ThreadingHTTPServer):
+    """Threaded server with a bounded number of simultaneous connections."""
+
+    request_queue_size = 64
+    daemon_threads = True
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+
+    def process_request(self, request: Any, client_address: Any) -> None:
+        if not self._slots.acquire(blocking=False):
+            try:
+                request.sendall(b"HTTP/1.0 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     server_version = "RogueDashboard"
+    timeout = REQUEST_TIMEOUT  # idle/slow clients can no longer pin a thread forever
 
     def log_message(self, format_string: str, *args: Any) -> None:
         print(f"{self.address_string()} - {format_string % args}")
+
+    def log_request(self, code: Any = "-", size: Any = "-") -> None:
+        # Routine successful reads (the UI polls several endpoints every 30s) are noise.
+        try:
+            status = int(code)
+        except (TypeError, ValueError):
+            status = 0
+        if status >= 400 or self.command in ("POST", "PUT", "DELETE"):
+            self.log_message('"%s" %s %s', self.requestline, str(code), str(size))
+
+    def _guarded(self, handler: Any) -> None:
+        try:
+            handler()
+        except (BrokenPipeError, ConnectionResetError, TimeoutError):
+            self.close_connection = True
+        except Exception:  # noqa: BLE001 - always answer instead of dropping the connection
+            traceback.print_exc()
+            try:
+                self.json_response({"error": "Internal server error"}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            except Exception:  # noqa: BLE001
+                self.close_connection = True
+
+    def do_GET(self) -> None:
+        self._guarded(self._do_GET)
+
+    def do_HEAD(self) -> None:
+        self._guarded(self._do_HEAD)
+
+    def do_POST(self) -> None:
+        self._guarded(self._do_POST)
+
+    def do_PUT(self) -> None:
+        self._guarded(self._do_PUT)
+
+    def client_ip(self) -> str:
+        """The address used for login throttling.
+
+        Behind a reverse proxy every request arrives from the proxy's address, which
+        would let one attacker lock everybody out. When the direct peer is a private
+        address and proxy headers are trusted, use the entry the proxy appended.
+        """
+        peer = self.client_address[0]
+        if TRUST_PROXY_HEADERS:
+            try:
+                address = ipaddress.ip_address(peer.split("%", 1)[0])
+                from_proxy = address.is_private or address.is_loopback or address.is_link_local
+            except ValueError:
+                from_proxy = False
+            if from_proxy:
+                candidate = self.headers.get("X-Forwarded-For", "").split(",")[-1].strip()
+                try:
+                    return str(ipaddress.ip_address(candidate))
+                except ValueError:
+                    pass
+        return peer
 
     def end_headers(self) -> None:
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -1251,13 +1624,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.json_response({"error": "Sign in to change the dashboard."}, HTTPStatus.UNAUTHORIZED)
         return False
 
-    def do_GET(self) -> None:
+    def _do_GET(self) -> None:
         if not self.require_allowed_host():
             return
         parsed = urlparse(self.path)
         path = parsed.path
         if path == "/api/ping":
-            self.json_response({"ok": True, "version": VERSION})
+            healthy = monitor_healthy()
+            self.json_response(
+                {"ok": healthy, "version": VERSION, "monitor": "ok" if healthy else "stalled"},
+                HTTPStatus.OK if healthy else HTTPStatus.SERVICE_UNAVAILABLE,
+            )
         elif path == "/api/bootstrap":
             username = self.username()
             self.json_response(
@@ -1302,24 +1679,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             self.json_response({"entries": DB.notification_entries()})
         elif path == "/api/widgets":
-            global WIDGET_CACHE
-            with WIDGET_LOCK:
-                if WIDGET_CACHE[0] > time.time():
-                    widget_results = WIDGET_CACHE[1]
-                else:
-                    widget_items = [
-                        item
-                        for group in DB.dashboard()["groups"]
-                        for item in group["items"]
-                        if isinstance(item.get("widget"), dict)
-                    ]
-                    with ThreadPoolExecutor(max_workers=6) as pool:
-                        widget_results = list(pool.map(collect_widget, widget_items))
-                    checked_at = utc_now()
-                    for result in widget_results:
-                        result["checkedAt"] = checked_at
-                    WIDGET_CACHE = (time.time() + 25, widget_results)
-            self.json_response({"supported": sorted(SUPPORTED_WIDGETS), "widgets": widget_results})
+            self.json_response({"supported": sorted(SUPPORTED_WIDGETS), "widgets": collect_widget_results()})
         elif path == "/api/admin/sessions":
             if not self.require_admin():
                 return
@@ -1335,12 +1695,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self.serve_static(path)
 
-    def do_HEAD(self) -> None:
+    def _do_HEAD(self) -> None:
         if not self.require_allowed_host():
             return
         path = urlparse(self.path).path
         if path == "/api/ping":
-            self.send_response(HTTPStatus.OK)
+            self.send_response(HTTPStatus.OK if monitor_healthy() else HTTPStatus.SERVICE_UNAVAILABLE)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", "0")
             self.send_header("Cache-Control", "no-store")
@@ -1354,7 +1714,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self.serve_static(path, head_only=True)
 
-    def do_POST(self) -> None:
+    def _do_POST(self) -> None:
         if not self.require_allowed_host():
             return
         path = urlparse(self.path).path
@@ -1444,7 +1804,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except (HTTPError, URLError, RuntimeError, TimeoutError) as error:
             self.json_response({"error": f"Service request failed: {error}"}, HTTPStatus.SERVICE_UNAVAILABLE)
 
-    def do_PUT(self) -> None:
+    def _do_PUT(self) -> None:
         if not self.require_allowed_host():
             return
         if urlparse(self.path).path != "/api/dashboard":
@@ -1481,21 +1841,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def login(self, body: Any) -> None:
         if not isinstance(body, dict):
             raise ValueError("Invalid login request")
-        client = self.client_address[0]
+        client = self.client_ip()
         now = time.time()
         with LOGIN_LOCK:
-            attempts, reset = FAILED_LOGINS.get(client, (0, now + 900))
+            if len(FAILED_LOGINS) > 1000:
+                for key in [key for key, (_, reset_at) in FAILED_LOGINS.items() if reset_at <= now]:
+                    FAILED_LOGINS.pop(key, None)
+            attempts, reset = FAILED_LOGINS.get(client, (0, now + FAILED_LOGIN_WINDOW))
             if reset <= now:
-                attempts, reset = 0, now + 900
-            if attempts >= 5:
+                attempts, reset = 0, now + FAILED_LOGIN_WINDOW
+            if attempts >= FAILED_LOGIN_LIMIT:
                 self.json_response({"error": "Too many attempts. Please wait 15 minutes."}, HTTPStatus.TOO_MANY_REQUESTS)
                 return
+            # Count the attempt before the slow hash so parallel guesses cannot slip past the limit.
+            FAILED_LOGINS[client] = (attempts + 1, reset)
         username = text(body.get("username"), 50).strip()
         password = body.get("password") if isinstance(body.get("password"), str) else ""
         result = DB.login(username, password)
         if not result:
-            with LOGIN_LOCK:
-                FAILED_LOGINS[client] = (attempts + 1, reset)
             self.json_response({"error": "The username or password is incorrect."}, HTTPStatus.UNAUTHORIZED)
             return
         with LOGIN_LOCK:
@@ -1609,27 +1972,95 @@ def healthcheck() -> int:
         return 1
 
 
-def main() -> int:
+def reset_password_command(arguments: list[str]) -> int:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    database = Database(resolve_database_path())
+    try:
+        users = database.usernames()
+        if not users:
+            print("No administrator exists yet. Open the dashboard and complete first-run setup.", file=sys.stderr)
+            return 1
+        username = arguments[0] if arguments else (users[0] if len(users) == 1 else "")
+        if username not in users:
+            print(f"Specify the account to reset. Existing accounts: {', '.join(users)}", file=sys.stderr)
+            return 2
+        password = os.environ.get("RGDASH_NEW_PASSWORD", "")
+        if not password:
+            password = getpass.getpass("New password: ")
+            if password != getpass.getpass("Repeat password: "):
+                print("Passwords do not match.", file=sys.stderr)
+                return 2
+        if not 10 <= len(password) <= 200:
+            print("Password must contain between 10 and 200 characters.", file=sys.stderr)
+            return 2
+        database.set_password(username, password)
+        database.audit(username, "auth.password_reset", "cli", "success")
+        print(f"Password updated for {username}. All sessions were signed out.")
+        return 0
+    finally:
+        database.close()
+
+
+def backup_command() -> int:
     global DB
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DB = Database(resolve_database_path())
+    try:
+        destination = backup_database()
+        print(destination)
+        return 0
+    finally:
+        DB.close()
+
+
+def main() -> int:
+    global DB, NOTIFY_WORKER_ACTIVE, MONITOR_HEARTBEAT
     command = sys.argv[1] if len(sys.argv) > 1 else "serve"
     if command == "healthcheck":
         return healthcheck()
+    if command == "backup":
+        return backup_command()
+    if command == "reset-password":
+        return reset_password_command(sys.argv[2:])
+    if command != "serve":
+        print("Usage: dashboard.py [serve|healthcheck|backup|reset-password [username]]", file=sys.stderr)
+        return 2
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DB = Database(resolve_database_path())
     MONITOR_STOP.clear()
-    monitor_thread = threading.Thread(target=monitor_loop, name="rogue-health-monitor", daemon=True)
-    monitor_thread.start()
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), DashboardHandler)
+    MONITOR_HEARTBEAT = time.time()
+    NOTIFY_WORKER_ACTIVE = True
+    workers = [
+        threading.Thread(target=monitor_loop, name="rogue-health-monitor", daemon=True),
+        threading.Thread(target=notification_worker, name="rogue-notifier", daemon=True),
+        threading.Thread(target=backup_loop, name="rogue-backup", daemon=True),
+        threading.Thread(target=watchdog_loop, name="rogue-watchdog", daemon=True),
+    ]
+    for worker in workers:
+        worker.start()
+    server = DashboardServer(("0.0.0.0", PORT), DashboardHandler)
+
+    def request_shutdown(signum: int, _frame: Any) -> None:
+        print(f"Received signal {signum}; shutting down", flush=True)
+        # shutdown() blocks until serve_forever() exits, so it must run on another thread.
+        threading.Thread(target=server.shutdown, name="rogue-shutdown", daemon=True).start()
+
+    signal.signal(signal.SIGTERM, request_shutdown)
+    signal.signal(signal.SIGINT, request_shutdown)
     print(f"RogueDashboard {VERSION} listening on {PORT}; background monitoring every {MONITOR_INTERVAL}s")
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
-        pass
     finally:
         MONITOR_STOP.set()
         MONITOR_WAKE.set()
-        monitor_thread.join(timeout=5)
+        NOTIFY_WORKER_ACTIVE = False
+        NOTIFY_QUEUE.put(None)
+        for worker in workers[:2]:
+            worker.join(timeout=5)
         server.server_close()
+        if DB is not None:
+            DB.close()
+        print("RogueDashboard stopped cleanly", flush=True)
     return 0
 
 

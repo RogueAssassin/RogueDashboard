@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.0.1
+
+Stability release.
+
+- Fixed: a service that closed the connection without replying aborted the whole monitoring cycle, so the failing service never reached DOWN and no alert was sent. Every probe error is now contained.
+- Fixed: one transient database error permanently stopped the background monitor while the UI and healthcheck still looked healthy. The loop now survives errors, `/api/ping` returns 503 when monitoring stalls, and an optional watchdog restarts a hung process.
+- Fixed: `/api/history` loaded every health sample into memory (about 22 s and 720 MB for 30 services at 30 days). It now uses SQL aggregation on a read-only connection with caching (about 3 s cold, instant cached).
+- Fixed: SIGTERM was ignored by PID 1, so every stop waited for SIGKILL. The server now shuts down gracefully and checkpoints the WAL.
+- Fixed: endpoints without an HTTP(S) monitor URL could be recorded as outages.
+- Fixed: background and request-triggered monitor runs could race and double-count failures.
+- Fixed: login throttling locked out every user behind a reverse proxy; it now uses the real client address and counts attempts before hashing.
+- Added: scheduled consistent SQLite backups (`data/backups/`), `backup` and `reset-password` commands.
+- Added: request timeouts, bounded connections, JSON 500 handling, quieter access logs, Discord delivery on a worker thread, widget refresh without a global lock.
+- Added: rootless Podman and SELinux mount options, `RGDASH_BIND`, memory/pids limits, log rotation, `compose.override.yaml` support.
+- Improved: `update.sh` pulls before changing configuration, backs up the database, keeps backups outside `/tmp`, shows compose changes, locks against concurrent runs and rolls back automatically on a failed health check.
+- Improved: qBittorrent supports large libraries; Radarr/Sonarr library sizes are cached; blank or invalid numeric settings no longer crash start-up.
+- CI: smoke-tests the built image, derives the version from the source, and sets up QEMU for the stable arm64 build.
+
 ## 2.0.0
 
 - Established the RogueDashboard 2.x monitoring platform.

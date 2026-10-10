@@ -6,7 +6,7 @@
 
 **Local-first service monitoring, uptime, incidents and Discord notifications for Docker and Podman environments.**
 
-[![Release](https://img.shields.io/badge/RELEASE-2.0.0-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/releases)
+[![Release](https://img.shields.io/badge/RELEASE-2.0.1-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Amain)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -29,6 +29,7 @@ It deliberately stays separate from [**RogueForge**](https://github.com/RogueAss
 - native media-service and Rogue ecosystem integrations
 - one `compose.yaml` for Docker and Podman
 - read-only root filesystem, dropped capabilities and no engine socket
+- consistent scheduled SQLite backups, graceful shutdown and a self-healing monitor
 - amd64 and arm64 container images
 
 ## Rogue ecosystem
@@ -66,10 +67,14 @@ Persistent state belongs in `data/`. Optional custom icons and backgrounds belon
 
 ## Quick install — Podman
 
+Rootless Podman maps the container user (UID 10001) to a different host UID, so `data/` must be
+owned through the user namespace rather than with a plain `chown 10001`:
+
 ```bash
 sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/backgrounds,custom/icons}
-sudo chown -R 10001:10001 /opt/media-server/roguedashboard/data
+sudo chown -R "$USER": /opt/media-server/roguedashboard
 cd /opt/media-server/roguedashboard
+podman unshare chown -R 10001:10001 data
 
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/compose.yaml -o compose.yaml
 curl -fsSL https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/.env.example -o .env
@@ -83,6 +88,8 @@ podman compose --env-file .env -f compose.yaml up -d
 ```
 
 Open `http://HOST:7805`, create the administrator account on first launch, then use **Customise** to configure the dashboard.
+
+On SELinux hosts (Fedora, RHEL, Rocky) and for start-on-boot behaviour see [Installation → Rootless Podman](docs/INSTALLATION.md#rootless-podman).
 
 ## Quick install — Docker
 
@@ -183,9 +190,9 @@ cd /opt/media-server/roguedashboard
 ./update.sh testing
 
 # Pinned release
-./update.sh 2.0.0
+./update.sh 2.0.1
 ```
 
-The updater detects Docker or Podman, preserves your existing `.env`, `data/` and `custom/`, backs up deployment files, pulls the requested image, recreates the container and verifies the health endpoint.
+The updater detects Docker or Podman, preserves your existing `.env`, `data/` and `custom/`, takes a consistent database backup and backs up deployment files, pulls the requested image **before** changing any configuration, recreates the container and verifies the health endpoint. If the new version does not become healthy it automatically rolls back to the image that was running. Keep local compose customisations in `compose.override.yaml` so updates never overwrite them.
 
 `main` is the stable production branch. `testing` is the proving ground for the next release.
