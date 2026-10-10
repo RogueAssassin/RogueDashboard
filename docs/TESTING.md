@@ -7,7 +7,7 @@ Every push validates:
 - Python tests and syntax
 - JavaScript syntax
 - unified Compose configuration
-- container image build
+- container image build and smoke test (hardened runtime flags, `/api/ping`, healthcheck, online backup, SIGTERM stops in under 10 seconds)
 - multi-architecture publication after validation
 
 ## Run the testing channel

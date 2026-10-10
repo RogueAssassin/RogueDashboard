@@ -33,12 +33,41 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+      - name: Resolve version
+        id: version
+        run: |
+          version=$(sed -n 's/^VERSION = "\([0-9][0-9.]*\)"/\1/p' app/dashboard.py)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v7
         with:
           context: .
           push: false
+          load: true
           tags: roguedashboard:ci
-          build-args: RGDASH_VERSION=2.0.0
+          build-args: RGDASH_VERSION=${{ steps.version.outputs.version }}
+      - name: Smoke test image (hardened runtime, health, backup, graceful stop)
+        run: |
+          mkdir -p /tmp/rd-data
+          sudo chown 10001:10001 /tmp/rd-data
+          docker run -d --name rd -p 18080:8080 \
+            --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
+            -v /tmp/rd-data:/data roguedashboard:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:18080/api/ping && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18080/api/ping | grep -q '"monitor":"ok"'
+          docker exec rd python /app/dashboard.py healthcheck
+          docker exec rd python /app/dashboard.py backup
+          ls /tmp/rd-data/backups/roguedashboard-*.sqlite
+          start=$(date +%s)
+          docker stop -t 20 rd
+          elapsed=$(( $(date +%s) - start ))
+          echo "docker stop took ${elapsed}s"
+          test "$elapsed" -lt 10   # SIGTERM must be handled; an ignored SIGTERM waits for SIGKILL
+          test "$(docker inspect rd --format '{{.State.ExitCode}}')" = "0"
+          docker logs rd 2>&1 | grep -q "stopped cleanly"
 
   publish-testing:
     if: github.event_name == 'push' && github.ref == 'refs/heads/testing'
@@ -50,6 +79,12 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v5
+      - name: Resolve version
+        id: version
+        run: |
+          version=$(sed -n 's/^VERSION = "\([0-9][0-9.]*\)"/\1/p' app/dashboard.py)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
@@ -66,7 +101,7 @@ jobs:
             ghcr.io/rogueassassin/rogue-dashboard
           tags: |
             type=raw,value=testing
-            type=raw,value=2.0.0-testing
+            type=raw,value=${{ steps.version.outputs.version }}-testing
             type=sha
       - name: Build and publish testing
         uses: docker/build-push-action@v7
@@ -76,6 +111,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: RGDASH_VERSION=2.0.0
+          build-args: RGDASH_VERSION=${{ steps.version.outputs.version }}
           provenance: mode=max
           sbom: true

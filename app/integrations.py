@@ -20,9 +20,11 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
-USER_AGENT = "RogueDashboard/1.8.0"
+USER_AGENT = "RogueDashboard"  # dashboard.py appends the running version at startup
 MAX_RESPONSE = 2_000_000
 LARGE_LIBRARY_RESPONSE = 24_000_000
+LIBRARY_COUNT_TTL = 600
+_LIBRARY_COUNTS: dict[tuple[str, str], tuple[float, int]] = {}
 TIMEOUT = 6
 SUPPORTED_WIDGETS = {
     "bazarr",
@@ -193,24 +195,30 @@ def _arr(widget: dict[str, Any], kind: str) -> list[dict[str, str]]:
     if kind == "radarr":
         wanted = _json_request(f"{base}/api/v3/wanted/cutoff?page=1&pageSize=1", headers=headers)
         missing = _json_request(f"{base}/api/v3/wanted/missing?page=1&pageSize=1", headers=headers)
-        movies = _json_request(
-            f"{base}/api/v3/movie?includeAllMovieFiles=false",
-            headers=headers,
-            max_response=LARGE_LIBRARY_RESPONSE,
-        )
         return [
             _metric("Wanted", _total(wanted)),
             _metric("Missing", _total(missing)),
             _metric("Queued", queued),
-            _metric("Movies", len(movies) if isinstance(movies, list) else 0),
+            _metric("Movies", _library_count(base, "radarr", "/api/v3/movie?includeAllMovieFiles=false", headers)),
         ]
     wanted = _json_request(f"{base}/api/v3/wanted/missing?page=1&pageSize=1", headers=headers)
-    series = _json_request(f"{base}/api/v3/series", headers=headers, max_response=LARGE_LIBRARY_RESPONSE)
     return [
         _metric("Wanted", _total(wanted)),
         _metric("Queued", queued),
-        _metric("Series", len(series) if isinstance(series, list) else 0),
+        _metric("Series", _library_count(base, "sonarr", "/api/v3/series", headers)),
     ]
+
+
+def _library_count(base: str, kind: str, path: str, headers: dict[str, str]) -> int:
+    """Library sizes change slowly; avoid downloading the whole library every refresh."""
+    key = (base, kind)
+    cached = _LIBRARY_COUNTS.get(key)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+    library = _json_request(f"{base}{path}", headers=headers, max_response=LARGE_LIBRARY_RESPONSE)
+    count = len(library) if isinstance(library, list) else 0
+    _LIBRARY_COUNTS[key] = (time.monotonic() + LIBRARY_COUNT_TTL, count)
+    return count
 
 
 def _prowlarr(widget: dict[str, Any]) -> list[dict[str, str]]:
@@ -239,7 +247,9 @@ def _qbittorrent_metrics(
     headers: dict[str, str] | None = None,
 ) -> list[dict[str, str]]:
     transfer = _json_request(f"{base}/api/v2/transfer/info", opener=opener, headers=headers)
-    torrents = _json_request(f"{base}/api/v2/torrents/info", opener=opener, headers=headers)
+    torrents = _json_request(
+        f"{base}/api/v2/torrents/info", opener=opener, headers=headers, max_response=LARGE_LIBRARY_RESPONSE
+    )
     torrents = torrents if isinstance(torrents, list) else []
     leech_states = {"downloading", "forcedDL", "metaDL", "stalledDL", "checkingDL", "allocating"}
     seed_states = {"uploading", "forcedUP", "stalledUP", "checkingUP"}

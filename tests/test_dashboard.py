@@ -1050,5 +1050,428 @@ class RogueDashboardTests(unittest.TestCase):
 
 
 
+class StabilityTests(unittest.TestCase):
+    """Regression tests for the 2.0.1 stability release."""
+
+    ADMIN_PASSWORD = "a-secure-test-password"
+
+    def make_database(self, with_item=False):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        database = dashboard_app.Database(Path(directory.name) / "stability.sqlite")
+        self.addCleanup(lambda: database.db.close())
+        if with_item:
+            dashboard = dashboard_app.validate_dashboard({
+                "version": 9,
+                "groups": [{"id": "g", "name": "G", "items": [
+                    {"id": "svc", "name": "Service", "monitorUrl": "http://127.0.0.1:9/health"},
+                ]}],
+            })
+            database.setup("admin", self.ADMIN_PASSWORD, dashboard)
+        return database
+
+    def start_server(self):
+        server = dashboard_app.DashboardServer(("127.0.0.1", 0), dashboard_app.DashboardHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        def stop():
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.addCleanup(stop)
+        return f"http://127.0.0.1:{server.server_port}"
+
+    def use_database(self, database):
+        previous = dashboard_app.DB
+        dashboard_app.DB = database
+        self.addCleanup(lambda: setattr(dashboard_app, "DB", previous))
+
+    def reset_monitor_state(self):
+        saved = (
+            dashboard_app.HEALTH_CACHE, dashboard_app.MONITOR_LAST_GENERATION,
+            dashboard_app.MONITOR_LAST_STARTED, dashboard_app.MONITOR_GENERATION,
+        )
+
+        def restore():
+            (dashboard_app.HEALTH_CACHE, dashboard_app.MONITOR_LAST_GENERATION,
+             dashboard_app.MONITOR_LAST_STARTED, dashboard_app.MONITOR_GENERATION) = saved
+
+        self.addCleanup(restore)
+        dashboard_app.HEALTH_CACHE = (0, [])
+        dashboard_app.MONITOR_LAST_GENERATION = -1
+        dashboard_app.MONITOR_LAST_STARTED = 0.0
+
+    @staticmethod
+    def status_of(request):
+        try:
+            with urlopen(request, timeout=10) as response:
+                return response.status, json.load(response)
+        except HTTPError as error:
+            return error.code, json.loads(error.read() or b"{}")
+
+    def cli(self, *args, **env):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "app" / "dashboard.py"), *args],
+            env={**os.environ, **env}, capture_output=True, text=True, timeout=30,
+        )
+
+    # --- probes -------------------------------------------------------------
+
+    def test_probe_survives_connection_closed_without_response(self):
+        import socket
+
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(5)
+        self.addCleanup(listener.close)
+
+        def accept_and_close():
+            while True:
+                try:
+                    connection, _ = listener.accept()
+                except OSError:
+                    return
+                connection.close()
+
+        threading.Thread(target=accept_and_close, daemon=True).start()
+        item = {"id": "dropper", "monitorUrl": f"http://127.0.0.1:{listener.getsockname()[1]}/"}
+        result = dashboard_app.health_check(item)  # used to raise RemoteDisconnected
+        self.assertEqual(result["state"], "offline")
+        self.assertIn("closed the connection", result["message"])
+
+    def test_safe_health_check_never_raises(self):
+        with patch.object(dashboard_app, "health_check", side_effect=RuntimeError("boom")):
+            result = dashboard_app.safe_health_check({"id": "x"})
+        self.assertEqual(result["state"], "offline")
+        self.assertEqual(result["itemId"], "x")
+
+    def test_unknown_probe_result_is_never_recorded_as_an_outage(self):
+        database = self.make_database()
+        items = [{"id": "tcp", "name": "TCP only"}]
+        for _ in range(dashboard_app.MONITOR_FAILURE_THRESHOLD + 2):
+            database.record_health_results(items, [{"itemId": "tcp", "state": "unknown"}])
+        self.assertEqual(database.incidents(), [])
+        self.assertEqual(database.monitor_states(), [])
+        self.assertEqual(database.health_history(), {})
+
+    # --- monitor loop -------------------------------------------------------
+
+    def test_monitor_loop_survives_a_transient_database_error(self):
+        database = self.make_database(with_item=True)
+        self.use_database(database)
+        self.reset_monitor_state()
+        calls = {"count": 0}
+        original = database.setup_required
+
+        def flaky():
+            calls["count"] += 1
+            if calls["count"] == 2:
+                raise sqlite3.OperationalError("disk I/O error")
+            return original()
+
+        stop = threading.Event()
+        with patch.object(database, "setup_required", flaky), \
+                patch.object(dashboard_app, "MONITOR_INTERVAL", 0.05), \
+                patch.object(dashboard_app, "MONITOR_STOP", stop), \
+                patch.object(dashboard_app, "MONITOR_MIN_SPACING", 0.0), \
+                patch.object(dashboard_app, "safe_health_check", lambda item: {"itemId": item["id"], "state": "online", "latencyMs": 1}):
+            thread = threading.Thread(target=dashboard_app.monitor_loop, daemon=True)
+            thread.start()
+            time.sleep(0.6)
+            alive = thread.is_alive()
+            stop.set()
+            dashboard_app.MONITOR_WAKE.set()
+            thread.join(timeout=3)
+        self.assertTrue(alive, "the monitor thread must survive a transient database error")
+        self.assertGreater(calls["count"], 3, "the loop must keep running after the error")
+
+    def test_concurrent_monitor_runs_do_not_double_count_failures(self):
+        database = self.make_database(with_item=True)
+        self.use_database(database)
+        self.reset_monitor_state()
+
+        def slow_offline(item):
+            time.sleep(0.2)
+            return {"itemId": item["id"], "state": "offline", "message": "down"}
+
+        with patch.object(dashboard_app, "safe_health_check", slow_offline):
+            threads = [threading.Thread(target=dashboard_app.run_health_monitor_once) for _ in range(3)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=10)
+        self.assertEqual(database.monitor_states()[0]["failures"], 1)
+
+    def test_ping_reports_a_stalled_monitor(self):
+        database = self.make_database()
+        self.use_database(database)
+        base = self.start_server()
+        with patch.object(dashboard_app, "MONITOR_HEARTBEAT", time.time()):
+            status, body = self.status_of(Request(f"{base}/api/ping"))
+            self.assertEqual((status, body["monitor"]), (200, "ok"))
+        with patch.object(dashboard_app, "MONITOR_HEARTBEAT", time.time() - 3600):
+            status, body = self.status_of(Request(f"{base}/api/ping"))
+            self.assertEqual((status, body["ok"], body["monitor"]), (503, False, "stalled"))
+            with patch.dict(os.environ, {"HEALTHCHECK_URL": f"{base}/api/ping"}):
+                self.assertEqual(dashboard_app.healthcheck(), 1)
+
+    # --- history ------------------------------------------------------------
+
+    def test_history_aggregation_matches_a_reference_calculation(self):
+        database = self.make_database()
+        items = [{"id": "svc", "name": "Service"}, {"id": "other", "name": "Other"}]
+        pattern = ["online", "offline", "online", "online", "offline", "offline", "online"]
+        for index, state in enumerate(pattern):
+            database.record_health_results(items, [
+                {"itemId": "svc", "state": state, "latencyMs": 10 + index},
+                {"itemId": "other", "state": "online", "latencyMs": 5},
+            ])
+        summary = database.health_history()
+        self.assertEqual(summary["svc"]["samples"], len(pattern))
+        self.assertEqual(summary["svc"]["availability"], round(pattern.count("online") / len(pattern) * 100, 1))
+        self.assertEqual(summary["svc"]["averageLatencyMs"], round(sum(10 + i for i in range(len(pattern))) / len(pattern)))
+        self.assertIsNotNone(summary["svc"]["lastFailureAt"])
+        self.assertIsNotNone(summary["svc"]["lastRecoveryAt"])
+        self.assertEqual(summary["other"]["availability"], 100.0)
+        self.assertIsNone(summary["other"]["lastFailureAt"])
+        self.assertIsNone(summary["other"]["lastRecoveryAt"])
+
+    def test_history_windows_are_cached(self):
+        database = self.make_database()
+        database.record_health_results([{"id": "svc", "name": "S"}], [{"itemId": "svc", "state": "online", "latencyMs": 1}])
+        with patch.object(database, "health_history", wraps=database.health_history) as spy:
+            database.availability_windows()
+            database.availability_windows()
+        self.assertEqual(spy.call_count, 4)  # four windows computed once, then served from cache
+
+    def test_database_adds_recovered_column_to_existing_installs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "old.sqlite"
+            connection = sqlite3.connect(path)
+            connection.execute("CREATE TABLE health_samples (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, item_name TEXT NOT NULL, checked_at INTEGER NOT NULL, state TEXT NOT NULL, latency_ms INTEGER)")
+            connection.execute("INSERT INTO health_samples(item_id,item_name,checked_at,state,latency_ms) VALUES('a','A',?,'online',5)", (int(time.time()),))
+            connection.commit()
+            connection.close()
+            database = dashboard_app.Database(path)
+            self.addCleanup(database.db.close)
+            self.assertEqual(database.health_history()["a"]["samples"], 1)
+
+    # --- HTTP layer -----------------------------------------------------------
+
+    def test_unexpected_error_returns_json_500_instead_of_dropping_the_connection(self):
+        self.use_database(self.make_database())
+        base = self.start_server()
+        with patch.object(dashboard_app, "system_stats", side_effect=RuntimeError("boom")):
+            status, body = self.status_of(Request(f"{base}/api/system"))
+        self.assertEqual(status, 500)
+        self.assertEqual(body["error"], "Internal server error")
+
+    def test_idle_connections_are_closed_by_the_request_timeout(self):
+        import socket
+
+        self.use_database(self.make_database())
+        with patch.object(dashboard_app.DashboardHandler, "timeout", 0.4):
+            base = self.start_server()
+            connection = socket.create_connection(("127.0.0.1", int(base.rsplit(":", 1)[1])))
+            self.addCleanup(connection.close)
+            connection.settimeout(5)
+            started = time.time()
+            self.assertEqual(connection.recv(1024), b"")  # server hung up on the silent client
+            self.assertLess(time.time() - started, 3)
+
+    def test_login_throttle_is_per_forwarded_client_not_per_proxy(self):
+        database = self.make_database(with_item=True)
+        self.use_database(database)
+        dashboard_app.FAILED_LOGINS.clear()
+        self.addCleanup(dashboard_app.FAILED_LOGINS.clear)
+        base = self.start_server()
+
+        def login(password, client):
+            return self.status_of(Request(
+                f"{base}/api/auth/login", method="POST",
+                data=json.dumps({"username": "admin", "password": password}).encode(),
+                headers={"Content-Type": "application/json", "X-Forwarded-For": client},
+            ))[0]
+
+        for _ in range(dashboard_app.FAILED_LOGIN_LIMIT):
+            self.assertEqual(login("wrong-password", "203.0.113.9"), 401)
+        self.assertEqual(login("wrong-password", "203.0.113.9"), 429)
+        self.assertEqual(login(self.ADMIN_PASSWORD, "203.0.113.9"), 429)      # the attacker stays locked out
+        self.assertEqual(login(self.ADMIN_PASSWORD, "203.0.113.77"), 200)     # everyone else is unaffected
+
+    def test_spoofed_forwarded_for_from_a_public_peer_is_ignored(self):
+        handler = dashboard_app.DashboardHandler.__new__(dashboard_app.DashboardHandler)
+        handler.client_address = ("8.8.8.8", 5555)
+        handler.headers = {"X-Forwarded-For": "1.2.3.4"}
+        self.assertEqual(handler.client_ip(), "8.8.8.8")
+        handler.client_address = ("172.18.0.5", 5555)
+        self.assertEqual(handler.client_ip(), "1.2.3.4")  # private peer = trusted proxy
+
+    def test_widget_requests_receive_the_last_snapshot_while_a_refresh_runs(self):
+        previous = (dashboard_app.WIDGET_CACHE, dashboard_app.WIDGET_LAST)
+        self.addCleanup(lambda: (setattr(dashboard_app, "WIDGET_CACHE", previous[0]), setattr(dashboard_app, "WIDGET_LAST", previous[1])))
+        dashboard_app.WIDGET_CACHE = (0, [])
+        dashboard_app.WIDGET_LAST = [{"itemId": "kept"}]
+        self.assertTrue(dashboard_app.WIDGET_REFRESH_LOCK.acquire(blocking=False))
+        try:
+            self.assertEqual(dashboard_app.collect_widget_results(), [{"itemId": "kept"}])
+        finally:
+            dashboard_app.WIDGET_REFRESH_LOCK.release()
+
+    # --- process lifecycle ----------------------------------------------------
+
+    def free_port(self):
+        import socket
+
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
+
+    def test_sigterm_shuts_down_gracefully_and_quickly(self):
+        import signal
+
+        with tempfile.TemporaryDirectory() as directory:
+            port = self.free_port()
+            env = {**os.environ, "DATA_DIR": directory, "PORT": str(port), "RGDASH_BACKUP_INTERVAL_HOURS": "0"}
+            process = subprocess.Popen(
+                [sys.executable, str(ROOT / "app" / "dashboard.py")],
+                env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            )
+            self.addCleanup(lambda: process.poll() is None and process.kill())
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                try:
+                    with urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=1):
+                        break
+                except OSError:
+                    time.sleep(0.2)
+            else:
+                self.fail("server did not start")
+            started = time.time()
+            process.send_signal(signal.SIGTERM)
+            output, _ = process.communicate(timeout=10)
+            self.assertEqual(process.returncode, 0)
+            self.assertLess(time.time() - started, 8)
+            self.assertIn("stopped cleanly", output)
+            self.assertNotIn("checkpoint failed", output)
+
+    def test_healthcheck_command_succeeds_against_a_running_server(self):
+        self.use_database(self.make_database())
+        base = self.start_server()
+        result = self.cli("healthcheck", HEALTHCHECK_URL=f"{base}/api/ping")
+        self.assertEqual(result.returncode, 0)
+
+    def test_unknown_command_does_not_start_a_second_server(self):
+        result = self.cli("bogus")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Usage", result.stderr)
+
+    # --- backups and recovery -------------------------------------------------
+
+    def test_backup_is_consistent_restorable_and_pruned(self):
+        import datetime as dt
+
+        database = self.make_database(with_item=True)
+        self.use_database(database)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            for index in range(4):
+                with patch.object(dashboard_app, "datetime") as fake_datetime:
+                    fake_datetime.now.return_value = dt.datetime(2026, 1, 1, 0, 0, index, tzinfo=dt.timezone.utc)
+                    dashboard_app.backup_database(target, keep=2)
+            remaining = sorted(target.glob("roguedashboard-*.sqlite"))
+            self.assertEqual(len(remaining), 2)
+            restored = sqlite3.connect(remaining[-1])
+            self.addCleanup(restored.close)
+            self.assertEqual(restored.execute("SELECT COUNT(*) FROM users").fetchone()[0], 1)
+            self.assertEqual(restored.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+
+    def test_backup_command_writes_to_the_data_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.cli("backup", DATA_DIR=directory)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(list((Path(directory) / "backups").glob("roguedashboard-*.sqlite"))), 1)
+
+    def test_reset_password_command_replaces_the_password_and_signs_everyone_out(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = dashboard_app.Database(Path(directory) / "roguedashboard.sqlite")
+            token, _ = database.setup("admin", self.ADMIN_PASSWORD, dashboard_app.validate_dashboard({}))
+            self.assertEqual(database.user_for_token(token), "admin")
+            database.close()
+            result = self.cli("reset-password", DATA_DIR=directory, RGDASH_NEW_PASSWORD="a-brand-new-password")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            reopened = dashboard_app.Database(Path(directory) / "roguedashboard.sqlite")
+            self.addCleanup(reopened.db.close)
+            self.assertIsNone(reopened.user_for_token(token))
+            self.assertIsNone(reopened.login("admin", self.ADMIN_PASSWORD))
+            self.assertIsNotNone(reopened.login("admin", "a-brand-new-password"))
+
+    def test_reset_password_rejects_short_passwords(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = dashboard_app.Database(Path(directory) / "roguedashboard.sqlite")
+            database.setup("admin", self.ADMIN_PASSWORD, dashboard_app.validate_dashboard({}))
+            database.close()
+            result = self.cli("reset-password", DATA_DIR=directory, RGDASH_NEW_PASSWORD="short")
+            self.assertEqual(result.returncode, 2)
+
+    def test_numeric_settings_fall_back_instead_of_crashing(self):
+        with patch.dict(os.environ, {"X_BLANK": "", "X_BAD": "abc", "X_BIG": "99999", "X_OK": "42"}):
+            self.assertEqual(dashboard_app.env_int("X_BLANK", 7, 1, 100), 7)
+            self.assertEqual(dashboard_app.env_int("X_BAD", 7, 1, 100), 7)
+            self.assertEqual(dashboard_app.env_int("X_BIG", 7, 1, 100), 100)
+            self.assertEqual(dashboard_app.env_int("X_OK", 7, 1, 100), 42)
+            self.assertEqual(dashboard_app.env_int("X_MISSING", 7, 1, 100), 7)
+
+    # --- integrations ---------------------------------------------------------
+
+    def test_library_sizes_are_cached_between_widget_refreshes(self):
+        import integrations
+
+        integrations._LIBRARY_COUNTS.clear()
+        self.addCleanup(integrations._LIBRARY_COUNTS.clear)
+        with patch.object(integrations, "_json_request", return_value=[{}, {}, {}]) as request:
+            first = integrations._library_count("http://radarr:7878", "radarr", "/api/v3/movie", {})
+            second = integrations._library_count("http://radarr:7878", "radarr", "/api/v3/movie", {})
+        self.assertEqual((first, second), (3, 3))
+        self.assertEqual(request.call_count, 1)
+
+    # --- deployment files -----------------------------------------------------
+
+    def test_compose_is_hardened_and_podman_ready(self):
+        compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+        for expected in (
+            '"/app/dashboard.py", "healthcheck"', "RGDASH_BIND", "RGDASH_DATA_MOUNT_OPTS",
+            "RGDASH_CUSTOM_MOUNT_OPTS", "mem_limit", "pids_limit", "max-size", "read_only: true", "cap_drop",
+        ):
+            self.assertIn(expected, compose)
+        self.assertNotIn("/api/bootstrap", compose)
+        self.assertNotIn("pull_policy: always", compose)
+
+    def test_updater_pulls_before_changing_config_and_can_roll_back(self):
+        updater = (ROOT / "update.sh").read_text(encoding="utf-8")
+        self.assertLess(updater.index('"$deploy_engine" pull "$IMAGE_REF"'), updater.index('install -m 0644 "$BACKUP/compose.download"'))
+        for expected in ("rollback()", "flock -n 9", "/api/ping", "compose.override.yaml", "dashboard.py backup", "--max-time 5"):
+            self.assertIn(expected, updater)
+        self.assertNotIn("/tmp/roguedashboard/update-backups", updater)
+        result = subprocess.run(["bash", "-n", str(ROOT / "update.sh")], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ci_derives_version_and_smoke_tests_the_image(self):
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        publish = (ROOT / ".github" / "workflows" / "publish-container.yml").read_text(encoding="utf-8")
+        self.assertIn("docker stop -t 20 rd", ci)
+        self.assertNotIn("RGDASH_VERSION=2.0.0", ci)
+        self.assertIn("setup-qemu-action", publish)
+
+    def test_dockerfile_version_matches_application_version(self):
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn(f"ARG RGDASH_VERSION={dashboard_app.VERSION}", dockerfile)
+        self.assertIn("HEALTHCHECK", dockerfile)
+        self.assertIn(f"## {dashboard_app.VERSION}", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+
+
+
 if __name__ == "__main__":
     unittest.main()

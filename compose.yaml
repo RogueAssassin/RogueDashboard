@@ -1,12 +1,15 @@
 services:
   roguedashboard:
     image: ${RGDASH_IMAGE:-ghcr.io/rogueassassin/roguedashboard:latest}
-    pull_policy: always
+    # "missing" keeps a recreate working when the registry is unreachable (e.g. after a power
+    # cut with no internet). ./update.sh always pulls explicitly.
+    pull_policy: ${RGDASH_PULL_POLICY:-missing}
     container_name: roguedashboard
     restart: unless-stopped
     stop_grace_period: 15s
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/bootstrap', timeout=3).read()"]
+      # Uses /api/ping, which also fails if the background monitor has stalled.
+      test: ["CMD", "python", "/app/dashboard.py", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -20,10 +23,12 @@ services:
       CUSTOM_DIR: /custom
       RGDASH_RUNTIME: ${RGDASH_RUNTIME:-auto}
     ports:
-      - "${RGDASH_PORT:-7805}:8080"
+      # Set RGDASH_BIND=127.0.0.1 when a reverse proxy on the same host/network fronts the dashboard.
+      - "${RGDASH_BIND:-0.0.0.0}:${RGDASH_PORT:-7805}:8080"
     volumes:
-      - ./data:/data
-      - ./custom:/custom:ro
+      # Leave the *_MOUNT_OPTS empty on Docker. Rootless Podman / SELinux hosts: see .env.example.
+      - ./data:/data:rw${RGDASH_DATA_MOUNT_OPTS:-}
+      - ./custom:/custom:ro${RGDASH_CUSTOM_MOUNT_OPTS:-}
     networks:
       media-net:
         aliases:
@@ -36,6 +41,13 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    mem_limit: ${RGDASH_MEM_LIMIT:-256m}
+    pids_limit: ${RGDASH_PIDS_LIMIT:-256}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     labels:
       rogue.dashboard.protected: "true"
       rogue.product: "RogueDashboard"
