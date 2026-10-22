@@ -711,6 +711,9 @@ class RogueDashboardTests(unittest.TestCase):
                     self.assertTrue(bootstrap["setupRequired"])
                     self.assertEqual(bootstrap["version"], dashboard_app.VERSION)
                     self.assertEqual(response.headers["Cross-Origin-Opener-Policy"], "same-origin")
+                    self.assertEqual(bootstrap["assets"]["customIcons"], ["blocked.html", "example.svg"])
+                    self.assertEqual(bootstrap["assets"]["iconCdn"], dashboard_app.ICON_CDN_URL)
+                    self.assertTrue(dashboard_app.ICON_CDN_URL.startswith("https://"))
                 imported = import_homepage(self.files)["dashboard"]
                 request = Request(
                     f"{base}/api/setup",

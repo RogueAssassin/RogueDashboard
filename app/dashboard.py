@@ -55,6 +55,10 @@ if urlparse(ROGUEROUTE_PUBLIC_URL).scheme not in ("http", "https"):
     ROGUEROUTE_PUBLIC_URL = ""
 if urlparse(ASSET_BASE_URL).scheme != "https":
     ASSET_BASE_URL = "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static"
+# homarr-labs/dashboard-icons mirror used for service icons; blank keeps icons fully local.
+ICON_CDN_URL = os.environ.get("RGDASH_ICON_CDN", "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons").strip().rstrip("/")
+if ICON_CDN_URL and urlparse(ICON_CDN_URL).scheme != "https":
+    ICON_CDN_URL = ""
 SESSION_COOKIE = "rogue_session"
 MAX_BODY = 2_000_000
 MAX_ARCHIVE_ENTRIES = 100
@@ -862,6 +866,14 @@ def resolve_database_path() -> Path:
     return database_path
 
 
+def custom_icon_files() -> list[str]:
+    """List local icon overrides so the browser only requests files that exist."""
+    try:
+        return sorted(entry.name for entry in (CUSTOM_DIR / "icons").iterdir() if entry.is_file() and not entry.name.startswith("."))[:500]
+    except OSError:
+        return []
+
+
 def runtime_metadata() -> dict[str, str]:
     override = os.environ.get("RGDASH_RUNTIME", "").strip()
     if override and override.lower() != "auto":
@@ -1274,7 +1286,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "trustedHeaders": TRUST_PROXY_HEADERS,
                     },
                     "serviceUrls": {"rogueRoute": ROGUEROUTE_PUBLIC_URL},
-                    "assets": {"baseUrl": ASSET_BASE_URL},
+                    "assets": {"baseUrl": ASSET_BASE_URL, "iconCdn": ICON_CDN_URL, "customIcons": custom_icon_files()},
                 }
             )
         elif path == "/api/dashboard":

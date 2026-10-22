@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Service icons now load from [dashboard-icons](https://github.com/homarr-labs/dashboard-icons) (`RGDASH_ICON_CDN`, blank keeps icons local), with a light GitHub mark on dark themes and the bundled copies as fallback. Services without a built-in mapping try their dashboard-icons slug, and icons that fail to load are not requested again on each refresh. RogueForge and RogueRoute keep their bundled icons until they are published there.
+- Faster renders: the bootstrap lists local `/custom/icons` overrides, so the browser no longer requests a missing override (a 404) for every service icon on each 30 s refresh.
+
 ## 2.0.0
 
 - Established the RogueDashboard 2.x monitoring platform.
