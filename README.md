@@ -6,7 +6,7 @@
 
 **Local-first service monitoring, uptime, incidents and Discord notifications for Docker and Podman environments.**
 
-[![Release](https://img.shields.io/badge/RELEASE-2.0.1-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/releases)
+[![Release](https://img.shields.io/badge/RELEASE-2.3.0-8b5cf6?style=for-the-badge&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/RogueAssassin/RogueDashboard/ci.yml?branch=main&style=for-the-badge&label=BUILD&labelColor=45464d)](https://github.com/RogueAssassin/RogueDashboard/actions/workflows/ci.yml?query=branch%3Amain)
 ![Engine](https://img.shields.io/badge/ENGINE-DOCKER%20%7C%20PODMAN-00cbe6?style=for-the-badge&labelColor=45464d)
 ![Platform](https://img.shields.io/badge/PLATFORM-AMD64%20%7C%20ARM64-42d6a4?style=for-the-badge&labelColor=45464d)
@@ -190,7 +190,7 @@ cd /opt/media-server/roguedashboard
 ./update.sh testing
 
 # Pinned release
-./update.sh 2.0.1
+./update.sh 2.3.0
 ```
 
 The updater detects Docker or Podman, preserves your existing `.env`, `data/` and `custom/`, takes a consistent database backup and backs up deployment files, pulls the requested image **before** changing any configuration, recreates the container and verifies the health endpoint. If the new version does not become healthy it automatically rolls back to the image that was running. Keep local compose customisations in `compose.override.yaml` so updates never overwrite them.

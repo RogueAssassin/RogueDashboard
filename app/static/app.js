@@ -46,13 +46,28 @@ const ICON_FILES = {
   roguevalidator: "roguemediavalidator-approved-128.png",
 };
 
+// Icons published in homarr-labs/dashboard-icons. `onDark` names a variant that stays visible on the
+// dark themes; upstream's light/dark labels are not consistent, so each one is checked by eye.
+const DEFAULT_ICON_CDN = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons";
+const DASHBOARD_ICONS = {
+  qbittorrent: { slug: "qbittorrent" }, prowlarr: { slug: "prowlarr" }, radarr: { slug: "radarr" },
+  sonarr: { slug: "sonarr" }, seerr: { slug: "seerr" },
+  jellyseerr: { slug: "jellyseerr" }, overseerr: { slug: "overseerr" },
+  bazarr: { slug: "bazarr" }, tautulli: { slug: "tautulli" },
+  pihole: { slug: "pi-hole" }, dozzle: { slug: "dozzle" }, uptimekuma: { slug: "uptime-kuma" },
+  flaresolverr: { slug: "flaresolverr" }, github: { slug: "github", onDark: "github-light" },
+  roguedashboard: { slug: "roguedashboard", ext: "png" },
+  roguemediavalidator: { slug: "roguemediavalidator" },
+};
+DASHBOARD_ICONS.mediavalidator = DASHBOARD_ICONS.roguevalidator = DASHBOARD_ICONS.roguemediavalidator;
+
+// Not on dashboard-icons yet; tried before the bundled copy.
 const ICON_REMOTE_OVERRIDES = {
   rogueforge: "https://raw.githubusercontent.com/RogueAssassin/RogueForge/main/static/branding/rogueforge.svg",
-  roguedashboard: "/icons/roguedashboard-approved-128.png?v=2.0.0-r1",
-  roguemediavalidator: "https://raw.githubusercontent.com/RogueAssassin/RogueMediaValidator/main/app/static/icons/roguemediavalidator-approved-128.png",
-  mediavalidator: "https://raw.githubusercontent.com/RogueAssassin/RogueMediaValidator/main/app/static/icons/roguemediavalidator-approved-128.png",
-  roguevalidator: "https://raw.githubusercontent.com/RogueAssassin/RogueMediaValidator/main/app/static/icons/roguemediavalidator-approved-128.png",
 };
+
+// Icon URLs that failed to load this session, so the 30s re-render does not request them again.
+const failedIcons = new Set();
 
 const THEME_PRESETS = {
   neon: ["#ff2bd6", "#00e5ff"], midnight: ["#7c5cff", "#1db7bd"],
@@ -173,20 +188,37 @@ function iconKey(value) {
   return String(value || "").split(/[\\/]/).pop().replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+function dashboardIconUrl(icon, cdn) {
+  if (!icon || !cdn) return "";
+  const lightTheme = (state.draft || state.dashboard)?.meta?.theme === "light";
+  const name = (!lightTheme && icon.onDark) || icon.slug;
+  const ext = icon.ext || "svg";
+  return `${cdn}/${ext}/${name}.${ext}`;
+}
+
 function iconCandidates(item) {
   const supplied = item.icon || "";
   if (/^(https?:|data:|\/custom\/|\/icons\/)/i.test(supplied)) return [safeUrl(supplied)].filter(Boolean);
+  const cdn = String(state.bootstrap?.assets?.iconCdn ?? DEFAULT_ICON_CDN).replace(/\/$/, "");
   const keys = [iconKey(supplied), iconKey(item.widget?.type), iconKey(item.name)];
-  const key = keys.find(candidate => ICON_FILES[candidate]);
-  const file = key ? ICON_FILES[key] : "";
-  if (!file) return [];
+  const key = keys.find(candidate => ICON_FILES[candidate] || DASHBOARD_ICONS[candidate]);
+  if (!key) {
+    // Unknown service: try its dashboard-icons slug, e.g. "Home Assistant" → home-assistant.svg.
+    const slug = String(supplied || item.name || "").toLowerCase().replace(/\.[a-z]+$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return cdn && slug ? [`${cdn}/svg/${slug}.svg`].filter(url => !failedIcons.has(url)) : [];
+  }
+  const file = ICON_FILES[key] || "";
   const base = String(state.bootstrap?.assets?.baseUrl || "https://raw.githubusercontent.com/RogueAssassin/RogueDashboard/main/app/static").replace(/\/$/, "");
-  const remote = ICON_REMOTE_OVERRIDES[key] || `${base}/icons/${file}`;
+  // Local override (only when it exists) → dashboard-icons → pinned remote → bundled → GitHub copy.
+  const customIcons = state.bootstrap?.assets?.customIcons;
+  const hasCustom = file && (!Array.isArray(customIcons) || customIcons.includes(file));
   return [
-    `/custom/icons/${file}`,
-    remote,
-    `/icons/${file}`,
-  ];
+    hasCustom ? `/custom/icons/${file}` : "",
+    dashboardIconUrl(DASHBOARD_ICONS[key], cdn),
+    ICON_REMOTE_OVERRIDES[key] || "",
+    file ? `/icons/${file}` : "",
+    file ? `${base}/icons/${file}` : "",
+  ].filter(url => url && !failedIcons.has(url));
 }
 
 function iconMarkupFor(item) {
@@ -199,6 +231,7 @@ function iconMarkupFor(item) {
 function bindIconFallbacks(root) {
   root.querySelectorAll("img[data-icon-fallbacks]").forEach(img => {
     img.addEventListener("error", () => {
+      failedIcons.add(img.getAttribute("src"));
       let remaining = [];
       try { remaining = JSON.parse(img.dataset.iconFallbacks || "[]"); } catch {}
       const next = remaining.shift();
@@ -1051,7 +1084,7 @@ function openItem(groupIndex, itemIndex) {
     <label class="field full"><span>Open URL</span><input id="item-href" value="${escapeHtml(item.href || "")}" placeholder="https://…"></label>
     <label class="field full"><span>Private health-check URL</span><input id="item-monitor" value="${escapeHtml(item.monitorUrl || "")}" placeholder="http://container:port"></label>
     <label class="field full"><span>Description</span><input id="item-description" value="${escapeHtml(item.description || "")}"></label>
-    <label class="field"><span>Icon URL or local path</span><input id="item-icon" value="${escapeHtml(item.icon || "")}" placeholder="/custom/icons/my-service.svg"><small>Leave blank for local override → GitHub asset → bundled fallback.</small></label>
+    <label class="field"><span>Icon URL or local path</span><input id="item-icon" value="${escapeHtml(item.icon || "")}" placeholder="/custom/icons/my-service.svg"><small>Leave blank for local override → dashboard-icons → bundled fallback.</small></label>
     <label class="field"><span>Status</span><select id="item-status"><option value="dot">Dot</option><option value="badge">Badge</option><option value="none">Hidden</option></select></label>
     <label class="field"><span>Open behaviour</span><select id="item-launch"><option value="new-tab">New tab</option><option value="same-tab">Same tab</option><option value="copy">Copy URL</option></select></label>
     <label class="field"><span>Favourite</span><select id="item-favorite"><option value="false">No</option><option value="true">Yes</option></select></label>
