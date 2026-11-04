@@ -8,18 +8,18 @@ from homepage_yaml import loads
 
 
 DEFAULT_DASHBOARD = {
-    "version": 8,
+    "version": 10,
     "meta": {
         "title": "My RogueDashboard",
         "subtitle": "Everything running at home, in one friendly place",
-        "theme": "neon",
-        "accent": "#ff2bd6",
-        "accentSecondary": "#00e5ff",
+        "theme": "system",
+        "accent": "#d97757",
+        "accentSecondary": "#d97757",
         "background": "",
-        "backgroundMode": "neon-grid",
+        "backgroundMode": "solid",
         "density": "compact",
-        "glow": 68,
-        "surfaceOpacity": 82,
+        "glow": 0,
+        "surfaceOpacity": 92,
         "showLatency": True,
         "fullWidth": True,
         "equalHeights": True,
@@ -228,7 +228,7 @@ def import_homepage(files: dict[str, str]) -> dict[str, Any]:
     dashboard["groups"] = groups or dashboard["groups"]
     if isinstance(settings.get("title"), str):
         dashboard["meta"]["title"] = settings["title"]
-    dashboard["meta"]["theme"] = "light" if settings.get("theme") == "light" else "neon"
+    dashboard["meta"]["theme"] = {"light": "light", "dark": "charcoal"}.get(settings.get("theme"), "system")
     if isinstance(settings.get("fullWidth"), bool):
         dashboard["meta"]["fullWidth"] = settings["fullWidth"]
     if isinstance(settings.get("useEqualHeights"), bool):

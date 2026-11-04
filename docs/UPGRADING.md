@@ -23,7 +23,7 @@ cd /opt/media-server/roguedashboard
 ## Pinned release
 
 ```bash
-./update.sh 2.3.0
+./update.sh 2.4.0
 ```
 
 A leading `v` is also accepted.

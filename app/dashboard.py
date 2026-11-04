@@ -53,7 +53,10 @@ def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, value))
 
 
-VERSION = "2.3.0"
+VERSION = "2.4.0"
+THEMES = ("system", "charcoal", "light")
+LEGACY_DARK_THEMES = ("neon", "midnight", "graphite", "ocean", "ember")
+DEFAULT_ACCENT = "#d97757"
 integrations.USER_AGENT = f"RogueDashboard/{VERSION}"
 PORT = env_int("PORT", 8080, 1, 65535)
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
@@ -136,28 +139,38 @@ def validate_dashboard(raw: Any) -> dict[str, Any]:
         raise ValueError("Dashboard must be an object")
     raw_meta = raw.get("meta") if isinstance(raw.get("meta"), dict) else {}
     stored_version = raw.get("version") if isinstance(raw.get("version"), int) else 1
-    allowed_themes = ("neon", "midnight", "graphite", "ocean", "ember", "light")
-    stored_theme = raw_meta.get("theme") if raw_meta.get("theme") in allowed_themes else "midnight"
-    theme = "neon" if stored_version < 2 and stored_theme == "midnight" else stored_theme
-    accent = text(raw_meta.get("accent"), 7, "#ff2bd6" if theme == "neon" else "#7c5cff")
-    if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent):
-        accent = "#ff2bd6" if theme == "neon" else "#7c5cff"
-    accent_secondary = text(raw_meta.get("accentSecondary"), 7, "#00e5ff")
-    if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_secondary):
-        accent_secondary = "#00e5ff"
+    # Schema 10 (2.4.0) replaced the neon presets with system/charcoal/light and a single accent.
+    # Older dashboards keep light or dark, move to the clay accent and lose the neon effects.
+    raw_theme = raw_meta.get("theme")
+    legacy_appearance = stored_version < 10
+    if raw_theme in THEMES and not legacy_appearance:
+        theme = raw_theme
+    elif raw_theme == "light":
+        theme = "light"
+    elif raw_theme in LEGACY_DARK_THEMES:
+        theme = "charcoal"
+    else:
+        theme = "system"
+    accent = text(raw_meta.get("accent"), 7, DEFAULT_ACCENT)
+    if legacy_appearance or not re.fullmatch(r"#[0-9a-fA-F]{6}", accent):
+        accent = DEFAULT_ACCENT
+    accent = accent.lower()
+    background_mode = raw_meta.get("backgroundMode")
+    if background_mode not in ("solid", "image"):
+        background_mode = "solid"
     result: dict[str, Any] = {
-        "version": 9,
+        "version": 10,
         "meta": {
             "title": text(raw_meta.get("title"), 100, "My RogueDashboard").strip() or "My RogueDashboard",
             "subtitle": text(raw_meta.get("subtitle"), 180, "Your self-hosted command centre"),
             "theme": theme,
             "accent": accent,
-            "accentSecondary": accent_secondary,
+            "accentSecondary": accent,
             "background": text(raw_meta.get("background"), 1000),
-            "backgroundMode": raw_meta.get("backgroundMode") if raw_meta.get("backgroundMode") in ("neon-grid", "aurora", "mesh", "solid", "image") else "neon-grid",
+            "backgroundMode": background_mode,
             "density": raw_meta.get("density") if raw_meta.get("density") in ("compact", "comfortable") else "compact",
-            "glow": clamp(raw_meta.get("glow"), 0, 100, 68),
-            "surfaceOpacity": clamp(raw_meta.get("surfaceOpacity"), 45, 100, 82),
+            "glow": 0,
+            "surfaceOpacity": 92 if legacy_appearance and background_mode != "image" else clamp(raw_meta.get("surfaceOpacity"), 45, 100, 92),
             "showLatency": raw_meta.get("showLatency", True) is True,
             "fullWidth": raw_meta.get("fullWidth", True) is True,
             "equalHeights": raw_meta.get("equalHeights", True) is True,

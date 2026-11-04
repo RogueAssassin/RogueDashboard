@@ -69,11 +69,26 @@ const ICON_REMOTE_OVERRIDES = {
 // Icon URLs that failed to load this session, so the 30s re-render does not request them again.
 const failedIcons = new Set();
 
-const THEME_PRESETS = {
-  neon: ["#ff2bd6", "#00e5ff"], midnight: ["#7c5cff", "#1db7bd"],
-  graphite: ["#aeb6c5", "#667085"], ocean: ["#24a8ff", "#38f2cf"],
-  ember: ["#ff5d3d", "#ffbf36"], light: ["#6d4aff", "#0aa6b7"],
-};
+const DEFAULT_ACCENT = "#d97757";
+const THEMES = { system: "System (follows device)", charcoal: "Charcoal", light: "Paper (light)" };
+
+function prefersLight(theme) {
+  return theme === "light" || (theme === "system" && window.matchMedia?.("(prefers-color-scheme: light)").matches);
+}
+
+// The default clay accent is left to the stylesheet so it can use the darker light-mode shade.
+// A custom accent applies to both modes, with text on accent chosen for contrast.
+function applyAccent(shell, accent) {
+  const props = ["--accent", "--accent-hover", "--accent-text", "--accent-ink"];
+  if (!shell) return;
+  if (!/^#[0-9a-fA-F]{6}$/.test(accent || "") || accent.toLowerCase() === DEFAULT_ACCENT) { props.forEach(prop => shell.style.removeProperty(prop)); return; }
+  const [r, g, b] = [1, 3, 5].map(index => parseInt(accent.slice(index, index + 2), 16) / 255).map(c => c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4);
+  const luminance = .2126 * r + .7152 * g + .0722 * b;
+  shell.style.setProperty("--accent", accent);
+  shell.style.setProperty("--accent-hover", `color-mix(in srgb, ${accent} 86%, var(--text))`);
+  shell.style.setProperty("--accent-text", accent);
+  shell.style.setProperty("--accent-ink", luminance > .18 ? "#1f1e1d" : "#ffffff");
+}
 
 const INTEGRATION_DEFAULTS = {
   qbittorrent: { refs: ["RGDASH_QBITTORRENT_API_KEY", "RGDASH_QBITTORRENT_USERNAME", "RGDASH_QBITTORRENT_PASSWORD"], bindings: { api_key: "RGDASH_QBITTORRENT_API_KEY", username: "RGDASH_QBITTORRENT_USERNAME", password: "RGDASH_QBITTORRENT_PASSWORD" } },
@@ -190,7 +205,7 @@ function iconKey(value) {
 
 function dashboardIconUrl(icon, cdn) {
   if (!icon || !cdn) return "";
-  const lightTheme = (state.draft || state.dashboard)?.meta?.theme === "light";
+  const lightTheme = prefersLight((state.draft || state.dashboard)?.meta?.theme);
   const name = (!lightTheme && icon.onDark) || icon.slug;
   const ext = icon.ext || "svg";
   return `${cdn}/${ext}/${name}.${ext}`;
@@ -277,7 +292,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.0.0-r1" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard.svg?v=2.4.0" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -285,9 +300,8 @@ async function load() {
 function renderSetup() {
   app.innerHTML = `
     <main class="setup-shell">
-      <div class="setup-glow setup-glow-one"></div><div class="setup-glow setup-glow-two"></div>
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.0.0-r1" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard.svg?v=2.4.0" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -425,10 +439,10 @@ function renderDashboard() {
   document.title = dashboard.meta.title;
   app.innerHTML = `
     <div class="app-shell theme-${escapeHtml(dashboard.meta.theme)} background-${escapeHtml(dashboard.meta.backgroundMode)} density-${escapeHtml(dashboard.meta.density)} ${state.editor ? "editing" : ""}" id="shell">
-      <div class="dashboard-background" id="dashboard-background"></div><div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+      <div class="dashboard-background" id="dashboard-background"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.0.0-r1" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
+          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard.svg?v=2.4.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
           <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
         </header>
         ${dashboard.meta.showPageTabs !== false || state.editor ? `<nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">⚙ Customise</button>` : ""}</nav>` : ""}
@@ -447,12 +461,8 @@ function renderDashboard() {
       ${state.editor ? editorMarkup() : ""}
     </div>`;
   const shell = document.getElementById("shell");
-  shell.style.setProperty("--accent", dashboard.meta.accent);
-  shell.style.setProperty("--accent-secondary", dashboard.meta.accentSecondary);
-  shell.style.setProperty("--glow-strength", Number(dashboard.meta.glow || 0) / 100);
-  shell.style.setProperty("--glow-opacity", Number(dashboard.meta.glow || 0) / 590);
-  shell.style.setProperty("--glow-blur", `${Math.round(Number(dashboard.meta.glow || 0) * .38)}px`);
-  shell.style.setProperty("--surface-opacity", `${Number(dashboard.meta.surfaceOpacity || 82)}%`);
+  applyAccent(shell, dashboard.meta.accent);
+  shell.style.setProperty("--surface-opacity", `${Number(dashboard.meta.surfaceOpacity || 92)}%`);
   const background = document.getElementById("dashboard-background");
   if (dashboard.meta.background) background.style.setProperty("--custom-background", `url("${dashboard.meta.background.replace(/["\\\n\r]/g, "")}")`);
   const searchInput = document.getElementById("search");
@@ -643,7 +653,7 @@ function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header">
       <div class="editor-brand">
-        <img src="/icons/roguedashboard-approved-128.png?v=2.0.0-r1" alt="">
+        <img src="/icons/roguedashboard.svg?v=2.4.0" alt="">
         <div><span class="eyebrow">LIVE CUSTOMISER</span><h2>Customise RogueDashboard</h2><p>Preview changes instantly, then save when everything looks right.</p></div>
       </div>
       <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
@@ -663,18 +673,16 @@ function editorMarkup() {
           <label class="field"><span>Subtitle</span><input id="edit-subtitle" value="${escapeHtml(state.draft.meta.subtitle)}"></label>
         </div>
         <div class="editor-card">
-          <div class="editor-card-heading"><div><strong>Theme & density</strong><span>Choose a base style, spacing and background treatment.</span></div></div>
+          <div class="editor-card-heading"><div><strong>Theme & density</strong><span>Choose light or dark, card spacing and the page background.</span></div></div>
           <div class="form-grid">
-            <label class="field"><span>Theme preset</span><select id="edit-theme"><option value="neon">Electric Neon</option><option value="midnight">Midnight</option><option value="graphite">Graphite</option><option value="ocean">Ocean</option><option value="ember">Ember</option><option value="light">Daylight</option></select></label>
+            <label class="field"><span>Theme preset</span><select id="edit-theme">${Object.entries(THEMES).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
             <label class="field"><span>Card density</span><select id="edit-density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
-            <label class="field full"><span>Background effect</span><select id="edit-background-mode"><option value="neon-grid">Neon grid</option><option value="aurora">Aurora glow</option><option value="mesh">Colour mesh</option><option value="solid">Solid</option><option value="image">Custom image</option></select></label>
+            <label class="field full"><span>Background effect</span><select id="edit-background-mode"><option value="solid">Solid</option><option value="image">Custom image</option></select></label>
           </div>
         </div>
         <div class="editor-card">
-          <div class="editor-card-heading"><div><strong>Rogue colour system</strong><span>Fine-tune the purple/cyan accents and surface depth.</span></div></div>
-          <label class="field color-field"><span>Primary accent</span><div><input id="edit-accent" type="color" value="${escapeHtml(state.draft.meta.accent)}"><input id="edit-accent-text" value="${escapeHtml(state.draft.meta.accent)}"></div></label>
-          <label class="field color-field"><span>Secondary accent</span><div><input id="edit-accent-secondary" type="color" value="${escapeHtml(state.draft.meta.accentSecondary)}"><input id="edit-accent-secondary-text" value="${escapeHtml(state.draft.meta.accentSecondary)}"></div></label>
-          <label class="field range-field"><span>Ambient glow <strong id="glow-value">${state.draft.meta.glow}%</strong></span><input id="edit-glow" type="range" min="0" max="100" value="${state.draft.meta.glow}"></label>
+          <div class="editor-card-heading"><div><strong>Colour</strong><span>One accent colour for buttons, links and focus. Card opacity matters over a custom background.</span></div></div>
+          <label class="field color-field"><span>Accent</span><div><input id="edit-accent" type="color" value="${escapeHtml(state.draft.meta.accent)}"><input id="edit-accent-text" value="${escapeHtml(state.draft.meta.accent)}"></div></label>
           <label class="field range-field"><span>Card opacity <strong id="opacity-value">${state.draft.meta.surfaceOpacity}%</strong></span><input id="edit-opacity" type="range" min="45" max="100" value="${state.draft.meta.surfaceOpacity}"></label>
         </div>
         <div class="editor-card">
@@ -821,19 +829,14 @@ function bindEditor() {
   const fields = {
     "edit-title": "title", "edit-subtitle": "subtitle", "edit-background": "background",
     "edit-accent": "accent", "edit-accent-text": "accent",
-    "edit-accent-secondary": "accentSecondary", "edit-accent-secondary-text": "accentSecondary",
   };
   Object.entries(fields).forEach(([id, key]) => document.getElementById(id).oninput = event => {
     state.draft.meta[key] = event.target.value;
     if (key === "title") { const title = document.querySelector(".brand-block h1"); if (title) title.textContent = event.target.value || "My RogueDashboard"; }
     if (key === "subtitle") { const subtitle = document.querySelector(".brand-block p"); if (subtitle) subtitle.textContent = event.target.value; }
     if (key === "accent" && /^#[0-9a-fA-F]{6}$/.test(event.target.value)) {
-      document.getElementById("shell").style.setProperty("--accent", event.target.value);
+      applyAccent(document.getElementById("shell"), event.target.value);
       document.getElementById(id === "edit-accent" ? "edit-accent-text" : "edit-accent").value = event.target.value;
-    }
-    if (key === "accentSecondary" && /^#[0-9a-fA-F]{6}$/.test(event.target.value)) {
-      document.getElementById("shell").style.setProperty("--accent-secondary", event.target.value);
-      document.getElementById(id === "edit-accent-secondary" ? "edit-accent-secondary-text" : "edit-accent-secondary").value = event.target.value;
     }
     if (key === "background") document.getElementById("dashboard-background").style.setProperty("--custom-background", `url("${event.target.value.replace(/["\\\n\r]/g, "")}")`);
   });
@@ -841,13 +844,7 @@ function bindEditor() {
     const shell = document.getElementById("shell");
     shell.classList.replace(`theme-${state.draft.meta.theme}`, `theme-${event.target.value}`);
     state.draft.meta.theme = event.target.value;
-    [state.draft.meta.accent, state.draft.meta.accentSecondary] = THEME_PRESETS[event.target.value];
-    document.getElementById("edit-accent").value = state.draft.meta.accent;
-    document.getElementById("edit-accent-text").value = state.draft.meta.accent;
-    document.getElementById("edit-accent-secondary").value = state.draft.meta.accentSecondary;
-    document.getElementById("edit-accent-secondary-text").value = state.draft.meta.accentSecondary;
-    shell.style.setProperty("--accent", state.draft.meta.accent);
-    shell.style.setProperty("--accent-secondary", state.draft.meta.accentSecondary);
+    renderGroups();
   };
   document.getElementById("edit-density").onchange = event => {
     document.getElementById("shell").classList.replace(`density-${state.draft.meta.density}`, `density-${event.target.value}`);
@@ -857,19 +854,13 @@ function bindEditor() {
     document.getElementById("shell").classList.replace(`background-${state.draft.meta.backgroundMode}`, `background-${event.target.value}`);
     state.draft.meta.backgroundMode = event.target.value;
   };
-  document.getElementById("edit-glow").oninput = event => {
-    state.draft.meta.glow = Number(event.target.value); document.getElementById("glow-value").textContent = `${event.target.value}%`;
-    document.getElementById("shell").style.setProperty("--glow-strength", Number(event.target.value) / 100);
-    document.getElementById("shell").style.setProperty("--glow-opacity", Number(event.target.value) / 590);
-    document.getElementById("shell").style.setProperty("--glow-blur", `${Math.round(Number(event.target.value) * .38)}px`);
-  };
   document.getElementById("edit-opacity").oninput = event => {
     state.draft.meta.surfaceOpacity = Number(event.target.value); document.getElementById("opacity-value").textContent = `${event.target.value}%`;
     document.getElementById("shell").style.setProperty("--surface-opacity", `${event.target.value}%`);
   };
   document.getElementById("reset-appearance").onclick = () => {
-    Object.assign(state.draft.meta, { theme: "neon", accent: "#ff2bd6", accentSecondary: "#00e5ff", background: "", backgroundMode: "neon-grid", density: "compact", glow: 68, surfaceOpacity: 82 });
-    state.editorTab = "appearance"; renderDashboard(); toast("Electric Neon defaults restored in the preview");
+    Object.assign(state.draft.meta, { theme: "system", accent: DEFAULT_ACCENT, accentSecondary: DEFAULT_ACCENT, background: "", backgroundMode: "solid", density: "compact", glow: 0, surfaceOpacity: 92 });
+    state.editorTab = "appearance"; renderDashboard(); toast("Rogue defaults restored in the preview");
   };
   document.getElementById("edit-max-columns").onchange = event => { state.draft.meta.maxColumns = Number(event.target.value); renderGroups(); };
   document.getElementById("edit-full").onchange = event => { state.draft.meta.fullWidth = event.target.checked; document.querySelector(".dashboard").classList.toggle("full-width", event.target.checked); };
@@ -1246,7 +1237,7 @@ function openLogin() {
   overlay.innerHTML = `<div class="modal-backdrop auth-backdrop">
     <section class="modal auth-modal">
       <div class="auth-visual">
-        <img src="/icons/roguedashboard-approved-128.png?v=2.0.0-r1" alt="RogueDashboard">
+        <img src="/icons/roguedashboard.svg?v=2.4.0" alt="RogueDashboard">
         <div><span class="eyebrow">ADMINISTRATION</span><h2>Welcome back</h2><p>Sign in locally to customise services, layouts and integrations.</p></div>
       </div>
       <div class="auth-content">

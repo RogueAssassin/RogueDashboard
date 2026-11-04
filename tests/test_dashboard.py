@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "app"))
 
 import dashboard as dashboard_app
-from importer import import_homepage
+from importer import DEFAULT_DASHBOARD, import_homepage
 from integrations import collect_widget
 
 
@@ -437,7 +437,42 @@ class RogueDashboardTests(unittest.TestCase):
             else:
                 os.environ["RGDASH_RADARR_KEY"] = previous
 
-    def test_v03_dashboard_migrates_to_neon_and_rgdash_references(self):
+    def test_v24_appearance_migrates_neon_presets_to_clean_themes(self):
+        base = import_homepage(self.files)["dashboard"]
+        for stored, expected in (("neon", "charcoal"), ("ocean", "charcoal"), ("light", "light"), ("bogus", "system")):
+            legacy = json.loads(json.dumps(base))
+            legacy["version"] = 9
+            legacy["meta"].update({
+                "theme": stored, "accent": "#FF2BD6", "accentSecondary": "#00e5ff",
+                "backgroundMode": "neon-grid", "glow": 68, "surfaceOpacity": 60,
+            })
+            migrated = dashboard_app.validate_dashboard(legacy)["meta"]
+            self.assertEqual(migrated["theme"], expected)
+            self.assertEqual(migrated["accent"], dashboard_app.DEFAULT_ACCENT)
+            self.assertEqual(migrated["accentSecondary"], dashboard_app.DEFAULT_ACCENT)
+            self.assertEqual(migrated["backgroundMode"], "solid")
+            self.assertEqual(migrated["glow"], 0)
+            self.assertEqual(migrated["surfaceOpacity"], 92)
+        image = json.loads(json.dumps(base))
+        image["version"] = 9
+        image["meta"].update({"backgroundMode": "image", "surfaceOpacity": 60})
+        self.assertEqual(dashboard_app.validate_dashboard(image)["meta"]["surfaceOpacity"], 60)
+        current = json.loads(json.dumps(base))
+        current["version"] = 10
+        current["meta"].update({"theme": "light", "accent": "#336699"})
+        validated = dashboard_app.validate_dashboard(current)
+        self.assertEqual((validated["meta"]["theme"], validated["meta"]["accent"]), ("light", "#336699"))
+        self.assertEqual(dashboard_app.validate_dashboard(validated), validated)
+        self.assertEqual(base["meta"]["theme"], "charcoal")  # Homepage "theme: dark"
+        self.assertEqual(DEFAULT_DASHBOARD["meta"]["theme"], "system")
+
+        styles = (Path(__file__).parents[1] / "app" / "static" / "styles.css").read_text(encoding="utf-8")
+        for removed in ("theme-neon", "background-neon-grid", "background-aurora", "text-shadow: 0"):
+            self.assertNotIn(removed, styles)
+        for present in (".app-shell.theme-charcoal", ".app-shell.theme-light", "prefers-color-scheme: light"):
+            self.assertIn(present, styles)
+
+    def test_v03_dashboard_migrates_to_charcoal_and_rgdash_references(self):
         legacy = import_homepage(self.files)["dashboard"]
         legacy["version"] = 1
         legacy["meta"]["theme"] = "midnight"
@@ -446,8 +481,8 @@ class RogueDashboardTests(unittest.TestCase):
         widget["secretRefs"] = ["HOMEPAGE_VAR_QBITTORRENT_USERNAME", "HOMEPAGE_VAR_QBITTORRENT_PASSWORD"]
         widget["secretBindings"] = {"username": "HOMEPAGE_VAR_QBITTORRENT_USERNAME", "password": "HOMEPAGE_VAR_QBITTORRENT_PASSWORD"}
         migrated = dashboard_app.validate_dashboard(legacy)
-        self.assertEqual(migrated["version"], 9)
-        self.assertEqual(migrated["meta"]["theme"], "neon")
+        self.assertEqual(migrated["version"], 10)
+        self.assertEqual(migrated["meta"]["theme"], "charcoal")
         self.assertEqual(migrated["meta"]["density"], "compact")
         migrated_widget = migrated["groups"][0]["items"][0]["widget"]
         self.assertEqual(migrated_widget["secretBindings"]["api_key"], "RGDASH_QBITTORRENT_API_KEY")
@@ -561,7 +596,7 @@ class RogueDashboardTests(unittest.TestCase):
         }
         validated = dashboard_app.validate_dashboard(current)
         item = validated["groups"][0]["items"][0]
-        self.assertEqual(validated["version"], 9)
+        self.assertEqual(validated["version"], 10)
         self.assertTrue(item["favorite"])
         self.assertEqual(item["tags"][:2], ["media", "movies"])
         self.assertEqual(len(item["tags"][2]), 40)

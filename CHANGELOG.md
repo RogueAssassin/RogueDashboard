@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.4.0
+
+Clean visual refresh and dependency update, aligned with RogueForge 2.4.0 and RogueMediaValidator 1.4.0.
+
+- New look: warm charcoal dark and warm paper light themes with a single clay accent, replacing the neon styling. Glows, neon grid, aurora and colour-mesh backgrounds are gone; solid and custom-image backgrounds remain.
+- Themes are now **System** (follows the device, the default for new dashboards), **Charcoal** and **Paper (light)**. Customise keeps one accent colour (text on it is chosen for contrast) and card opacity.
+- Saved dashboards migrate automatically (schema 10): Neon, Midnight, Graphite, Ocean and Ember become Charcoal, Daylight becomes Paper, accents reset to clay and neon backgrounds become solid. Custom-image backgrounds and their card opacity are kept.
+- Homepage imports map `theme: dark` to Charcoal and `theme: light` to Paper; anything else follows the device.
+- New monogram icon (`/icons/roguedashboard.svg`) for the header and browser tab; the PNG stays for the app manifest and README.
+- Fixed: stale `?v=2.0.0-r1` cache keys on the page assets, so browsers could keep an old stylesheet after an upgrade.
+- Fixed: RogueMediaValidator service cards asked for a bundled icon that was not shipped.
+- Container image moved to Python 3.15 (`python:3.15-alpine`); CI tests on 3.15.
+
 ## 2.3.0
 
 - Merged the testing line into main on top of the 2.0.1 stability release.
