@@ -25,7 +25,8 @@ It deliberately stays separate from [**RogueForge**](https://github.com/RogueAss
 - 1h, 24h, 7d and 30d availability windows
 - Discord notifications with retry, cooldown and delivery history
 - maintenance mode and per-service alert silencing
-- editable pages, sections, card layout, titles, icons and appearance
+- editable pages, sections, card layout, titles and icons
+- Default (Rogue navy), Light, Dark and System themes, shared with RogueForge and RogueMediaValidator
 - native media-service and Rogue ecosystem integrations
 - one `compose.yaml` for Docker and Podman
 - read-only root filesystem, dropped capabilities and no engine socket
@@ -53,7 +54,6 @@ The Rogue applications are intentionally separated by responsibility. RogueDashb
 │   ├── .env
 │   ├── data/
 │   └── custom/
-│       ├── backgrounds/
 │       └── icons/
 ├── rogueforge/
 ├── roguemediavalidator/
@@ -63,7 +63,7 @@ The Rogue applications are intentionally separated by responsibility. RogueDashb
 └── ...
 ```
 
-Persistent state belongs in `data/`. Optional custom icons and backgrounds belong in `custom/`.
+Persistent state belongs in `data/`. Optional custom service icons belong in `custom/icons/`.
 
 ## Quick install — Podman
 
@@ -71,7 +71,7 @@ Rootless Podman maps the container user (UID 10001) to a different host UID, so 
 owned through the user namespace rather than with a plain `chown 10001`:
 
 ```bash
-sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/backgrounds,custom/icons}
+sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/icons}
 sudo chown -R "$USER": /opt/media-server/roguedashboard
 cd /opt/media-server/roguedashboard
 podman unshare chown -R 10001:10001 data
@@ -94,7 +94,7 @@ On SELinux hosts (Fedora, RHEL, Rocky) and for start-on-boot behaviour see [Inst
 ## Quick install — Docker
 
 ```bash
-sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/backgrounds,custom/icons}
+sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/icons}
 sudo chown -R 10001:10001 /opt/media-server/roguedashboard/data
 cd /opt/media-server/roguedashboard
 
@@ -135,10 +135,13 @@ Recreate the container, then use **Customise → Connect → Send Discord test**
 
 ## Customise
 
-Administrators can configure RogueDashboard from the web interface without manually editing JSON or SQLite. This includes dashboard/page/section titles, cards per row, card placement and span, visibility, icons, URLs, health endpoints, integrations, alert controls, themes, density, accents and backgrounds.
+Administrators can configure RogueDashboard from the web interface without manually editing JSON or SQLite. This includes dashboard/page/section titles, cards per row, card placement and span, visibility, icons, URLs, health endpoints, integrations, alert controls and card density.
 
 **Customise → Connect** also exposes monitoring status, Discord testing and migration readiness.
 
+## Themes
+
+The theme button at the top right switches between **Default** (Rogue navy), **Light**, **Dark** and **System** (follows the device's light or dark setting). The choice is saved per browser. RogueDashboard, RogueForge and RogueMediaValidator share the same menu and palette, with one warm clay accent.
 
 ## Persistent files
 

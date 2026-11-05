@@ -30,7 +30,7 @@ flowchart TD
 - `app/integrations.py` — server-side integration collectors
 - `app/importer.py` and `app/homepage_yaml.py` — dashboard imports
 - `app/static/` — HTML, CSS, JavaScript and bundled icons
-- `custom/` — administrator-provided icons/backgrounds
+- `custom/` — administrator-provided service icons
 - `compose.yaml` — shared Docker/Podman deployment
 - `update.sh` — shared Docker/Podman updater
 

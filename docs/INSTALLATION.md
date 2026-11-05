@@ -22,14 +22,13 @@ Docker: `sudo chown -R 10001:10001 data`. Rootless Podman: see [Rootless Podman]
 ├── .env
 ├── data/
 └── custom/
-    ├── backgrounds/
     └── icons/
 ```
 
 Create it:
 
 ```bash
-sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/backgrounds,custom/icons}
+sudo mkdir -p /opt/media-server/roguedashboard/{data,custom/icons}
 sudo chown -R 10001:10001 /opt/media-server/roguedashboard/data
 cd /opt/media-server/roguedashboard
 ```
