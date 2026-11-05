@@ -20,7 +20,7 @@ const state = {
   search: "",
   collapsed: new Set(),
   editingItem: null,
-  editorTab: "appearance",
+  editorTab: "layout",
   activePage: "home",
   refreshInFlight: false,
   refreshQueued: false,
@@ -69,43 +69,26 @@ const ICON_REMOTE_OVERRIDES = {
 // Icon URLs that failed to load this session, so the 30s re-render does not request them again.
 const failedIcons = new Set();
 
-const DEFAULT_ACCENT = "#d97757";
-const THEMES = { system: "System (follows device)", charcoal: "Dark", light: "Light" };
-// Saved dashboard theme -> shared theme kit preference. The kit (rogue-theme.js) owns the per-browser
-// System/Light/Dark choice; the dashboard's saved theme is the default until a viewer picks one.
-const THEME_PREF = { system: "system", charcoal: "dark", light: "light" };
-
-function shellTheme(theme) {
-  if (window.RogueTheme) return window.RogueTheme.resolved() === "light" ? "light" : "charcoal";
-  return theme === "light" || (theme === "system" && window.matchMedia?.("(prefers-color-scheme: light)").matches) ? "light" : "charcoal";
+// Colours come only from the shared theme kit (rogue-theme.js): Default (Rogue navy), Light, Dark or
+// System, picked per browser from the top-bar theme button, the same as RogueForge and RogueMediaValidator.
+// The shell class follows the kit: theme-default, theme-light or theme-charcoal (dark).
+function shellTheme() {
+  const mode = window.RogueTheme ? window.RogueTheme.resolved() : "default";
+  return mode === "light" ? "light" : mode === "dark" ? "charcoal" : "default";
 }
 
-function prefersLight(theme) {
-  return shellTheme(theme) === "light";
+function prefersLight() {
+  return shellTheme() === "light";
 }
 
 function syncShellTheme() {
   const shell = document.getElementById("shell");
   if (!shell || !state.draft) return;
-  shell.classList.remove("theme-system", "theme-charcoal", "theme-light");
-  shell.classList.add(`theme-${shellTheme(state.draft.meta.theme)}`);
+  shell.classList.remove("theme-system", "theme-default", "theme-charcoal", "theme-light");
+  shell.classList.add(`theme-${shellTheme()}`);
   renderGroups();
 }
 document.addEventListener("rogue-theme-change", syncShellTheme);
-
-// The default clay accent is left to the stylesheet so it can use the darker light-mode shade.
-// A custom accent applies to both modes, with text on accent chosen for contrast.
-function applyAccent(shell, accent) {
-  const props = ["--accent", "--accent-hover", "--accent-text", "--accent-ink"];
-  if (!shell) return;
-  if (!/^#[0-9a-fA-F]{6}$/.test(accent || "") || accent.toLowerCase() === DEFAULT_ACCENT) { props.forEach(prop => shell.style.removeProperty(prop)); return; }
-  const [r, g, b] = [1, 3, 5].map(index => parseInt(accent.slice(index, index + 2), 16) / 255).map(c => c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4);
-  const luminance = .2126 * r + .7152 * g + .0722 * b;
-  shell.style.setProperty("--accent", accent);
-  shell.style.setProperty("--accent-hover", `color-mix(in srgb, ${accent} 86%, var(--text))`);
-  shell.style.setProperty("--accent-text", accent);
-  shell.style.setProperty("--accent-ink", luminance > .18 ? "#1f1e1d" : "#ffffff");
-}
 
 const INTEGRATION_DEFAULTS = {
   qbittorrent: { refs: ["RGDASH_QBITTORRENT_API_KEY", "RGDASH_QBITTORRENT_USERNAME", "RGDASH_QBITTORRENT_PASSWORD"], bindings: { api_key: "RGDASH_QBITTORRENT_API_KEY", username: "RGDASH_QBITTORRENT_USERNAME", password: "RGDASH_QBITTORRENT_PASSWORD" } },
@@ -453,10 +436,9 @@ function relativeTime(value) {
 
 function renderDashboard() {
   const dashboard = state.draft;
-  window.RogueTheme?.setDefault(THEME_PREF[dashboard.meta.theme] || "system");
   document.title = dashboard.meta.title;
   app.innerHTML = `
-    <div class="app-shell theme-${shellTheme(dashboard.meta.theme)} background-${escapeHtml(dashboard.meta.backgroundMode)} density-${escapeHtml(dashboard.meta.density)} ${state.editor ? "editing" : ""}" id="shell">
+    <div class="app-shell theme-${shellTheme()} background-solid density-${escapeHtml(dashboard.meta.density)} ${state.editor ? "editing" : ""}" id="shell">
       <div class="dashboard-background" id="dashboard-background"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
@@ -478,11 +460,6 @@ function renderDashboard() {
       </main>
       ${state.editor ? editorMarkup() : ""}
     </div>`;
-  const shell = document.getElementById("shell");
-  applyAccent(shell, dashboard.meta.accent);
-  shell.style.setProperty("--surface-opacity", `${Number(dashboard.meta.surfaceOpacity || 92)}%`);
-  const background = document.getElementById("dashboard-background");
-  if (dashboard.meta.background) background.style.setProperty("--custom-background", `url("${dashboard.meta.background.replace(/["\\\n\r]/g, "")}")`);
   const searchInput = document.getElementById("search");
   const clearSearch = document.getElementById("clear-search");
   if (searchInput) searchInput.oninput = event => { state.search = event.target.value; renderGroups(); };
@@ -677,41 +654,19 @@ function editorMarkup() {
       <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
     </header>
     <nav class="editor-tabs" aria-label="Customise sections">
-      <button data-editor-tab="appearance" class="${state.editorTab === "appearance" ? "active" : ""}"><span class="tab-symbol">◈</span><span>Appearance</span></button>
       <button data-editor-tab="layout" class="${state.editorTab === "layout" ? "active" : ""}"><span class="tab-symbol">▦</span><span>Layout</span></button>
       <button data-editor-tab="connect" class="${state.editorTab === "connect" ? "active" : ""}"><span class="tab-symbol">↔</span><span>Connect</span></button>
       <button data-editor-tab="admin" class="${state.editorTab === "admin" ? "active" : ""}"><span class="tab-symbol">⌾</span><span>Admin</span></button>
     </nav>
     <div class="editor-content">
-      <section class="editor-section editor-tab-panel ${state.editorTab === "appearance" ? "active" : ""}" data-editor-panel="appearance">
-        <div class="editor-section-intro"><span class="eyebrow">IDENTITY</span><h3>Appearance</h3><p>Keep the dashboard visually consistent with the Rogue ecosystem while retaining your own title, colours and background.</p></div>
+      <section class="editor-section editor-tab-panel ${state.editorTab === "layout" ? "active" : ""}" data-editor-panel="layout">
+        <div class="editor-section-intro"><span class="eyebrow">STRUCTURE</span><h3>Layout</h3><p>Organise pages, groups and cards with consistent spacing and predictable alignment. Colours are changed from the theme button at the top right, the same as RogueForge and RogueMediaValidator.</p></div>
         <div class="editor-card">
-          <div class="editor-card-heading"><div><strong>Dashboard identity</strong><span>Edit the main dashboard title and subtitle shown at the top of every page.</span></div></div>
+          <div class="editor-card-heading"><div><strong>Dashboard identity</strong><span>Title and subtitle shown at the top of every page, and the card spacing.</span></div></div>
           <label class="field"><span>Dashboard title</span><input id="edit-title" value="${escapeHtml(state.draft.meta.title)}"></label>
           <label class="field"><span>Subtitle</span><input id="edit-subtitle" value="${escapeHtml(state.draft.meta.subtitle)}"></label>
+          <label class="field"><span>Card density</span><select id="edit-density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
         </div>
-        <div class="editor-card">
-          <div class="editor-card-heading"><div><strong>Theme & density</strong><span>Choose light or dark, card spacing and the page background.</span></div></div>
-          <div class="form-grid">
-            <label class="field"><span>Default theme</span><select id="edit-theme">${Object.entries(THEMES).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
-            <label class="field"><span>Card density</span><select id="edit-density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
-            <label class="field full"><span>Background effect</span><select id="edit-background-mode"><option value="solid">Solid</option><option value="image">Custom image</option></select></label>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-heading"><div><strong>Colour</strong><span>One accent colour for buttons, links and focus. Card opacity matters over a custom background.</span></div></div>
-          <label class="field color-field"><span>Accent</span><div><input id="edit-accent" type="color" value="${escapeHtml(state.draft.meta.accent)}"><input id="edit-accent-text" value="${escapeHtml(state.draft.meta.accent)}"></div></label>
-          <label class="field range-field"><span>Card opacity <strong id="opacity-value">${state.draft.meta.surfaceOpacity}%</strong></span><input id="edit-opacity" type="range" min="45" max="100" value="${state.draft.meta.surfaceOpacity}"></label>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-heading"><div><strong>Custom background</strong><span>Use a local path or HTTPS URL when Custom image is selected.</span></div></div>
-          <label class="field"><span>Background URL / local path</span><input id="edit-background" value="${escapeHtml(state.draft.meta.background)}" placeholder="/custom/backgrounds/my-background.jpg"><small>Custom files remain outside the container image and survive upgrades.</small></label>
-          <button class="button secondary full-button" id="reset-appearance">Restore Rogue defaults</button>
-        </div>
-      </section>
-
-      <section class="editor-section editor-tab-panel ${state.editorTab === "layout" ? "active" : ""}" data-editor-panel="layout">
-        <div class="editor-section-intro"><span class="eyebrow">STRUCTURE</span><h3>Layout</h3><p>Organise pages, groups and cards with consistent spacing and predictable alignment.</p></div>
         <div class="editor-card">
           <div class="section-heading"><div><h3>Pages</h3><p>Edit page titles and create focused dashboard views.</p></div><button class="button small" id="add-page">+ Page</button></div>
           <div class="page-editor-list" id="page-editor-list"></div>
@@ -819,7 +774,7 @@ function editorMarkup() {
 
 function openEditor() {
   state.editor = true;
-  state.editorTab = "appearance";
+  state.editorTab = "layout";
   state.draft = structuredClone(state.dashboard);
   state.editorBaseline = JSON.stringify(state.dashboard);
   try {
@@ -840,44 +795,19 @@ function bindEditor() {
     document.querySelectorAll("[data-editor-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.editorPanel === state.editorTab));
     if (state.editorTab === "admin") loadAdministration();
   });
-  document.getElementById("edit-theme").value = state.draft.meta.theme;
   document.getElementById("edit-density").value = state.draft.meta.density;
-  document.getElementById("edit-background-mode").value = state.draft.meta.backgroundMode;
   document.getElementById("close-editor").onclick = () => { if (editorIsDirty() && !confirm("Discard unsaved dashboard changes?")) return; state.editor = false; state.draft = structuredClone(state.dashboard); state.editorBaseline = ""; renderDashboard(); };
   const fields = {
-    "edit-title": "title", "edit-subtitle": "subtitle", "edit-background": "background",
-    "edit-accent": "accent", "edit-accent-text": "accent",
+    "edit-title": "title", "edit-subtitle": "subtitle",
   };
   Object.entries(fields).forEach(([id, key]) => document.getElementById(id).oninput = event => {
     state.draft.meta[key] = event.target.value;
     if (key === "title") { const title = document.querySelector(".brand-block h1"); if (title) title.textContent = event.target.value || "My RogueDashboard"; }
     if (key === "subtitle") { const subtitle = document.querySelector(".brand-block p"); if (subtitle) subtitle.textContent = event.target.value; }
-    if (key === "accent" && /^#[0-9a-fA-F]{6}$/.test(event.target.value)) {
-      applyAccent(document.getElementById("shell"), event.target.value);
-      document.getElementById(id === "edit-accent" ? "edit-accent-text" : "edit-accent").value = event.target.value;
-    }
-    if (key === "background") document.getElementById("dashboard-background").style.setProperty("--custom-background", `url("${event.target.value.replace(/["\\\n\r]/g, "")}")`);
   });
-  document.getElementById("edit-theme").onchange = event => {
-    state.draft.meta.theme = event.target.value;
-    window.RogueTheme?.setDefault(THEME_PREF[event.target.value] || "system");
-    syncShellTheme();
-  };
   document.getElementById("edit-density").onchange = event => {
     document.getElementById("shell").classList.replace(`density-${state.draft.meta.density}`, `density-${event.target.value}`);
     state.draft.meta.density = event.target.value;
-  };
-  document.getElementById("edit-background-mode").onchange = event => {
-    document.getElementById("shell").classList.replace(`background-${state.draft.meta.backgroundMode}`, `background-${event.target.value}`);
-    state.draft.meta.backgroundMode = event.target.value;
-  };
-  document.getElementById("edit-opacity").oninput = event => {
-    state.draft.meta.surfaceOpacity = Number(event.target.value); document.getElementById("opacity-value").textContent = `${event.target.value}%`;
-    document.getElementById("shell").style.setProperty("--surface-opacity", `${event.target.value}%`);
-  };
-  document.getElementById("reset-appearance").onclick = () => {
-    Object.assign(state.draft.meta, { theme: "system", accent: DEFAULT_ACCENT, accentSecondary: DEFAULT_ACCENT, background: "", backgroundMode: "solid", density: "compact", glow: 0, surfaceOpacity: 92 });
-    state.editorTab = "appearance"; renderDashboard(); toast("Rogue defaults restored in the preview");
   };
   document.getElementById("edit-max-columns").onchange = event => { state.draft.meta.maxColumns = Number(event.target.value); renderGroups(); };
   document.getElementById("edit-full").onchange = event => { state.draft.meta.fullWidth = event.target.checked; document.querySelector(".dashboard").classList.toggle("full-width", event.target.checked); };

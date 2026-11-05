@@ -1,6 +1,6 @@
 /* RogueDashboard 2.4 clean theme (shared Rogue palette with RogueForge and RogueMediaValidator).
-   rogue-theme.js resolves System/Light/Dark per browser; the shell gets theme-charcoal or theme-light.
-   The dashboard's saved theme is only the default until a viewer picks one in the top-bar menu.
+   rogue-theme.js resolves Default (Rogue navy), Light, Dark or System per browser; the shell gets
+   theme-default, theme-light or theme-charcoal. Colours are only chosen from the top-bar theme menu.
    One accent (clay by default); no glows, grids or aurora effects. */
 :root {
   color-scheme: dark;
@@ -48,6 +48,16 @@
   --info: #2f63a3; --green: #2f7a4c; --amber: #8f5d0e; --red: #b23a30;
   --shadow: 0 1px 2px rgba(31, 30, 29, .06), 0 10px 28px -18px rgba(31, 30, 29, .2);
 }
+:root[data-theme="default"] {
+  color-scheme: dark;
+  --accent: #d97757; --accent-hover: #e08a6d; --accent-text: #e8a084; --accent-ink: #1f1e1d;
+  --bg: #13203a; --surface: rgba(26, 42, 72, .92); --surface-strong: #1a2a48; --surface-soft: rgba(196, 214, 255, .05);
+  --surface-2: #213356; --surface-3: #283c63; --field: #101b31;
+  --border: rgba(196, 214, 255, .12); --border-bright: rgba(196, 214, 255, .22);
+  --text: #f4f4f5; --text-2: #dfe3ec; --muted: #a9b1c3; --faint: #7d879b;
+  --info: #8fb8f0; --green: #7cc293; --amber: #e3ae5f; --red: #e8786d;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -16px rgba(0, 0, 0, .5);
+}
 
 * { box-sizing: border-box; }
 html { min-width: 320px; min-height: 100%; background: var(--bg); }
@@ -68,6 +78,16 @@ a { color: inherit; }
   --text: #faf9f5; --text-2: #dedcd3; --muted: #b0aea5; --faint: #8a8880;
   --info: #8fb3dc; --green: #7cc293; --amber: #e3ae5f; --red: #e8786d;
   --shadow: 0 1px 2px rgba(0, 0, 0, .24), 0 10px 28px -16px rgba(0, 0, 0, .45);
+}
+.app-shell.theme-default {
+  color-scheme: dark;
+  --accent: #d97757; --accent-hover: #e08a6d; --accent-text: #e8a084; --accent-ink: #1f1e1d;
+  --bg: #13203a; --surface: rgba(26, 42, 72, .92); --surface-strong: #1a2a48; --surface-soft: rgba(196, 214, 255, .05);
+  --surface-2: #213356; --surface-3: #283c63; --field: #101b31;
+  --border: rgba(196, 214, 255, .12); --border-bright: rgba(196, 214, 255, .22);
+  --text: #f4f4f5; --text-2: #dfe3ec; --muted: #a9b1c3; --faint: #7d879b;
+  --info: #8fb8f0; --green: #7cc293; --amber: #e3ae5f; --red: #e8786d;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -16px rgba(0, 0, 0, .5);
 }
 .app-shell.theme-light {
   color-scheme: light;
@@ -1472,20 +1492,23 @@ select option, select optgroup { background: var(--surface-strong); color: var(-
   .app-shell .stat-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
-/* Chrome: the top bar keeps the dark palette in both themes (shared Rogue theme kit).
-   Accent variables are left alone so a custom dashboard accent still applies. */
+/* Chrome: the top bar uses the shared --rogue-chrome palette (navy in Default and Light, near-black in Dark). */
 .app-shell .topbar {
   color-scheme: dark; color: var(--text);
-  --bg: #181715; --surface: #232220; --surface-strong: #232220; --surface-soft: rgba(222, 220, 209, .05);
-  --surface-2: #2c2c2a; --surface-3: #343432; --field: #1b1a19;
-  --border: rgba(222, 220, 209, .1); --border-bright: rgba(222, 220, 209, .2);
+  --accent: #d97757; --accent-hover: #e08a6d; --accent-text: #e8a084; --accent-ink: #1f1e1d;
+  --bg: var(--rogue-chrome, #181715); --surface: var(--rogue-chrome-2, #232220); --surface-strong: var(--rogue-chrome-2, #232220); --surface-soft: var(--rogue-chrome-hover, rgba(222, 220, 209, .05));
+  --surface-2: var(--rogue-chrome-2, #2c2c2a); --surface-3: var(--rogue-chrome-3, #343432); --field: var(--rogue-chrome-field, #1b1a19);
+  --border: var(--rogue-chrome-line, rgba(222, 220, 209, .1)); --border-bright: var(--rogue-chrome-line-strong, rgba(222, 220, 209, .2));
   --line: var(--border); --line-strong: var(--border-bright);
-  --text: #faf9f5; --text-2: #dedcd3; --muted: #b0aea5; --faint: #8a8880;
-  --info: #8fb3dc; --green: #7cc293; --amber: #e3ae5f; --red: #e8786d;
+  --text: var(--rogue-chrome-text, #faf9f5); --text-2: var(--rogue-chrome-text-2, #dedcd3); --muted: var(--rogue-chrome-muted, #b0aea5); --faint: var(--rogue-chrome-faint, #8a8880);
+  --info: #8fb8f0; --green: #7cc293; --amber: #e3ae5f; --red: #e8786d;
   --rf-bg: var(--bg); --rf-surface: var(--surface-strong); --rf-surface-2: var(--surface-2); --rf-surface-3: var(--surface-3);
   --rf-border: var(--border); --rf-border-hi: var(--border-bright); --rf-text: var(--text); --rf-muted: var(--muted);
+  --rf-purple: var(--accent); --rf-cyan: var(--info); --rf-green: var(--green);
   --rg-panel: var(--surface-strong); --rg-panel-2: var(--surface-2); --rg-panel-3: var(--surface-3);
   --rg-line: var(--border); --rg-line-strong: var(--border-bright);
-  background: #181715; border-color: var(--border);
+  --rg-purple: var(--accent); --rg-cyan: var(--info); --rg-success: var(--green);
+  background: var(--rogue-chrome, #181715); border-color: var(--border);
+
 }
 .app-shell .topbar .search-box { background: var(--field); border-color: var(--border); }

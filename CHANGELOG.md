@@ -4,14 +4,15 @@
 
 Clean visual refresh and dependency update, aligned with RogueForge 2.4.0 and RogueMediaValidator 1.4.0.
 
-- New look: warm charcoal dark and warm paper light themes with a single clay accent, replacing the neon styling. Glows, neon grid, aurora and colour-mesh backgrounds are gone; solid and custom-image backgrounds remain.
-- New theme menu at the top right: **System** (follows the device), **Light** or **Dark**, saved per browser. It is the same menu in RogueForge and RogueMediaValidator (shared `rogue-theme.js`). The top bar stays dark in both modes. The dashboard's saved theme (Customise > Default theme) is used until a viewer picks one; new dashboards default to System. Customise keeps one accent colour (text on it is chosen for contrast) and card opacity.
+- New look: a Rogue navy **Default** theme, a warm paper **Light** theme and a warm charcoal **Dark** theme, all with one clay accent, replacing the neon styling. Glows, neon grid, aurora and colour-mesh backgrounds are gone.
+- New theme button at the top right with **Default**, **Light**, **Dark** and **System** (follows the device), saved per browser. It is the same menu in RogueForge and RogueMediaValidator (shared `rogue-theme.js`). The top bar stays navy in Default and Light and near-black in Dark.
+- Removed the Customise > Appearance tab: colours are only changed from the theme button. Saved custom accents, card opacity and background images are no longer applied. Title, subtitle and card density moved to the Layout tab.
 - Saved dashboards migrate automatically (schema 10): Neon, Midnight, Graphite, Ocean and Ember become Dark, Daylight becomes Light, accents reset to clay and neon backgrounds become solid. Custom-image backgrounds and their card opacity are kept.
 - Homepage imports map `theme: dark` to Dark and `theme: light` to Light; anything else follows the device.
 - Kept the original RogueDashboard, RogueForge and RogueMediaValidator icons.
 - Fixed: on Podman, `update.sh` refused every update after the first ("Another update is already running") because the container's conmon process inherited the update lock. One-time fix on existing installs: remove `.update.lock` in the install folder, then update.
 - Fixed: on compact dashboards the stat strip overflowed on phones, so the whole page zoomed out.
-- Fixed: stale `?v=2.0.0-r1` cache keys on the page assets, so browsers could keep an old stylesheet after an upgrade.
+- Fixed: browsers and proxies could keep an old script or stylesheet after an upgrade. Page assets now carry a content-hashed `?v=` key that changes with every release.
 - Fixed: RogueMediaValidator service cards asked for a bundled icon that was not shipped.
 - Container image moved to Python 3.15 (`python:3.15-alpine`); CI tests on 3.15.
 

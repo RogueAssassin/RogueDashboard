@@ -118,6 +118,24 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+_ASSET_VERSION: str | None = None
+VERSIONED_ASSETS = ("app.js", "styles.css", "rogue-theme.js", "branding/branding-switch.js", "site.webmanifest")
+
+
+def static_asset_version() -> str:
+    """Version plus a short hash of the shipped front-end files, computed once per process."""
+    global _ASSET_VERSION
+    if _ASSET_VERSION is None:
+        digest = hashlib.sha256()
+        for name in VERSIONED_ASSETS:
+            try:
+                digest.update((STATIC_DIR / name).read_bytes())
+            except OSError:
+                continue
+        _ASSET_VERSION = f"{VERSION}-{digest.hexdigest()[:10]}"
+    return _ASSET_VERSION
+
+
 def clamp(value: Any, minimum: int, maximum: int, fallback: int) -> int:
     return max(minimum, min(maximum, value)) if isinstance(value, int) and not isinstance(value, bool) else fallback
 
@@ -1907,6 +1925,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             candidate = STATIC_DIR / "index.html"
         payload = candidate.read_bytes()
+        if candidate.name == "index.html":
+            # Content-hashed cache keys so browsers and proxies pick up new assets after an update.
+            payload = re.sub(rb"\?v=[^\"'&]+", ("?v=" + static_asset_version()).encode(), payload)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", mimetypes.guess_type(candidate.name)[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(payload)))
