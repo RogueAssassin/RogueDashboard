@@ -1,9 +1,9 @@
 (()=> {
   "use strict";
   const variants = {
-    base: "/icons/roguedashboard.svg?v=2.4.0",
-    dark: "/icons/roguedashboard.svg?v=2.4.0",
-    light: "/icons/roguedashboard.svg?v=2.4.0",
+    base: "/icons/roguedashboard-approved-128.png?v=2.4.0",
+    dark: "/icons/roguedashboard-approved-128.png?v=2.4.0",
+    light: "/icons/roguedashboard-approved-128.png?v=2.4.0",
   };
 
   function preferredVariant() {

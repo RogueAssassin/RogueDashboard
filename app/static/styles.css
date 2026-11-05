@@ -1460,3 +1460,15 @@ html,body { background:var(--rf-bg); color:var(--rf-text); }
 .notice.info { border-color: color-mix(in srgb, var(--info) 30%, transparent); background: color-mix(in srgb, var(--info) 8%, transparent); color: var(--text); }
 select option, select optgroup { background: var(--surface-strong); color: var(--text); }
 .service-card.is-offline:hover { border-color: color-mix(in srgb, var(--red) 42%, transparent); background: color-mix(in srgb, var(--red) 14%, var(--surface-strong)); }
+
+/* 2.4.0 stat strip: one responsive grid that wins over the density presets,
+   so compact dashboards no longer overflow (and zoom out) on phones. */
+.app-shell .stat-strip{grid-template-columns:minmax(205px,1.3fr) repeat(6,minmax(0,1fr))}
+.app-shell .stat-strip>div,.app-shell .stat-strip .hero-time,.app-shell .stat-strip .mini-stat:last-child{min-width:0;grid-column:auto}
+@media (max-width:1320px){
+  .app-shell .stat-strip{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .app-shell .stat-strip .hero-time{grid-column:span 2}
+}
+@media (max-width:760px){
+  .app-shell .stat-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
