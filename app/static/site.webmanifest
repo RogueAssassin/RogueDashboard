@@ -3,7 +3,7 @@
   "short_name": "RogueDashboard",
   "icons": [
     {
-      "src": "/icons/roguedashboard-approved-128.png?v=2.4.0",
+      "src": "/icons/roguedashboard-approved-128.png?v=2.4.1",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any maskable"

@@ -40,13 +40,13 @@
 }
 :root[data-theme="light"], :root[data-theme="light"] .app-shell.theme-system {
   color-scheme: light;
-  --accent: #b5532f; --accent-hover: #9e4626; --accent-text: #a14a2a; --accent-ink: #ffffff;
-  --bg: #faf9f5; --surface: rgba(255, 255, 255, .94); --surface-strong: #ffffff; --surface-soft: rgba(31, 30, 29, .04);
-  --surface-2: #f5f4ef; --surface-3: #eceae2; --field: #ffffff;
-  --border: rgba(31, 30, 29, .12); --border-bright: rgba(31, 30, 29, .22);
-  --text: #1f1e1d; --text-2: #3d3c39; --muted: #5e5d59; --faint: #87867f;
-  --info: #2f63a3; --green: #2f7a4c; --amber: #8f5d0e; --red: #b23a30;
-  --shadow: 0 1px 2px rgba(31, 30, 29, .06), 0 10px 28px -18px rgba(31, 30, 29, .2);
+  --accent: #a94c2a; --accent-hover: #92401f; --accent-text: #974322; --accent-ink: #ffffff;
+  --bg: #cfd8e4; --surface: rgba(230, 235, 242, .96); --surface-strong: #e6ebf2; --surface-soft: rgba(15,26,46,.04);
+  --surface-2: #d9e0ea; --surface-3: #cbd4e0; --field: #eef2f7;
+  --border: rgba(15,26,46,.17); --border-bright: rgba(15,26,46,.3);
+  --text: #0f1a2e; --text-2: #24324a; --muted: #46536a; --faint: #535f72;
+  --info: #275a9a; --green: #22693f; --amber: #7a5009; --red: #a3322a;
+  --shadow: 0 1px 2px rgba(15, 26, 46, .06), 0 10px 28px -18px rgba(15, 26, 46, .2);
 }
 :root[data-theme="default"] {
   color-scheme: dark;
@@ -91,13 +91,13 @@ a { color: inherit; }
 }
 .app-shell.theme-light {
   color-scheme: light;
-  --accent: #b5532f; --accent-hover: #9e4626; --accent-text: #a14a2a; --accent-ink: #ffffff;
-  --bg: #faf9f5; --surface: rgba(255, 255, 255, .94); --surface-strong: #ffffff; --surface-soft: rgba(31, 30, 29, .04);
-  --surface-2: #f5f4ef; --surface-3: #eceae2; --field: #ffffff;
-  --border: rgba(31, 30, 29, .12); --border-bright: rgba(31, 30, 29, .22);
-  --text: #1f1e1d; --text-2: #3d3c39; --muted: #5e5d59; --faint: #87867f;
-  --info: #2f63a3; --green: #2f7a4c; --amber: #8f5d0e; --red: #b23a30;
-  --shadow: 0 1px 2px rgba(31, 30, 29, .06), 0 10px 28px -18px rgba(31, 30, 29, .2);
+  --accent: #a94c2a; --accent-hover: #92401f; --accent-text: #974322; --accent-ink: #ffffff;
+  --bg: #cfd8e4; --surface: rgba(230, 235, 242, .96); --surface-strong: #e6ebf2; --surface-soft: rgba(15,26,46,.04);
+  --surface-2: #d9e0ea; --surface-3: #cbd4e0; --field: #eef2f7;
+  --border: rgba(15,26,46,.17); --border-bright: rgba(15,26,46,.3);
+  --text: #0f1a2e; --text-2: #24324a; --muted: #46536a; --faint: #535f72;
+  --info: #275a9a; --green: #22693f; --amber: #7a5009; --red: #a3322a;
+  --shadow: 0 1px 2px rgba(15, 26, 46, .06), 0 10px 28px -18px rgba(15, 26, 46, .2);
 }
 
 .dashboard-background { position: fixed; inset: 0; z-index: -3; overflow: hidden; background-color: var(--bg); background-position: center; background-size: cover; }
