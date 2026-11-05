@@ -5,9 +5,9 @@
 Clean visual refresh and dependency update, aligned with RogueForge 2.4.0 and RogueMediaValidator 1.4.0.
 
 - New look: warm charcoal dark and warm paper light themes with a single clay accent, replacing the neon styling. Glows, neon grid, aurora and colour-mesh backgrounds are gone; solid and custom-image backgrounds remain.
-- Themes are now **System** (follows the device, the default for new dashboards), **Charcoal** and **Paper (light)**. Customise keeps one accent colour (text on it is chosen for contrast) and card opacity.
-- Saved dashboards migrate automatically (schema 10): Neon, Midnight, Graphite, Ocean and Ember become Charcoal, Daylight becomes Paper, accents reset to clay and neon backgrounds become solid. Custom-image backgrounds and their card opacity are kept.
-- Homepage imports map `theme: dark` to Charcoal and `theme: light` to Paper; anything else follows the device.
+- New theme menu at the top right: **System** (follows the device), **Light** or **Dark**, saved per browser. It is the same menu in RogueForge and RogueMediaValidator (shared `rogue-theme.js`). The top bar stays dark in both modes. The dashboard's saved theme (Customise > Default theme) is used until a viewer picks one; new dashboards default to System. Customise keeps one accent colour (text on it is chosen for contrast) and card opacity.
+- Saved dashboards migrate automatically (schema 10): Neon, Midnight, Graphite, Ocean and Ember become Dark, Daylight becomes Light, accents reset to clay and neon backgrounds become solid. Custom-image backgrounds and their card opacity are kept.
+- Homepage imports map `theme: dark` to Dark and `theme: light` to Light; anything else follows the device.
 - Kept the original RogueDashboard, RogueForge and RogueMediaValidator icons.
 - Fixed: on compact dashboards the stat strip overflowed on phones, so the whole page zoomed out.
 - Fixed: stale `?v=2.0.0-r1` cache keys on the page assets, so browsers could keep an old stylesheet after an upgrade.

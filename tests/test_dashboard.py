@@ -469,8 +469,11 @@ class RogueDashboardTests(unittest.TestCase):
         styles = (Path(__file__).parents[1] / "app" / "static" / "styles.css").read_text(encoding="utf-8")
         for removed in ("theme-neon", "background-neon-grid", "background-aurora", "text-shadow: 0"):
             self.assertNotIn(removed, styles)
-        for present in (".app-shell.theme-charcoal", ".app-shell.theme-light", "prefers-color-scheme: light"):
+        for present in (".app-shell.theme-charcoal", ".app-shell.theme-light", ':root[data-theme="light"]'):
             self.assertIn(present, styles)
+        static = Path(__file__).parents[1] / "app" / "static"
+        self.assertIn("/rogue-theme.js", (static / "index.html").read_text(encoding="utf-8"))
+        self.assertIn("data-rogue-theme-menu", (static / "app.js").read_text(encoding="utf-8"))
 
     def test_v03_dashboard_migrates_to_charcoal_and_rgdash_references(self):
         legacy = import_homepage(self.files)["dashboard"]

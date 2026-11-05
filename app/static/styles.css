@@ -1,5 +1,6 @@
 /* RogueDashboard 2.4 clean theme (shared Rogue palette with RogueForge and RogueMediaValidator).
-   Themes: "system" follows the OS, "charcoal" is warm dark, "light" is warm paper.
+   rogue-theme.js resolves System/Light/Dark per browser; the shell gets theme-charcoal or theme-light.
+   The dashboard's saved theme is only the default until a viewer picks one in the top-bar menu.
    One accent (clay by default); no glows, grids or aurora effects. */
 :root {
   color-scheme: dark;
@@ -37,17 +38,15 @@
   --red: #e8786d;
   --shadow: 0 1px 2px rgba(0, 0, 0, .24), 0 10px 28px -16px rgba(0, 0, 0, .45);
 }
-@media (prefers-color-scheme: light) {
-  :root, .app-shell.theme-system {
-    color-scheme: light;
-    --accent: #b5532f; --accent-hover: #9e4626; --accent-text: #a14a2a; --accent-ink: #ffffff;
-    --bg: #faf9f5; --surface: rgba(255, 255, 255, .94); --surface-strong: #ffffff; --surface-soft: rgba(31, 30, 29, .04);
-    --surface-2: #f5f4ef; --surface-3: #eceae2; --field: #ffffff;
-    --border: rgba(31, 30, 29, .12); --border-bright: rgba(31, 30, 29, .22);
-    --text: #1f1e1d; --text-2: #3d3c39; --muted: #5e5d59; --faint: #87867f;
-    --info: #2f63a3; --green: #2f7a4c; --amber: #8f5d0e; --red: #b23a30;
-    --shadow: 0 1px 2px rgba(31, 30, 29, .06), 0 10px 28px -18px rgba(31, 30, 29, .2);
-  }
+:root[data-theme="light"], :root[data-theme="light"] .app-shell.theme-system {
+  color-scheme: light;
+  --accent: #b5532f; --accent-hover: #9e4626; --accent-text: #a14a2a; --accent-ink: #ffffff;
+  --bg: #faf9f5; --surface: rgba(255, 255, 255, .94); --surface-strong: #ffffff; --surface-soft: rgba(31, 30, 29, .04);
+  --surface-2: #f5f4ef; --surface-3: #eceae2; --field: #ffffff;
+  --border: rgba(31, 30, 29, .12); --border-bright: rgba(31, 30, 29, .22);
+  --text: #1f1e1d; --text-2: #3d3c39; --muted: #5e5d59; --faint: #87867f;
+  --info: #2f63a3; --green: #2f7a4c; --amber: #8f5d0e; --red: #b23a30;
+  --shadow: 0 1px 2px rgba(31, 30, 29, .06), 0 10px 28px -18px rgba(31, 30, 29, .2);
 }
 
 * { box-sizing: border-box; }
@@ -1472,3 +1471,21 @@ select option, select optgroup { background: var(--surface-strong); color: var(-
 @media (max-width:760px){
   .app-shell .stat-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Chrome: the top bar keeps the dark palette in both themes (shared Rogue theme kit).
+   Accent variables are left alone so a custom dashboard accent still applies. */
+.app-shell .topbar {
+  color-scheme: dark; color: var(--text);
+  --bg: #181715; --surface: #232220; --surface-strong: #232220; --surface-soft: rgba(222, 220, 209, .05);
+  --surface-2: #2c2c2a; --surface-3: #343432; --field: #1b1a19;
+  --border: rgba(222, 220, 209, .1); --border-bright: rgba(222, 220, 209, .2);
+  --line: var(--border); --line-strong: var(--border-bright);
+  --text: #faf9f5; --text-2: #dedcd3; --muted: #b0aea5; --faint: #8a8880;
+  --info: #8fb3dc; --green: #7cc293; --amber: #e3ae5f; --red: #e8786d;
+  --rf-bg: var(--bg); --rf-surface: var(--surface-strong); --rf-surface-2: var(--surface-2); --rf-surface-3: var(--surface-3);
+  --rf-border: var(--border); --rf-border-hi: var(--border-bright); --rf-text: var(--text); --rf-muted: var(--muted);
+  --rg-panel: var(--surface-strong); --rg-panel-2: var(--surface-2); --rg-panel-3: var(--surface-3);
+  --rg-line: var(--border); --rg-line-strong: var(--border-bright);
+  background: #181715; border-color: var(--border);
+}
+.app-shell .topbar .search-box { background: var(--field); border-color: var(--border); }

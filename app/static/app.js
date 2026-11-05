@@ -70,11 +70,28 @@ const ICON_REMOTE_OVERRIDES = {
 const failedIcons = new Set();
 
 const DEFAULT_ACCENT = "#d97757";
-const THEMES = { system: "System (follows device)", charcoal: "Charcoal", light: "Paper (light)" };
+const THEMES = { system: "System (follows device)", charcoal: "Dark", light: "Light" };
+// Saved dashboard theme -> shared theme kit preference. The kit (rogue-theme.js) owns the per-browser
+// System/Light/Dark choice; the dashboard's saved theme is the default until a viewer picks one.
+const THEME_PREF = { system: "system", charcoal: "dark", light: "light" };
+
+function shellTheme(theme) {
+  if (window.RogueTheme) return window.RogueTheme.resolved() === "light" ? "light" : "charcoal";
+  return theme === "light" || (theme === "system" && window.matchMedia?.("(prefers-color-scheme: light)").matches) ? "light" : "charcoal";
+}
 
 function prefersLight(theme) {
-  return theme === "light" || (theme === "system" && window.matchMedia?.("(prefers-color-scheme: light)").matches);
+  return shellTheme(theme) === "light";
 }
+
+function syncShellTheme() {
+  const shell = document.getElementById("shell");
+  if (!shell || !state.draft) return;
+  shell.classList.remove("theme-system", "theme-charcoal", "theme-light");
+  shell.classList.add(`theme-${shellTheme(state.draft.meta.theme)}`);
+  renderGroups();
+}
+document.addEventListener("rogue-theme-change", syncShellTheme);
 
 // The default clay accent is left to the stylesheet so it can use the darker light-mode shade.
 // A custom accent applies to both modes, with text on accent chosen for contrast.
@@ -436,14 +453,15 @@ function relativeTime(value) {
 
 function renderDashboard() {
   const dashboard = state.draft;
+  window.RogueTheme?.setDefault(THEME_PREF[dashboard.meta.theme] || "system");
   document.title = dashboard.meta.title;
   app.innerHTML = `
-    <div class="app-shell theme-${escapeHtml(dashboard.meta.theme)} background-${escapeHtml(dashboard.meta.backgroundMode)} density-${escapeHtml(dashboard.meta.density)} ${state.editor ? "editing" : ""}" id="shell">
+    <div class="app-shell theme-${shellTheme(dashboard.meta.theme)} background-${escapeHtml(dashboard.meta.backgroundMode)} density-${escapeHtml(dashboard.meta.density)} ${state.editor ? "editing" : ""}" id="shell">
       <div class="dashboard-background" id="dashboard-background"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
           ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.4.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
-          <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button></div>
+          <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button><div data-rogue-theme-menu></div></div>
         </header>
         ${dashboard.meta.showPageTabs !== false || state.editor ? `<nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">⚙ Customise</button>` : ""}</nav>` : ""}
         ${dashboard.meta.showStats !== false ? `<section class="stat-strip" id="stats">
@@ -675,7 +693,7 @@ function editorMarkup() {
         <div class="editor-card">
           <div class="editor-card-heading"><div><strong>Theme & density</strong><span>Choose light or dark, card spacing and the page background.</span></div></div>
           <div class="form-grid">
-            <label class="field"><span>Theme preset</span><select id="edit-theme">${Object.entries(THEMES).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
+            <label class="field"><span>Default theme</span><select id="edit-theme">${Object.entries(THEMES).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
             <label class="field"><span>Card density</span><select id="edit-density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
             <label class="field full"><span>Background effect</span><select id="edit-background-mode"><option value="solid">Solid</option><option value="image">Custom image</option></select></label>
           </div>
@@ -841,10 +859,9 @@ function bindEditor() {
     if (key === "background") document.getElementById("dashboard-background").style.setProperty("--custom-background", `url("${event.target.value.replace(/["\\\n\r]/g, "")}")`);
   });
   document.getElementById("edit-theme").onchange = event => {
-    const shell = document.getElementById("shell");
-    shell.classList.replace(`theme-${state.draft.meta.theme}`, `theme-${event.target.value}`);
     state.draft.meta.theme = event.target.value;
-    renderGroups();
+    window.RogueTheme?.setDefault(THEME_PREF[event.target.value] || "system");
+    syncShellTheme();
   };
   document.getElementById("edit-density").onchange = event => {
     document.getElementById("shell").classList.replace(`density-${state.draft.meta.density}`, `density-${event.target.value}`);
