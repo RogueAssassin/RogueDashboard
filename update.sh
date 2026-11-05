@@ -30,8 +30,10 @@ cd "$INSTALL_DIR"
 
 # Only one update at a time.
 if command -v flock >/dev/null; then
+  # Containers started below must not inherit fd 9 (compose up runs with 9>&-), or podman's
+  # long-lived conmon process would keep holding this lock after the update finishes.
   exec 9>"$INSTALL_DIR/.update.lock"
-  flock -n 9 || { echo "Another RogueDashboard update is already running." >&2; exit 1; }
+  flock -n 9 || { echo "Another RogueDashboard update is already running." >&2; echo "If no update is running, remove $INSTALL_DIR/.update.lock and try again." >&2; exit 1; }
 fi
 
 REF=main
@@ -185,7 +187,7 @@ rollback(){
   cp -a "$BACKUP/compose.yaml" "$BACKUP/.env" "$INSTALL_DIR/"
   set_env RGDASH_IMAGE "$ROLLBACK_REF"
   "$deploy_engine" rm -f roguedashboard >/dev/null 2>&1 || true
-  if "${compose_cmd[@]}" up -d --remove-orphans && wait_for_ping; then
+  if "${compose_cmd[@]}" up -d --remove-orphans 9>&- && wait_for_ping; then
     echo "Rollback succeeded. RGDASH_IMAGE in .env now points at $ROLLBACK_REF (the version you were running)." >&2
     echo "Set RGDASH_IMAGE back to a published tag when you are ready to try again. Backup: $BACKUP" >&2
   else
@@ -202,7 +204,7 @@ if [[ -n $EXPECTED_IMAGE && -n $RUNNING_IMAGE && "$EXPECTED_IMAGE" != "$RUNNING_
   "$deploy_engine" rm -f roguedashboard >/dev/null
 fi
 
-if ! "${compose_cmd[@]}" up -d --remove-orphans; then
+if ! "${compose_cmd[@]}" up -d --remove-orphans 9>&-; then
   rollback "compose could not recreate the container" || exit 5
   exit 5
 fi

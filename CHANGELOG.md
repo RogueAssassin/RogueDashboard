@@ -9,6 +9,7 @@ Clean visual refresh and dependency update, aligned with RogueForge 2.4.0 and Ro
 - Saved dashboards migrate automatically (schema 10): Neon, Midnight, Graphite, Ocean and Ember become Dark, Daylight becomes Light, accents reset to clay and neon backgrounds become solid. Custom-image backgrounds and their card opacity are kept.
 - Homepage imports map `theme: dark` to Dark and `theme: light` to Light; anything else follows the device.
 - Kept the original RogueDashboard, RogueForge and RogueMediaValidator icons.
+- Fixed: on Podman, `update.sh` refused every update after the first ("Another update is already running") because the container's conmon process inherited the update lock. One-time fix on existing installs: remove `.update.lock` in the install folder, then update.
 - Fixed: on compact dashboards the stat strip overflowed on phones, so the whole page zoomed out.
 - Fixed: stale `?v=2.0.0-r1` cache keys on the page assets, so browsers could keep an old stylesheet after an upgrade.
 - Fixed: RogueMediaValidator service cards asked for a bundled icon that was not shipped.
