@@ -334,7 +334,13 @@ def _tautulli(widget: dict[str, Any]) -> list[dict[str, str]]:
     if not api_key:
         raise MissingSecrets
     query = urlencode({"apikey": api_key, "cmd": "get_activity"})
-    response = _json_request(f"{base}/api/v2?{query}")
+    try:
+        response = _json_request(f"{base}/api/v2?{query}")
+    except (TimeoutError, socket.timeout) as error:
+        raise ValueError(
+            "Tautulli accepted the connection but get_activity did not answer in time. "
+            "This usually means Tautulli cannot reach its Plex server: check Settings > Plex Media Server in Tautulli."
+        ) from error
     wrapper = response.get("response", {}) if isinstance(response, dict) else {}
     if wrapper.get("result") not in (None, "success"):
         raise PermissionError("The service rejected its credentials.")
@@ -658,7 +664,9 @@ def _safe_error(error: Exception) -> tuple[str, int | None]:
         if isinstance(reason, (TimeoutError, socket.timeout)):
             return "The service API timed out from the dashboard container.", None
         return "The service API is unreachable from the dashboard container.", None
-    if isinstance(error, (TimeoutError, socket.timeout, ConnectionError)):
+    if isinstance(error, (TimeoutError, socket.timeout)):
+        return "The service API timed out from the dashboard container.", None
+    if isinstance(error, ConnectionError):
         return "The service API is unreachable from the dashboard container.", None
     if isinstance(error, json.JSONDecodeError):
         return "The service returned an invalid API response.", None
