@@ -1361,6 +1361,19 @@ class StabilityTests(unittest.TestCase):
         finally:
             dashboard_app.WIDGET_REFRESH_LOCK.release()
 
+    def test_fast_widget_path_returns_stale_snapshot_without_blocking(self):
+        previous = (dashboard_app.WIDGET_CACHE, dashboard_app.WIDGET_LAST)
+        self.addCleanup(lambda: (setattr(dashboard_app, "WIDGET_CACHE", previous[0]), setattr(dashboard_app, "WIDGET_LAST", previous[1])))
+        dashboard_app.WIDGET_CACHE = (0, [])
+        dashboard_app.WIDGET_LAST = [{"itemId": "stale"}]
+        self.assertTrue(dashboard_app.WIDGET_REFRESH_LOCK.acquire(blocking=False))  # a refresh is "running"
+        try:
+            self.assertEqual(dashboard_app.widget_results_fast(), [{"itemId": "stale"}])
+        finally:
+            dashboard_app.WIDGET_REFRESH_LOCK.release()
+        dashboard_app.WIDGET_CACHE = (9999999999, [{"itemId": "fresh"}])
+        self.assertEqual(dashboard_app.widget_results_fast(), [{"itemId": "fresh"}])
+
     # --- process lifecycle ----------------------------------------------------
 
     def free_port(self):

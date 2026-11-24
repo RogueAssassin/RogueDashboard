@@ -8,6 +8,8 @@ Faster problem spotting on the dashboard, plus a README refresh.
 - A red or amber problem chip appears above the cards when any service is DOWN or DEGRADED; one click filters to the affected services, and "Show all" clears it.
 - The browser tab title shows the number of problem services, for example `(2) RogueDashboard`.
 - Card status now comes from one shared helper, so the cards, chips and filters always agree.
+- Faster first load: `/api/widgets` took about 6 s whenever its cache had expired, and the dashboard waited for it before drawing anything. The server now returns the last widget snapshot immediately and refreshes it in the background, and warms it at start-up.
+- The page now paints each response as it arrives, so cards, status dots and stats appear as soon as health data is in instead of waiting for the slowest endpoint.
 - README: new search and filters section, quick-jump links and theme screenshots; version references bumped.
 
 ## 2.4.1

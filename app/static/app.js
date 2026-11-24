@@ -1345,19 +1345,23 @@ async function refreshRuntime(force = false) {
       try { await request("/api/monitor/refresh", { method: "POST", body: "{}" }); }
       catch (error) { toast(error.message); }
     }
-    const [health, system, widgets, history, monitor, incidents, notifications] = await Promise.allSettled([
-      request("/api/health"), request("/api/system"), request("/api/widgets"), request("/api/history"), request("/api/monitor/status"), request("/api/incidents"), state.authenticated ? request("/api/notifications") : Promise.resolve({ entries: [] }),
+    // Paint each response as it arrives so quick endpoints (health, system) are not held up by slow ones (widgets).
+    let paintQueued = false;
+    const paint = () => {
+      if (paintQueued) return;
+      paintQueued = true;
+      requestAnimationFrame(() => { paintQueued = false; updateStats(); renderGroups(); updateDocumentTitle(); });
+    };
+    const track = (promise, apply) => promise.then(value => { apply(value); paint(); return value; });
+    await Promise.allSettled([
+      track(request("/api/health"), value => { state.health = new Map(value.map(item => [item.itemId, item])); }),
+      track(request("/api/system"), value => { state.system = value; }),
+      track(request("/api/history"), value => { state.history = new Map(Object.entries(value.services || {})); state.availabilityWindows = value.windows || {}; }),
+      track(request("/api/monitor/status"), value => { state.monitor = value; }),
+      track(request("/api/incidents"), value => { state.incidents = value.incidents || []; }),
+      track(state.authenticated ? request("/api/notifications") : Promise.resolve({ entries: [] }), value => { state.notifications = value.entries || []; }),
+      track(request("/api/widgets"), value => { state.widgets = new Map(value.widgets.map(item => [item.itemId, item])); state.widgetSupport = value.supported; }),
     ]);
-    if (health.status === "fulfilled") state.health = new Map(health.value.map(item => [item.itemId, item]));
-    if (system.status === "fulfilled") state.system = system.value;
-    if (history.status === "fulfilled") { state.history = new Map(Object.entries(history.value.services || {})); state.availabilityWindows = history.value.windows || {}; }
-    if (monitor.status === "fulfilled") state.monitor = monitor.value;
-    if (incidents.status === "fulfilled") state.incidents = incidents.value.incidents || [];
-    if (notifications.status === "fulfilled") state.notifications = notifications.value.entries || [];
-    if (widgets.status === "fulfilled") {
-      state.widgets = new Map(widgets.value.widgets.map(item => [item.itemId, item]));
-      state.widgetSupport = widgets.value.supported;
-    }
     updateStats();
     renderGroups();
     updateDocumentTitle();

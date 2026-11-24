@@ -1452,12 +1452,13 @@ def health_history_summary() -> dict[str, dict[str, Any]]:
     return DB.health_history(3600) if DB else {}
 
 def clear_monitor_caches() -> None:
-    global HEALTH_CACHE, WIDGET_CACHE, MONITOR_GENERATION
+    global HEALTH_CACHE, WIDGET_CACHE, WIDGET_LAST, MONITOR_GENERATION
     MONITOR_GENERATION += 1
     with HEALTH_LOCK:
         HEALTH_CACHE = (0, [])
     with WIDGET_LOCK:
         WIDGET_CACHE = (0, [])
+    WIDGET_LAST = []
     MONITOR_WAKE.set()
 
 
@@ -1499,6 +1500,28 @@ def collect_widget_results() -> list[dict[str, Any]]:
         return widget_results
     finally:
         WIDGET_REFRESH_LOCK.release()
+
+
+def widget_results_fast() -> list[dict[str, Any]]:
+    """Serve widget data without making a browser wait on slow upstream services.
+
+    A fresh cache is returned as is. A stale snapshot is returned immediately while a background
+    thread refreshes it. Only the very first request (no snapshot yet) has to wait.
+    """
+    with WIDGET_LOCK:
+        if WIDGET_CACHE[0] > time.time():
+            return WIDGET_CACHE[1]
+    if WIDGET_LAST:
+        threading.Thread(target=collect_widget_results, name="rogue-widget-refresh", daemon=True).start()
+        return WIDGET_LAST
+    return collect_widget_results()
+
+
+def prewarm_widgets() -> None:
+    try:
+        collect_widget_results()
+    except Exception:  # noqa: BLE001 - warming is best effort
+        traceback.print_exc()
 
 
 FAILED_LOGIN_LIMIT = 5
@@ -1722,7 +1745,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             self.json_response({"entries": DB.notification_entries()})
         elif path == "/api/widgets":
-            self.json_response({"supported": sorted(SUPPORTED_WIDGETS), "widgets": collect_widget_results()})
+            self.json_response({"supported": sorted(SUPPORTED_WIDGETS), "widgets": widget_results_fast()})
         elif path == "/api/admin/sessions":
             if not self.require_admin():
                 return
@@ -2081,6 +2104,7 @@ def main() -> int:
         threading.Thread(target=notification_worker, name="rogue-notifier", daemon=True),
         threading.Thread(target=backup_loop, name="rogue-backup", daemon=True),
         threading.Thread(target=watchdog_loop, name="rogue-watchdog", daemon=True),
+        threading.Thread(target=prewarm_widgets, name="rogue-widget-prewarm", daemon=True),
     ]
     for worker in workers:
         worker.start()
