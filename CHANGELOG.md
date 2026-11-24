@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.5.0
+
+Faster problem spotting on the dashboard, plus a README refresh.
+
+- New `status:` search filter: `status:down`, `status:degraded`, `status:online`, `status:unknown` and `status:issues`, usable in the search box and combinable with text, `tag:` and `fav:`.
+- A red or amber problem chip appears above the cards when any service is DOWN or DEGRADED; one click filters to the affected services, and "Show all" clears it.
+- The browser tab title shows the number of problem services, for example `(2) RogueDashboard`.
+- Card status now comes from one shared helper, so the cards, chips and filters always agree.
+- README: new search and filters section, quick-jump links and theme screenshots; version references bumped.
+
 ## 2.4.1
 
 Light theme readability update, aligned with RogueForge 2.4.1 and RogueMediaValidator 1.4.1.

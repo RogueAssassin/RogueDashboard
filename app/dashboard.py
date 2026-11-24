@@ -53,7 +53,7 @@ def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, value))
 
 
-VERSION = "2.4.1"
+VERSION = "2.5.0"
 THEMES = ("system", "charcoal", "light")
 LEGACY_DARK_THEMES = ("neon", "midnight", "graphite", "ocean", "ember")
 DEFAULT_ACCENT = "#d97757"

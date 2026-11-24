@@ -1512,3 +1512,13 @@ select option, select optgroup { background: var(--surface-strong); color: var(-
 
 }
 .app-shell .topbar .search-box { background: var(--field); border-color: var(--border); }
+
+/* 2.5.0 status filter chips */
+.result-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -12px 0 20px; min-height: 0; }
+.result-bar .result-count { margin: 0; }
+.status-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.status-chip { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer; }
+.status-chip:hover { border-color: var(--accent); }
+.status-chip.offline { color: var(--red); border-color: color-mix(in srgb, var(--red) 55%, var(--border)); }
+.status-chip.degraded { color: var(--amber, var(--accent)); border-color: color-mix(in srgb, var(--amber, var(--accent)) 55%, var(--border)); }
+.status-chip.clear { color: var(--muted); }

@@ -136,6 +136,26 @@ function normalizedTags(item) {
   return Array.isArray(item.tags) ? item.tags.filter(tag => typeof tag === "string" && tag.trim()).map(tag => tag.trim()) : [];
 }
 
+function itemState(item) {
+  const monitorState = state.monitor?.services?.find?.(entry => entry.itemId === item.id)?.state;
+  return monitorState || state.health.get(item.id)?.state || "unknown";
+}
+
+function issueCounts() {
+  const counts = { offline: 0, degraded: 0 };
+  for (const group of state.draft?.groups || []) {
+    for (const item of group.items || []) {
+      if (!item.monitorUrl || item.visible === false) continue;
+      const current = itemState(item);
+      if (current === "offline") counts.offline += 1;
+      else if (current === "degraded") counts.degraded += 1;
+    }
+  }
+  return counts;
+}
+
+const STATUS_ALIASES = { down: "offline", offline: "offline", degraded: "degraded", up: "online", online: "online", unknown: "unknown" };
+
 function itemMatchesQuery(item, group, query) {
   if (!query) return true;
   const terms = query.split(/\s+/).filter(Boolean);
@@ -144,6 +164,12 @@ function itemMatchesQuery(item, group, query) {
   return terms.every(term => {
     if (term === "fav:" || term === "favorite:" || term === "favourite:") return item.favorite === true;
     if (term.startsWith("tag:")) return tags.includes(term.slice(4));
+    if (term.startsWith("status:")) {
+      const wanted = term.slice(7);
+      const current = itemState(item);
+      if (wanted === "issues" || wanted === "problems") return current === "offline" || current === "degraded";
+      return STATUS_ALIASES[wanted] ? current === STATUS_ALIASES[wanted] : true;
+    }
     return haystack.includes(term);
   });
 }
@@ -292,7 +318,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.4.1" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.5.0" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -301,7 +327,7 @@ function renderSetup() {
   app.innerHTML = `
     <main class="setup-shell">
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.4.1" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.5.0" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -442,8 +468,8 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.4.1" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
-          <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, fav:…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button><div data-rogue-theme-menu></div></div>
+          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.5.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
+          <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, status:down…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button><div data-rogue-theme-menu></div></div>
         </header>
         ${dashboard.meta.showPageTabs !== false || state.editor ? `<nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">⚙ Customise</button>` : ""}</nav>` : ""}
         ${dashboard.meta.showStats !== false ? `<section class="stat-strip" id="stats">
@@ -455,7 +481,7 @@ function renderDashboard() {
           <div class="mini-stat"><span>◫</span><div><strong id="storage-count">—</strong><span id="storage-total">Dashboard storage</span></div></div>
           <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
-        <div class="result-count" id="result-count"></div><div class="groups" id="groups"></div>
+        <div class="result-bar"><div class="result-count" id="result-count"></div><div class="status-chips" id="status-chips"></div></div><div class="groups" id="groups"></div>
         ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "2.0.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
       </main>
       ${state.editor ? editorMarkup() : ""}
@@ -503,6 +529,7 @@ function renderGroups() {
   }).join("");
   container.innerHTML = html || `<section class="empty-search"><h2>No matching cards</h2><p>Try another search or add a service.</p></section>`;
   bindIconFallbacks(container);
+  renderStatusChips();
   document.getElementById("result-count").textContent = query ? `${visibleCount} results for “${state.search}”` : "";
   container.querySelectorAll(".collapse-group").forEach(button => button.onclick = () => {
     state.collapsed.has(button.dataset.id) ? state.collapsed.delete(button.dataset.id) : state.collapsed.add(button.dataset.id);
@@ -517,11 +544,37 @@ function renderGroups() {
   if (state.editor) bindDragging(container);
 }
 
+function renderStatusChips() {
+  const holder = document.getElementById("status-chips");
+  if (!holder) return;
+  const counts = issueCounts();
+  const issues = counts.offline + counts.degraded;
+  const filtering = /(^|s)status:/i.test(state.search);
+  if (!issues && !filtering) { holder.innerHTML = ""; return; }
+  const parts = [];
+  if (counts.offline) parts.push(`${counts.offline} down`);
+  if (counts.degraded) parts.push(`${counts.degraded} degraded`);
+  holder.innerHTML = (issues ? `<button type="button" class="status-chip ${counts.offline ? "offline" : "degraded"}" data-status-filter="status:issues" title="Show only services with problems">⚠ ${parts.join(" · ")}</button>` : "")
+    + (filtering ? `<button type="button" class="status-chip clear" data-status-filter="" title="Show all services">Show all</button>` : "");
+  holder.querySelectorAll("[data-status-filter]").forEach(button => button.onclick = () => {
+    state.search = button.dataset.statusFilter;
+    const input = document.getElementById("search");
+    if (input) input.value = state.search;
+    renderGroups();
+  });
+}
+
+function updateDocumentTitle() {
+  const counts = issueCounts();
+  const issues = counts.offline + counts.degraded;
+  const base = state.draft?.meta?.title || "RogueDashboard";
+  document.title = issues ? `(${issues}) ${base}` : base;
+}
+
 function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const status = state.health.get(item.id);
   const widget = state.widgets.get(item.id);
-  const monitorState = state.monitor?.services?.find?.(entry => entry.itemId === item.id)?.state;
-  const statusState = monitorState || status?.state || "unknown";
+  const statusState = itemState(item);
   const href = safeUrl(item.href);
   const iconMarkup = iconMarkupFor(item);
   const statusTitle = status?.message || (statusState === "unknown" ? "Waiting for health status" : statusState);
@@ -648,7 +701,7 @@ function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header">
       <div class="editor-brand">
-        <img src="/icons/roguedashboard-approved-128.png?v=2.4.1" alt="">
+        <img src="/icons/roguedashboard-approved-128.png?v=2.5.0" alt="">
         <div><span class="eyebrow">LIVE CUSTOMISER</span><h2>Customise RogueDashboard</h2><p>Preview changes instantly, then save when everything looks right.</p></div>
       </div>
       <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
@@ -1184,7 +1237,7 @@ function openLogin() {
   overlay.innerHTML = `<div class="modal-backdrop auth-backdrop">
     <section class="modal auth-modal">
       <div class="auth-visual">
-        <img src="/icons/roguedashboard-approved-128.png?v=2.4.1" alt="RogueDashboard">
+        <img src="/icons/roguedashboard-approved-128.png?v=2.5.0" alt="RogueDashboard">
         <div><span class="eyebrow">ADMINISTRATION</span><h2>Welcome back</h2><p>Sign in locally to customise services, layouts and integrations.</p></div>
       </div>
       <div class="auth-content">
@@ -1307,6 +1360,7 @@ async function refreshRuntime(force = false) {
     }
     updateStats();
     renderGroups();
+    updateDocumentTitle();
     const migrationReadiness = document.getElementById("migration-readiness");
     if (migrationReadiness) migrationReadiness.innerHTML = migrationReadinessMarkup();
     const notificationHistory = document.getElementById("notification-history");
