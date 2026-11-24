@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.1
+
+Clearer integration errors.
+
+- A read timeout from a service API is now reported as "timed out" instead of "unreachable".
+- The Tautulli widget explains that a stalled `get_activity` call usually means Tautulli cannot reach its Plex server (Settings > Plex Media Server).
+
 ## 2.5.0
 
 Faster problem spotting on the dashboard, plus a README refresh.
