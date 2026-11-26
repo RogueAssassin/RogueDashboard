@@ -53,7 +53,7 @@ def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, value))
 
 
-VERSION = "2.5.1"
+VERSION = "2.6.0"
 THEMES = ("system", "charcoal", "light")
 LEGACY_DARK_THEMES = ("neon", "midnight", "graphite", "ocean", "ember")
 DEFAULT_ACCENT = "#d97757"
@@ -119,7 +119,7 @@ def utc_now() -> str:
 
 
 _ASSET_VERSION: str | None = None
-VERSIONED_ASSETS = ("app.js", "styles.css", "rogue-theme.js", "branding/branding-switch.js", "site.webmanifest")
+VERSIONED_ASSETS = ("app.js", "styles.css", "ui.css", "icons.js", "rogue-theme.js", "branding/branding-switch.js", "site.webmanifest")
 
 
 def static_asset_version() -> str:

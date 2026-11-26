@@ -1,0 +1,81 @@
+/* RogueDashboard 2.6 interface layer, matching RogueForge 2.6. Loaded last: component styling on top of
+   the colour tokens in styles.css. */
+:root, :root[data-theme="default"], :root[data-theme="dark"] {
+  --accent: #ff7a59; --accent-hover: #ff9478; --accent-text: #ffa78f; --violet: #a78bfa;
+  --grad: linear-gradient(135deg, #d6451f, #c2276b 55%, #6d3fd9);
+  --grad-alert: linear-gradient(135deg, #a3271d, #8f1f45 60%, #4c2a86);
+  --grad-soft: linear-gradient(135deg, rgba(255,122,89,.18), rgba(139,92,246,.14));
+  --elev: 0 1px 2px rgba(0,0,0,.25), 0 14px 34px -20px rgba(0,0,0,.65);
+  --r-lg: 18px; --r-md: 12px;
+}
+:root[data-theme="light"] {
+  --accent: #b8431c; --accent-hover: #9c3715; --accent-text: #a33b17; --accent-ink: #ffffff; --violet: #5b34c4;
+  --grad-soft: linear-gradient(135deg, rgba(214,69,31,.12), rgba(109,63,217,.1));
+  --elev: 0 1px 2px rgba(15,26,46,.07), 0 14px 30px -22px rgba(15,26,46,.35);
+}
+
+.rd-i { flex: none; display: block; }
+.app-shell { background: transparent; }
+.app-shell:not(.background-image) .dashboard-background {
+  background-image:
+    radial-gradient(900px 420px at 85% -10%, color-mix(in srgb, #8b5cf6 14%, transparent), transparent 70%),
+    radial-gradient(700px 380px at 15% -15%, color-mix(in srgb, #ff7a59 10%, transparent), transparent 70%);
+}
+
+/* Header and controls */
+.app-shell .topbar { border-radius: var(--r-lg); box-shadow: var(--elev); }
+.app-shell .button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 10px; white-space: nowrap; transition: background .15s, border-color .15s, transform .12s, filter .15s; }
+.app-shell .button:hover:not(:disabled) { transform: translateY(-1px); }
+.app-shell .button:active:not(:disabled) { transform: none; }
+.app-shell .button.primary, .modal .button.primary, .setup-card .button.primary { background: var(--grad); border-color: transparent; color: #fff; }
+.app-shell .button.primary:hover:not(:disabled), .modal .button.primary:hover:not(:disabled), .setup-card .button.primary:hover:not(:disabled) { background: var(--grad); border-color: transparent; filter: brightness(1.1); }
+.app-shell .search-box { border-radius: 10px; }
+.app-shell .search-box > span { display: grid; place-items: center; }
+.app-shell .page-tabs { background: transparent; border: 0; padding: 0; }
+.app-shell .page-tabs button { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-md); }
+.app-shell .page-tabs button.active { background: var(--grad-soft); box-shadow: none; border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
+
+/* Status banner */
+.hero { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; padding: 22px 26px; border-radius: var(--r-lg); background: var(--grad); color: #fff; box-shadow: var(--elev); }
+.hero::after { content: ""; position: absolute; right: -60px; top: -110px; width: 300px; height: 300px; border-radius: 50%; background: rgba(255,255,255,.12); pointer-events: none; }
+.hero.has-issues { background: var(--grad-alert); }
+.hero h2 { margin: 0 0 4px; font-size: 1.5rem; color: #fff; }
+.hero p { margin: 0; font-size: .9rem; color: rgba(255,255,255,.92); }
+.hero button { position: relative; z-index: 1; min-height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: #fff; color: #8f1f52; font: inherit; font-size: .82rem; font-weight: 650; cursor: pointer; }
+.hero button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* Stat tiles */
+.app-shell .stat-strip { gap: 12px; margin-bottom: 18px; background: transparent; border: 0; padding: 0; overflow: visible; }
+.app-shell .stat-strip > div { --tone: var(--accent-text); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-strong); box-shadow: var(--elev); }
+.app-shell .stat-strip > div > span { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 11px; color: var(--tone); background: color-mix(in srgb, var(--tone) 16%, transparent); }
+.app-shell .stat-strip > div:nth-child(2), .app-shell .stat-strip > div:nth-child(5) { --tone: var(--info); }
+.app-shell .stat-strip > div:nth-child(3), .app-shell .stat-strip > div:nth-child(7) { --tone: var(--green); }
+.app-shell .stat-strip > div:nth-child(4), .app-shell .stat-strip > div:nth-child(6) { --tone: var(--violet); }
+.app-shell .stat-strip strong { font-variant-numeric: tabular-nums; }
+
+/* Sections and cards */
+.app-shell .service-group { background: transparent; border: 0; box-shadow: none; }
+.app-shell .group-header { background: transparent; border: 0; box-shadow: none; padding-left: 2px; }
+.app-shell .group-title > span:first-child { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--grad-soft); color: var(--accent-text); }
+.app-shell .service-card { border-radius: var(--r-lg); box-shadow: var(--elev); transition: transform .15s, border-color .15s, background .15s; }
+.app-shell .service-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.app-shell .service-card.is-offline { border-color: color-mix(in srgb, var(--red) 55%, transparent); }
+.app-shell .service-card.is-degraded { border-color: color-mix(in srgb, var(--amber) 50%, transparent); }
+.app-shell .service-icon { border-radius: var(--r-md); background: var(--grad-soft); }
+.app-shell .service-name > span { display: inline-flex; color: var(--muted); }
+.app-shell .widget-metrics > span { border-radius: 10px; }
+.app-shell .status:not(.badge).online { box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); }
+.app-shell .status:not(.badge).offline { box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 25%, transparent); }
+.status-chip { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Dialogs and toasts */
+.modal, .setup-card { border-radius: var(--r-lg); box-shadow: 0 30px 70px -20px rgba(0,0,0,.65); }
+.toast { border-radius: var(--r-md); box-shadow: var(--elev); }
+
+@media (max-width: 760px) { .hero { padding: 18px; } .hero h2 { font-size: 1.25rem; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Phones: header actions are icon-only so they never overlap (labels stay for screen readers). */
+@media (max-width: 760px) {
+  .app-shell .topbar-actions #commands, .app-shell .topbar-actions #customise { flex: 0 0 42px; min-width: 42px; padding: 0; gap: 0; font-size: 0; }
+}

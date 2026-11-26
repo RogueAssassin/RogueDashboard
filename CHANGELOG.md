@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.0
+
+- **New interface**, matching RogueForge: a status banner ("All systems running" or how many services need attention, with a **Show problems** button), one SVG icon set instead of text symbols, restyled stat tiles, sections, cards, buttons and dialogs, and a brighter accent gradient in all themes.
+- On phones the command palette and sign-in buttons are icon-only so the header no longer crowds.
+- No new dependencies or external requests.
+
 ## 2.5.1
 
 Clearer integration errors.

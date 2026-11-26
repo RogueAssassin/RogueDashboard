@@ -203,7 +203,7 @@ function commandItems(query = "") {
 
 function openCommandPalette(initial = "") {
   overlay.innerHTML = `<div class="modal-backdrop command-backdrop"><section class="modal command-modal">
-    <header class="command-header"><span>⌕</span><input id="command-query" value="${escapeHtml(initial)}" placeholder="Search services, pages, tags or actions…" autocomplete="off"><kbd>Esc</kbd></header>
+    <header class="command-header"><span>${rdIcon("search", 18)}</span><input id="command-query" value="${escapeHtml(initial)}" placeholder="Search services, pages, tags or actions…" autocomplete="off"><kbd>Esc</kbd></header>
     <div class="command-results" id="command-results"></div>
   </section></div>`;
   const input = document.getElementById("command-query");
@@ -318,7 +318,7 @@ async function load() {
     if (bootstrap.setupRequired) renderSetup();
     else renderDashboard();
   } catch (error) {
-    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.5.1" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
+    app.innerHTML = `<main class="center-stage"><section class="error-card"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.6.0" alt="RogueDashboard"></div><h1>Dashboard unavailable</h1><p>${escapeHtml(error.message)}</p><button class="button primary" id="retry">Try again</button></section></main>`;
     document.getElementById("retry").onclick = load;
   }
 }
@@ -327,7 +327,7 @@ function renderSetup() {
   app.innerHTML = `
     <main class="setup-shell">
       <section class="setup-card">
-        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.5.1" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
+        <header class="setup-brand"><div class="brand-mark"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.6.0" alt="RogueDashboard"></div><div><strong>RogueDashboard</strong><span>Service dashboard</span></div></header>
         <div class="setup-progress"><span class="active"></span><span class="active"></span><span class="active"></span></div>
         <form class="setup-page" id="setup-form">
           <div class="setup-icon">◆</div><p class="eyebrow">WELCOME HOME</p>
@@ -468,18 +468,19 @@ function renderDashboard() {
       <div class="dashboard-background" id="dashboard-background"></div>
       <main class="dashboard ${dashboard.meta.fullWidth ? "full-width" : ""}">
         <header class="topbar">
-          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.5.1" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
-          <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>⌕</span><input id="search" placeholder="Search apps, tags, status:down…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)">⌘ K</button><button class="button glass" id="customise">${state.authenticated ? "⚙ Customise" : "↪ Admin"}</button><div data-rogue-theme-menu></div></div>
+          ${dashboard.meta.showHeader !== false ? `<div class="brand-block"><div class="brand-mark small"><img data-rgd-brand-image src="/icons/roguedashboard-approved-128.png?v=2.6.0" alt=""></div><div><h1>${escapeHtml(dashboard.meta.title)}</h1><p>${escapeHtml(dashboard.meta.subtitle)}</p></div></div>` : `<div></div>`}
+          <div class="topbar-actions">${dashboard.meta.showSearch !== false ? `<div class="search-box"><span>${rdIcon("search", 16)}</span><input id="search" placeholder="Search apps, tags, status:down…" value="${escapeHtml(state.search)}"><button id="clear-search" aria-label="Clear search">×</button></div>` : ""}<button class="button glass command-button" id="commands" title="Command palette (Ctrl+K)" aria-label="Command palette">${rdIcon("command", 15)}Ctrl K</button><button class="button glass" id="customise" title="${state.authenticated ? "Customise" : "Admin sign in"}" aria-label="${state.authenticated ? "Customise" : "Admin sign in"}">${state.authenticated ? `${rdIcon("settings", 15)}Customise` : `${rdIcon("user", 15)}Admin`}</button><div data-rogue-theme-menu></div></div>
         </header>
-        ${dashboard.meta.showPageTabs !== false || state.editor ? `<nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">⚙ Customise</button>` : ""}</nav>` : ""}
-        ${dashboard.meta.showStats !== false ? `<section class="stat-strip" id="stats">
-          <div class="hero-time"><span>◷</span><div><strong id="clock">--:--</strong><span id="date">Loading…</span></div></div>
-          <div class="mini-stat"><span>◆</span><div><strong id="container-count">—</strong><span id="container-label">Live widgets</span></div></div>
-          <div class="mini-stat"><span>●</span><div><strong id="online-count">—</strong><span>Services online</span></div></div>
-          <div class="mini-stat"><span>▤</span><div><strong id="memory-count">—</strong><span id="memory-total">Memory</span></div></div>
-          <div class="mini-stat"><span>⌁</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
-          <div class="mini-stat"><span>◫</span><div><strong id="storage-count">—</strong><span id="storage-total">Dashboard storage</span></div></div>
-          <div class="mini-stat"><span>✓</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
+        ${dashboard.meta.showPageTabs !== false || state.editor ? `<nav class="page-tabs" aria-label="Dashboard pages">${(dashboard.pages || [{ id: "home", name: "Home" }]).map(page => `<button class="${page.id === state.activePage ? "active" : ""}" data-page="${escapeHtml(page.id)}">${escapeHtml(page.name)}</button>`).join("")}${state.authenticated ? `<button class="${state.editor ? "active" : ""}" id="customise-tab" type="button">${rdIcon("settings", 14)}Customise</button>` : ""}</nav>` : ""}
+        ${dashboard.meta.showStats !== false ? `<section class="hero" id="hero"><div><h2 id="hero-title">Checking your services…</h2><p id="hero-detail">Waiting for the first health results</p></div><button type="button" id="hero-action" hidden></button></section>
+        <section class="stat-strip" id="stats">
+          <div class="hero-time"><span>${rdIcon("clock", 18)}</span><div><strong id="clock">--:--</strong><span id="date">Loading…</span></div></div>
+          <div class="mini-stat"><span>${rdIcon("plug", 18)}</span><div><strong id="container-count">—</strong><span id="container-label">Live widgets</span></div></div>
+          <div class="mini-stat"><span>${rdIcon("pulse", 18)}</span><div><strong id="online-count">—</strong><span>Services online</span></div></div>
+          <div class="mini-stat"><span>${rdIcon("memory", 18)}</span><div><strong id="memory-count">—</strong><span id="memory-total">Memory</span></div></div>
+          <div class="mini-stat"><span>${rdIcon("gauge", 18)}</span><div><strong id="load-count">—</strong><span id="uptime-count">System load</span></div></div>
+          <div class="mini-stat"><span>${rdIcon("database", 18)}</span><div><strong id="storage-count">—</strong><span id="storage-total">Dashboard storage</span></div></div>
+          <div class="mini-stat"><span>${rdIcon("check", 18)}</span><div><strong id="availability-count">—</strong><span id="availability-label">1h availability</span></div></div>
         </section>` : ""}
         <div class="result-bar"><div class="result-count" id="result-count"></div><div class="status-chips" id="status-chips"></div></div><div class="groups" id="groups"></div>
         ${dashboard.meta.showFooter !== false ? `<footer class="page-footer"><span>RogueDashboard <strong>v${escapeHtml(state.bootstrap?.version || "2.0.0")}</strong></span><span>Service monitoring · local-first</span></footer>` : ""}
@@ -525,7 +526,7 @@ function renderGroups() {
     visibleCount += items.length;
     const collapsed = state.collapsed.has(group.id);
     const brandedLinks = group.id === "branded-links";
-    return `<section class="service-group ${brandedLinks ? "branded-links-group" : ""}" data-group="${groupIndex}"><header class="group-header"><button class="group-title collapse-group" data-id="${escapeHtml(group.id)}"><span>${collapsed ? "›" : "⌄"}</span><h2>${escapeHtml(group.name)}</h2><span>${items.length}</span></button>${state.editor ? `<button class="button tiny add-card" data-group="${groupIndex}">+ Add card</button>` : ""}</header>${collapsed ? "" : `<div class="card-grid ${group.kind === "bookmarks" ? "bookmark-menu" : ""} ${state.draft.meta.equalHeights ? "equal" : ""}" style="--group-columns:${Math.min(group.columns, state.draft.meta.maxColumns)}">${items.map(({ item, itemIndex }) => cardMarkup(item, groupIndex, itemIndex, group.kind)).join("")}${state.editor && !items.length ? `<button class="empty-group add-card" data-group="${groupIndex}">+ Add the first card</button>` : ""}</div>`}</section>`;
+    return `<section class="service-group ${brandedLinks ? "branded-links-group" : ""}" data-group="${groupIndex}"><header class="group-header"><button class="group-title collapse-group" data-id="${escapeHtml(group.id)}"><span>${rdIcon(collapsed ? "chevronRight" : "chevron", 15)}</span><h2>${escapeHtml(group.name)}</h2><span>${items.length}</span></button>${state.editor ? `<button class="button tiny add-card" data-group="${groupIndex}">+ Add card</button>` : ""}</header>${collapsed ? "" : `<div class="card-grid ${group.kind === "bookmarks" ? "bookmark-menu" : ""} ${state.draft.meta.equalHeights ? "equal" : ""}" style="--group-columns:${Math.min(group.columns, state.draft.meta.maxColumns)}">${items.map(({ item, itemIndex }) => cardMarkup(item, groupIndex, itemIndex, group.kind)).join("")}${state.editor && !items.length ? `<button class="empty-group add-card" data-group="${groupIndex}">+ Add the first card</button>` : ""}</div>`}</section>`;
   }).join("");
   container.innerHTML = html || `<section class="empty-search"><h2>No matching cards</h2><p>Try another search or add a service.</p></section>`;
   bindIconFallbacks(container);
@@ -554,14 +555,35 @@ function renderStatusChips() {
   const parts = [];
   if (counts.offline) parts.push(`${counts.offline} down`);
   if (counts.degraded) parts.push(`${counts.degraded} degraded`);
-  holder.innerHTML = (issues ? `<button type="button" class="status-chip ${counts.offline ? "offline" : "degraded"}" data-status-filter="status:issues" title="Show only services with problems">⚠ ${parts.join(" · ")}</button>` : "")
+  holder.innerHTML = (issues ? `<button type="button" class="status-chip ${counts.offline ? "offline" : "degraded"}" data-status-filter="status:issues" title="Show only services with problems">${rdIcon("alert", 13)}${parts.join(" · ")}</button>` : "")
     + (filtering ? `<button type="button" class="status-chip clear" data-status-filter="" title="Show all services">Show all</button>` : "");
-  holder.querySelectorAll("[data-status-filter]").forEach(button => button.onclick = () => {
-    state.search = button.dataset.statusFilter;
-    const input = document.getElementById("search");
-    if (input) input.value = state.search;
-    renderGroups();
-  });
+  holder.querySelectorAll("[data-status-filter]").forEach(button => button.onclick = () => applyStatusFilter(button.dataset.statusFilter));
+}
+
+function applyStatusFilter(query) {
+  state.search = query;
+  const input = document.getElementById("search");
+  if (input) input.value = query;
+  renderGroups();
+}
+
+function updateHero() {
+  const title = document.getElementById("hero-title");
+  if (!title) return;
+  const detail = document.getElementById("hero-detail"), action = document.getElementById("hero-action");
+  if (!state.health.size) return;
+  const checks = (state.draft?.groups || []).flatMap(group => group.items || []).filter(item => item.monitorUrl && item.visible !== false).map(itemState);
+  if (!checks.length) return;
+  const counts = issueCounts();
+  const issues = counts.offline + counts.degraded;
+  const online = checks.filter(current => current === "online").length;
+  const widgets = [...state.widgets.values()];
+  title.textContent = issues ? `${issues} service${issues === 1 ? " needs" : "s need"} attention` : online === checks.length ? "All systems running" : "Checking your services…";
+  detail.textContent = `${online} of ${checks.length} services online` + (widgets.length ? ` · ${widgets.filter(item => item.state === "ok").length} of ${widgets.length} integrations live` : "");
+  document.getElementById("hero").classList.toggle("has-issues", counts.offline > 0);
+  action.hidden = !issues || document.getElementById("search") === null;
+  action.textContent = "Show problems";
+  action.onclick = () => applyStatusFilter("status:issues");
 }
 
 function updateDocumentTitle() {
@@ -583,7 +605,7 @@ function cardMarkup(item, groupIndex, itemIndex, groupKind) {
   const latencyMarkup = state.draft.meta.showLatency && Number.isFinite(latency) ? `<span class="connection-latency ${widget?.state === "error" || statusState === "offline" ? "failed" : ""}">${latency} ms</span>` : "";
   const tags = normalizedTags(item);
   const tagMarkup = tags.length ? `<div class="card-tags">${tags.slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";
-  const launchHint = item.launchMode === "same-tab" ? "→" : item.launchMode === "copy" ? "⧉" : "↗";
+  const launchHint = rdIcon(item.launchMode === "same-tab" ? "arrow" : item.launchMode === "copy" ? "copy" : "external", 14);
   const history = state.history.get(item.id);
   const degraded = statusState === "online" && widget && widget.state !== "ok";
   const recovery = history?.lastRecoveryAt ? `Recovered ${relativeTime(history.lastRecoveryAt)}` : "";
@@ -701,7 +723,7 @@ function editorMarkup() {
   return `<aside class="editor-panel">
     <header class="editor-header">
       <div class="editor-brand">
-        <img src="/icons/roguedashboard-approved-128.png?v=2.5.1" alt="">
+        <img src="/icons/roguedashboard-approved-128.png?v=2.6.0" alt="">
         <div><span class="eyebrow">LIVE CUSTOMISER</span><h2>Customise RogueDashboard</h2><p>Preview changes instantly, then save when everything looks right.</p></div>
       </div>
       <button class="icon-button" id="close-editor" aria-label="Close customiser">×</button>
@@ -1237,7 +1259,7 @@ function openLogin() {
   overlay.innerHTML = `<div class="modal-backdrop auth-backdrop">
     <section class="modal auth-modal">
       <div class="auth-visual">
-        <img src="/icons/roguedashboard-approved-128.png?v=2.5.1" alt="RogueDashboard">
+        <img src="/icons/roguedashboard-approved-128.png?v=2.6.0" alt="RogueDashboard">
         <div><span class="eyebrow">ADMINISTRATION</span><h2>Welcome back</h2><p>Sign in locally to customise services, layouts and integrations.</p></div>
       </div>
       <div class="auth-content">
@@ -1297,6 +1319,7 @@ function updateClock() {
 }
 
 function updateStats() {
+  updateHero();
   const online = [...state.health.values()].filter(item => item.state === "online").length;
   const onlineCount = document.getElementById("online-count");
   if (onlineCount) onlineCount.textContent = state.health.size ? `${online}/${state.health.size}` : "—";
